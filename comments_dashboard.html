@@ -1,0 +1,1841 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TG Comments Dashboard</title>
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --surface: #ffffff;
+      --surface-2: #eef2f6;
+      --text: #17202a;
+      --muted: #627183;
+      --line: #d9e1ea;
+      --accent: #1f8a70;
+      --accent-2: #2f6fed;
+      --warn: #a85516;
+      --danger: #b42318;
+      --shadow: 0 12px 30px rgba(20, 35, 50, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--text);
+      background: var(--bg);
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 15px;
+      letter-spacing: 0;
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .page {
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    .topbar {
+      background: #18212b;
+      color: #f4f7fb;
+      padding: 18px 24px;
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) minmax(260px, 420px);
+      gap: 18px;
+      align-items: center;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.15;
+    }
+
+    .brand-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .app-version {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 3px 8px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #dce6f2;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .brand div {
+      margin-top: 5px;
+      color: #b8c4d2;
+      line-height: 1.35;
+    }
+
+    .file-box {
+      display: grid;
+      gap: 8px;
+      padding: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .file-box label {
+      font-weight: 700;
+    }
+
+    .file-box input {
+      width: 100%;
+      color: #dce6f2;
+    }
+
+    main {
+      padding: 22px;
+      display: grid;
+      gap: 16px;
+      align-content: start;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .tab {
+      height: 42px;
+      padding: 0 16px;
+      border: 1px solid var(--line);
+      border-bottom: 0;
+      border-radius: 8px 8px 0 0;
+      background: var(--surface-2);
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .tab.active {
+      background: var(--surface);
+      color: var(--text);
+    }
+
+    .view {
+      display: none;
+      gap: 16px;
+    }
+
+    .view.active {
+      display: grid;
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .panel-head {
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .panel-head h2 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .status {
+      color: var(--muted);
+      font-size: 13px;
+      text-align: right;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .metric {
+      min-width: 0;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+    }
+
+    .metric span {
+      color: var(--muted);
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 28px;
+      line-height: 1;
+      overflow-wrap: anywhere;
+    }
+
+    .filters {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(130px, 1fr));
+      gap: 10px;
+      padding: 14px;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .field label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .field input,
+    .field select {
+      width: 100%;
+      height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+      padding: 0 10px;
+    }
+
+    .checks {
+      display: flex;
+      align-items: end;
+      gap: 14px;
+      padding-bottom: 6px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .checks label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 38px;
+    }
+
+    .export-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(160px, 1fr));
+      gap: 12px;
+      padding: 16px;
+      align-items: end;
+    }
+
+    .progress-log {
+      min-height: 320px;
+      max-height: 520px;
+      overflow: auto;
+      margin: 0;
+      padding: 14px;
+      background: #101820;
+      color: #d8e7f3;
+      font-family: Consolas, Monaco, monospace;
+      font-size: 13px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+    }
+
+    .charts {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .chart {
+      min-height: 280px;
+    }
+
+    .chart-body {
+      padding: 16px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .bar-row {
+      display: grid;
+      grid-template-columns: minmax(110px, 180px) minmax(0, 1fr) 60px;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .bar-label {
+      color: var(--text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .bar-track {
+      height: 10px;
+      border-radius: 999px;
+      background: var(--surface-2);
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      width: 0;
+      background: var(--accent);
+    }
+
+    .bar-value {
+      color: var(--muted);
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      min-width: 940px;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--muted);
+      background: #f9fbfd;
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+
+    tbody tr:hover {
+      background: #f7fafc;
+    }
+
+    .post-title,
+    .user-link {
+      color: var(--accent-2);
+      background: none;
+      border: 0;
+      padding: 0;
+      text-align: left;
+      font-weight: 700;
+    }
+
+    .text-preview {
+      max-width: 520px;
+      max-height: 58px;
+      overflow: hidden;
+      line-height: 1.35;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .post-detail {
+      padding: 18px;
+      background: #fbfcfe;
+      display: grid;
+      gap: 14px;
+    }
+
+    .post-full-text {
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      line-height: 1.45;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+
+    .comment-tree {
+      display: grid;
+      gap: 8px;
+    }
+
+    .comment-node {
+      display: grid;
+      gap: 8px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+
+    .comment-node.depth-1,
+    .comment-node.depth-2,
+    .comment-node.depth-3,
+    .comment-node.depth-4 {
+      margin-left: 24px;
+      border-left: 3px solid var(--accent-2);
+    }
+
+    .comment-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 13px;
+      align-items: center;
+    }
+
+    .comment-text {
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      line-height: 1.4;
+    }
+
+    .media-preview {
+      display: grid;
+      gap: 8px;
+      max-width: 720px;
+      margin-top: 4px;
+    }
+
+    .media-preview img,
+    .media-preview video {
+      width: min(100%, 720px);
+      max-height: 420px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #000;
+      object-fit: contain;
+    }
+
+    .media-preview audio {
+      width: min(100%, 520px);
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--surface-2);
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .button {
+      height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--accent-2);
+      font-weight: 700;
+      padding: 0 12px;
+    }
+
+    .button:hover {
+      background: #f0f5ff;
+    }
+
+    .telegram-link {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 4px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--accent-2);
+      font-size: 13px;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .telegram-link:hover {
+      background: #f0f5ff;
+    }
+
+    .empty {
+      padding: 34px 18px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .drawer-backdrop {
+      position: fixed;
+      inset: 0;
+      display: none;
+      background: rgba(8, 15, 25, 0.42);
+      z-index: 20;
+    }
+
+    .drawer-backdrop.open {
+      display: block;
+    }
+
+    .drawer {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: min(560px, 100vw);
+      height: 100vh;
+      background: var(--surface);
+      border-left: 1px solid var(--line);
+      box-shadow: -18px 0 40px rgba(20, 35, 50, 0.16);
+      transform: translateX(100%);
+      transition: transform 0.18s ease;
+      z-index: 21;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    .drawer.open {
+      transform: translateX(0);
+    }
+
+    .drawer-head {
+      padding: 18px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: start;
+    }
+
+    .drawer-head h2 {
+      margin: 0;
+      font-size: 20px;
+    }
+
+    .drawer-body {
+      padding: 18px;
+      overflow: auto;
+      display: grid;
+      gap: 14px;
+      align-content: start;
+    }
+
+    .user-stats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .user-stat {
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfe;
+    }
+
+    .user-stat span {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 5px;
+    }
+
+    .user-stat strong {
+      overflow-wrap: anywhere;
+    }
+
+    .error {
+      color: var(--danger);
+    }
+
+    @media (max-width: 1100px) {
+      .summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .filters {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .charts {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .topbar {
+        grid-template-columns: 1fr;
+      }
+
+      main {
+        padding: 14px;
+      }
+
+      .summary,
+      .filters,
+      .export-grid,
+      .user-stats {
+        grid-template-columns: 1fr;
+      }
+
+      .checks {
+        align-items: start;
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-title">
+          <h1>TG Comments Dashboard</h1>
+          <span id="appVersion" class="app-version">v...</span>
+        </div>
+        <div>Загрузите JSON-экспорт и изучайте посты, комментарии, реакции и активность пользователей.</div>
+      </div>
+      <div class="file-box">
+        <label for="jsonFile">Загрузить JSON-файл</label>
+        <input id="jsonFile" type="file" accept=".json,application/json">
+      </div>
+    </header>
+
+    <main>
+      <nav class="tabs" aria-label="Разделы">
+        <button class="tab active" type="button" data-tab="dashboard">Dashboard</button>
+        <button class="tab" type="button" data-tab="posts">Страница постов</button>
+        <button class="tab" type="button" data-tab="export">Экспорт</button>
+      </nav>
+
+      <section class="panel">
+        <div class="filters">
+          <div class="field">
+            <label for="searchText">Поиск</label>
+            <input id="searchText" type="search" placeholder="Текст, post_id, comment_id">
+          </div>
+          <div class="field">
+            <label for="filterUserId">User ID</label>
+            <input id="filterUserId" type="search" placeholder="1602904837">
+          </div>
+          <div class="field">
+            <label for="filterUsername">Username</label>
+            <input id="filterUsername" type="search" placeholder="username">
+          </div>
+          <div class="field">
+            <label for="filterDateFrom">Дата от</label>
+            <input id="filterDateFrom" type="date">
+          </div>
+          <div class="field">
+            <label for="filterDateTo">Дата до</label>
+            <input id="filterDateTo" type="date">
+          </div>
+          <div class="field">
+            <label for="filterEmoji">Эмодзи</label>
+            <select id="filterEmoji">
+              <option value="">Все</option>
+            </select>
+          </div>
+          <div class="checks">
+            <label><input id="filterMedia" type="checkbox"> Только с медиа</label>
+            <label><input id="filterReplies" type="checkbox"> Только ответы</label>
+          </div>
+        </div>
+      </section>
+
+      <section id="dashboardView" class="view active">
+        <section class="summary">
+          <div class="metric">
+            <span>Файл</span>
+            <strong id="metricFile">-</strong>
+          </div>
+          <div class="metric">
+            <span>Постов</span>
+            <strong id="metricPosts">0</strong>
+          </div>
+          <div class="metric">
+            <span>Комментариев</span>
+            <strong id="metricComments">0</strong>
+          </div>
+          <div class="metric">
+            <span>Уникальных пользователей</span>
+            <strong id="metricUsers">0</strong>
+          </div>
+          <div class="metric">
+            <span>Реакций</span>
+            <strong id="metricReactions">0</strong>
+          </div>
+        </section>
+
+        <section class="charts">
+          <div class="panel chart">
+            <div class="panel-head">
+              <h2>Комментарии по дням</h2>
+              <div id="daysStatus" class="status">Нет данных</div>
+            </div>
+            <div id="commentsByDayChart" class="chart-body"></div>
+          </div>
+          <div class="panel chart">
+            <div class="panel-head">
+              <h2>Топ пользователей</h2>
+              <div id="usersStatus" class="status">Нет данных</div>
+            </div>
+            <div id="topUsersChart" class="chart-body"></div>
+          </div>
+          <div class="panel chart">
+            <div class="panel-head">
+              <h2>Топ эмодзи</h2>
+              <div id="emojiStatus" class="status">Нет данных</div>
+            </div>
+            <div id="topEmojiChart" class="chart-body"></div>
+          </div>
+          <div class="panel chart">
+            <div class="panel-head">
+              <h2>Самые обсуждаемые посты</h2>
+              <div id="postsStatus" class="status">Нет данных</div>
+            </div>
+            <div id="topPostsChart" class="chart-body"></div>
+          </div>
+        </section>
+      </section>
+
+      <section id="postsView" class="view">
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Посты канала</h2>
+            <div id="tableStatus" class="status">Выберите JSON-файл</div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Post</th>
+                  <th>Дата</th>
+                  <th>Просмотры</th>
+                  <th>Комментарии</th>
+                  <th>Реакции</th>
+                  <th>Медиа</th>
+                </tr>
+              </thead>
+              <tbody id="postsBody">
+                <tr><td colspan="6" class="empty">Нет загруженных данных</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section id="exportView" class="view">
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Запуск экспорта</h2>
+            <div id="exportStatus" class="status">Готово</div>
+          </div>
+          <div class="export-grid">
+            <div class="field">
+              <label for="exportChannel">Канал</label>
+              <input id="exportChannel" type="text" placeholder="channel или https://t.me/channel">
+            </div>
+            <div class="field">
+              <label for="configApiId">API ID</label>
+              <input id="configApiId" type="text" inputmode="numeric" placeholder="123456">
+            </div>
+            <div class="field">
+              <label for="configApiHash">API Hash</label>
+              <input id="configApiHash" type="password" placeholder="your_api_hash">
+            </div>
+            <div class="field">
+              <label for="exportFormat">Формат</label>
+              <select id="exportFormat">
+                <option value="json">JSON</option>
+                <option value="csv">CSV</option>
+                <option value="postgresql">PostgreSQL</option>
+                <option value="parquet">Parquet</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="configOutputFile">OUTPUT_FILE</label>
+              <input id="configOutputFile" type="text" placeholder="data/raw/export.json">
+            </div>
+            <div class="field">
+              <label for="configPostLimit">POST_LIMIT</label>
+              <input id="configPostLimit" type="number" min="1" step="1" placeholder="500">
+            </div>
+            <div class="field">
+              <label for="configPause500">Пауза после 500</label>
+              <input id="configPause500" type="number" min="0" step="1" placeholder="30">
+            </div>
+            <div class="field">
+              <label for="configPause1000">Пауза после 1000</label>
+              <input id="configPause1000" type="number" min="0" step="1" placeholder="60">
+            </div>
+            <div class="field">
+              <label for="configPostgresHost">Postgres host</label>
+              <input id="configPostgresHost" type="text" placeholder="host.docker.internal">
+            </div>
+            <div class="field">
+              <label for="configPostgresPort">Postgres port</label>
+              <input id="configPostgresPort" type="number" min="1" step="1" placeholder="5432">
+            </div>
+            <div class="field">
+              <label for="configPostgresDb">Postgres DB</label>
+              <input id="configPostgresDb" type="text" placeholder="telegram_parser">
+            </div>
+            <div class="field">
+              <label for="configPostgresUser">Postgres user</label>
+              <input id="configPostgresUser" type="text" placeholder="postgres">
+            </div>
+            <div class="field">
+              <label for="configPostgresPassword">Postgres password</label>
+              <input id="configPostgresPassword" type="password" placeholder="password">
+            </div>
+            <div class="field">
+              <label for="configPostgresTable">Postgres table</label>
+              <input id="configPostgresTable" type="text" placeholder="telegram_comments_export">
+            </div>
+            <div class="field">
+              <label for="configLlmEndpoint">LLM endpoint</label>
+              <input id="configLlmEndpoint" type="text" placeholder="http://localhost:1234/v1/chat/completions">
+            </div>
+            <div class="field">
+              <label for="configLlmModel">LLM model</label>
+              <input id="configLlmModel" type="text" placeholder="local-model">
+            </div>
+            <div class="checks">
+              <label><input id="exportMedia" type="checkbox"> Скачать медиа</label>
+              <label><input id="exportAnonymize" type="checkbox"> Анонимизация</label>
+              <label><input id="exportIncremental" type="checkbox" checked> Инкрементально</label>
+            </div>
+            <button id="saveConfig" class="button" type="button">Сохранить .env</button>
+            <button id="startExport" class="button" type="button">Запустить экспорт</button>
+          </div>
+          <pre id="exportProgress" class="progress-log">Экспорт ещё не запускался.</pre>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <div id="drawerBackdrop" class="drawer-backdrop"></div>
+  <aside id="userDrawer" class="drawer" aria-label="Пользователь">
+    <div class="drawer-head">
+      <div>
+        <h2 id="drawerUserName">User</h2>
+        <div id="drawerUserMeta" class="status"></div>
+      </div>
+      <button id="closeDrawer" class="button" type="button">Закрыть</button>
+    </div>
+    <div id="drawerBody" class="drawer-body"></div>
+  </aside>
+
+  <script>
+    const state = {
+      fileName: '',
+      rawPosts: [],
+      posts: [],
+      filteredPosts: [],
+      comments: [],
+      filteredComments: [],
+      users: new Map(),
+      expandedPostId: null,
+      activeTab: 'dashboard'
+    };
+
+    const el = {
+      appVersion: document.getElementById('appVersion'),
+      fileInput: document.getElementById('jsonFile'),
+      tabs: document.querySelectorAll('.tab'),
+      dashboardView: document.getElementById('dashboardView'),
+      postsView: document.getElementById('postsView'),
+      exportView: document.getElementById('exportView'),
+      searchText: document.getElementById('searchText'),
+      filterUserId: document.getElementById('filterUserId'),
+      filterUsername: document.getElementById('filterUsername'),
+      filterDateFrom: document.getElementById('filterDateFrom'),
+      filterDateTo: document.getElementById('filterDateTo'),
+      filterEmoji: document.getElementById('filterEmoji'),
+      filterMedia: document.getElementById('filterMedia'),
+      filterReplies: document.getElementById('filterReplies'),
+      metricFile: document.getElementById('metricFile'),
+      metricPosts: document.getElementById('metricPosts'),
+      metricComments: document.getElementById('metricComments'),
+      metricUsers: document.getElementById('metricUsers'),
+      metricReactions: document.getElementById('metricReactions'),
+      commentsByDayChart: document.getElementById('commentsByDayChart'),
+      topUsersChart: document.getElementById('topUsersChart'),
+      topEmojiChart: document.getElementById('topEmojiChart'),
+      topPostsChart: document.getElementById('topPostsChart'),
+      daysStatus: document.getElementById('daysStatus'),
+      usersStatus: document.getElementById('usersStatus'),
+      emojiStatus: document.getElementById('emojiStatus'),
+      postsStatus: document.getElementById('postsStatus'),
+      tableStatus: document.getElementById('tableStatus'),
+      postsBody: document.getElementById('postsBody'),
+      drawerBackdrop: document.getElementById('drawerBackdrop'),
+      userDrawer: document.getElementById('userDrawer'),
+      drawerUserName: document.getElementById('drawerUserName'),
+      drawerUserMeta: document.getElementById('drawerUserMeta'),
+      drawerBody: document.getElementById('drawerBody'),
+      closeDrawer: document.getElementById('closeDrawer'),
+      exportChannel: document.getElementById('exportChannel'),
+      configApiId: document.getElementById('configApiId'),
+      configApiHash: document.getElementById('configApiHash'),
+      configOutputFile: document.getElementById('configOutputFile'),
+      configPostLimit: document.getElementById('configPostLimit'),
+      configPause500: document.getElementById('configPause500'),
+      configPause1000: document.getElementById('configPause1000'),
+      configPostgresHost: document.getElementById('configPostgresHost'),
+      configPostgresPort: document.getElementById('configPostgresPort'),
+      configPostgresDb: document.getElementById('configPostgresDb'),
+      configPostgresUser: document.getElementById('configPostgresUser'),
+      configPostgresPassword: document.getElementById('configPostgresPassword'),
+      configPostgresTable: document.getElementById('configPostgresTable'),
+      configLlmEndpoint: document.getElementById('configLlmEndpoint'),
+      configLlmModel: document.getElementById('configLlmModel'),
+      exportFormat: document.getElementById('exportFormat'),
+      exportMedia: document.getElementById('exportMedia'),
+      exportAnonymize: document.getElementById('exportAnonymize'),
+      exportIncremental: document.getElementById('exportIncremental'),
+      saveConfig: document.getElementById('saveConfig'),
+      startExport: document.getElementById('startExport'),
+      exportStatus: document.getElementById('exportStatus'),
+      exportProgress: document.getElementById('exportProgress')
+    };
+
+    el.fileInput.addEventListener('change', handleFile);
+    el.tabs.forEach((tab) => tab.addEventListener('click', () => setTab(tab.dataset.tab)));
+    [el.searchText, el.filterUserId, el.filterUsername, el.filterDateFrom, el.filterDateTo, el.filterEmoji, el.filterMedia, el.filterReplies]
+      .forEach((input) => input.addEventListener('input', applyFilters));
+    el.postsBody.addEventListener('click', handlePostsClick);
+    el.closeDrawer.addEventListener('click', closeUserDrawer);
+    el.drawerBackdrop.addEventListener('click', closeUserDrawer);
+    el.saveConfig.addEventListener('click', saveConfig);
+    el.startExport.addEventListener('click', startExport);
+
+    async function handleFile(event) {
+      const file = event.target.files[0];
+
+      if (!file) {
+        return;
+      }
+
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+
+        if (!Array.isArray(data)) {
+          throw new Error('JSON должен быть массивом постов');
+        }
+
+        state.fileName = file.name;
+        parseExport(data);
+        populateEmojiFilter();
+        applyFilters();
+      } catch (error) {
+        state.fileName = '';
+        resetState();
+        el.tableStatus.textContent = `Ошибка: ${error.message}`;
+        el.tableStatus.classList.add('error');
+      }
+    }
+
+    function parseExport(rawPosts) {
+      resetState();
+      state.rawPosts = rawPosts;
+      state.posts = rawPosts.map(normalizePost);
+      state.comments = state.posts.flatMap((post) => post.comments);
+      buildUsers();
+    }
+
+    function normalizePost(post) {
+      const comments = Array.isArray(post.comments) ? post.comments : [];
+      const normalizedPost = {
+        id: String(post.post_id ?? ''),
+        date: post.post_date || '',
+        text: post.post_text || '',
+        views: post.post_views ?? '',
+        forwards: post.post_forwards ?? '',
+        link: post.post_link || '',
+        mediaPath: post.post_media || '',
+        reactions: Array.isArray(post.post_reactions) ? post.post_reactions : [],
+        hasMedia: detectMedia(post),
+        raw: post,
+        comments: []
+      };
+
+      normalizedPost.comments = comments.map((comment) => normalizeComment(comment, normalizedPost));
+      return normalizedPost;
+    }
+
+    function normalizeComment(comment, post) {
+      const user = comment.user || null;
+
+      return {
+        id: String(comment.comment_id ?? ''),
+        date: comment.comment_date || '',
+        text: comment.comment_text || '',
+        link: comment.comment_link || '',
+        mediaPath: comment.comment_media || '',
+        replyTo: comment.reply_to_msg_id == null ? '' : String(comment.reply_to_msg_id),
+        reactions: Array.isArray(comment.comment_reactions) ? comment.comment_reactions : [],
+        user,
+        userId: user && user.user_id != null ? String(user.user_id) : '',
+        username: user && user.username ? String(user.username) : '',
+        fullName: formatUserName(user),
+        postId: post.id,
+        postDate: post.date,
+        postText: post.text,
+        postHasMedia: post.hasMedia,
+        hasMedia: Boolean(comment.comment_media || comment.media || comment.photo || comment.video || comment.document),
+        raw: comment
+      };
+    }
+
+    function buildUsers() {
+      state.users = new Map();
+
+      for (const comment of state.comments) {
+        if (!comment.userId) {
+          continue;
+        }
+
+        const current = state.users.get(comment.userId) || {
+          id: comment.userId,
+          username: comment.username,
+          fullName: comment.fullName,
+          user: comment.user,
+          comments: []
+        };
+
+        current.username = current.username || comment.username;
+        current.fullName = current.fullName || comment.fullName;
+        current.comments.push(comment);
+        state.users.set(comment.userId, current);
+      }
+    }
+
+    function applyFilters() {
+      const filters = getFilters();
+
+      state.filteredComments = state.comments.filter((comment) => commentMatchesFilters(comment, filters));
+      const allowedPostIds = new Set(state.filteredComments.map((comment) => comment.postId));
+
+      state.filteredPosts = state.posts.filter((post) => {
+        const postTextMatch = !filters.search || [
+          post.id,
+          post.text,
+          post.date
+        ].join(' ').toLowerCase().includes(filters.search);
+
+        const postDateMatch = dateInRange(post.date, filters.dateFrom, filters.dateTo);
+        const postEmojiMatch = !filters.emoji || post.reactions.some((reaction) => reaction.emoji === filters.emoji);
+        const postMediaMatch = !filters.onlyMedia || post.hasMedia;
+
+        if (filters.userId || filters.username || filters.onlyReplies) {
+          return allowedPostIds.has(post.id);
+        }
+
+        return postTextMatch && postDateMatch && postEmojiMatch && postMediaMatch;
+      });
+
+      renderAll();
+    }
+
+    function getFilters() {
+      return {
+        search: el.searchText.value.trim().toLowerCase(),
+        userId: el.filterUserId.value.trim().toLowerCase(),
+        username: el.filterUsername.value.trim().toLowerCase().replace(/^@/, ''),
+        dateFrom: el.filterDateFrom.value,
+        dateTo: el.filterDateTo.value,
+        emoji: el.filterEmoji.value,
+        onlyMedia: el.filterMedia.checked,
+        onlyReplies: el.filterReplies.checked
+      };
+    }
+
+    function commentMatchesFilters(comment, filters) {
+      const searchText = [
+        comment.id,
+        comment.text,
+        comment.postId,
+        comment.postText,
+        comment.fullName,
+        comment.username,
+        comment.userId
+      ].join(' ').toLowerCase();
+
+      if (filters.search && !searchText.includes(filters.search)) {
+        return false;
+      }
+
+      if (filters.userId && !comment.userId.toLowerCase().includes(filters.userId)) {
+        return false;
+      }
+
+      if (filters.username && !comment.username.toLowerCase().includes(filters.username)) {
+        return false;
+      }
+
+      if (!dateInRange(comment.date || comment.postDate, filters.dateFrom, filters.dateTo)) {
+        return false;
+      }
+
+      if (filters.emoji && !comment.reactions.some((reaction) => reaction.emoji === filters.emoji)) {
+        const post = state.posts.find((item) => item.id === comment.postId);
+        if (!post || !post.reactions.some((reaction) => reaction.emoji === filters.emoji)) {
+          return false;
+        }
+      }
+
+      if (filters.onlyMedia && !comment.postHasMedia && !comment.hasMedia) {
+        return false;
+      }
+
+      if (filters.onlyReplies && !isReply(comment)) {
+        return false;
+      }
+
+      return true;
+    }
+
+    function renderAll() {
+      renderSummary();
+      renderCharts();
+      renderPostsTable();
+    }
+
+    function renderSummary() {
+      const filteredUserIds = new Set(state.filteredComments.map((comment) => comment.userId).filter(Boolean));
+      el.metricFile.textContent = state.fileName || '-';
+      el.metricPosts.textContent = formatNumber(state.filteredPosts.length);
+      el.metricComments.textContent = formatNumber(state.filteredComments.length);
+      el.metricUsers.textContent = formatNumber(filteredUserIds.size);
+      el.metricReactions.textContent = formatNumber(countReactions(state.filteredPosts, state.filteredComments));
+    }
+
+    function renderCharts() {
+      const byDay = countBy(state.filteredComments, (comment) => formatDay(comment.date));
+      const topUsers = Array.from(groupCommentsByUser(state.filteredComments).values())
+        .map((user) => ({ label: user.fullName, value: user.comments.length, userId: user.id }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 10);
+      const topEmoji = getTopEmoji(state.filteredPosts, state.filteredComments).slice(0, 10);
+      const topPosts = state.filteredPosts
+        .map((post) => ({ label: `Post ${post.id}`, value: post.comments.filter((comment) => state.filteredComments.includes(comment)).length, postId: post.id }))
+        .filter((item) => item.value > 0)
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 10);
+
+      renderBarChart(el.commentsByDayChart, Object.entries(byDay).map(([label, value]) => ({ label, value })), el.daysStatus);
+      renderBarChart(el.topUsersChart, topUsers, el.usersStatus, (item) => openUserDrawer(item.userId));
+      renderBarChart(el.topEmojiChart, topEmoji, el.emojiStatus);
+      renderBarChart(el.topPostsChart, topPosts, el.postsStatus, (item) => {
+        state.expandedPostId = item.postId;
+        setTab('posts');
+        renderPostsTable();
+      });
+    }
+
+    function renderBarChart(container, data, statusElement, onClick) {
+      if (!data.length) {
+        container.innerHTML = '<div class="empty">Нет данных</div>';
+        statusElement.textContent = '0';
+        return;
+      }
+
+      const max = Math.max(...data.map((item) => item.value), 1);
+      statusElement.textContent = `${formatNumber(data.length)} строк`;
+      container.innerHTML = data.map((item) => {
+        const width = Math.max(3, (item.value / max) * 100);
+        const buttonAttrs = onClick ? `type="button" data-chart-label="${escapeAttribute(item.label)}"` : '';
+        const label = onClick
+          ? `<button class="user-link chart-action" ${buttonAttrs}>${escapeHtml(item.label)}</button>`
+          : `<span>${escapeHtml(item.label)}</span>`;
+
+        return `
+          <div class="bar-row">
+            <div class="bar-label">${label}</div>
+            <div class="bar-track"><div class="bar-fill" style="width: ${width}%"></div></div>
+            <div class="bar-value">${formatNumber(item.value)}</div>
+          </div>
+        `;
+      }).join('');
+
+      if (onClick) {
+        container.querySelectorAll('.chart-action').forEach((button, index) => {
+          button.addEventListener('click', () => onClick(data[index]));
+        });
+      }
+    }
+
+    function renderPostsTable() {
+      el.tableStatus.classList.remove('error');
+      el.tableStatus.textContent = state.fileName
+        ? `${formatNumber(state.filteredPosts.length)} постов`
+        : 'Выберите JSON-файл';
+
+      if (!state.filteredPosts.length) {
+        el.postsBody.innerHTML = '<tr><td colspan="6" class="empty">Нет постов для выбранных фильтров</td></tr>';
+        return;
+      }
+
+      el.postsBody.innerHTML = state.filteredPosts.map((post) => {
+        const filteredComments = post.comments.filter((comment) => state.filteredComments.includes(comment));
+        const isExpanded = state.expandedPostId === post.id;
+        const reactionsCount = sumReactions(post.reactions);
+
+        return `
+          <tr>
+            <td>
+              <button class="post-title" type="button" data-post-id="${escapeAttribute(post.id)}">Post ${escapeHtml(post.id)}</button>
+              ${renderTelegramLink(post.link, 'Открыть пост')}
+              ${renderMedia(post.mediaPath)}
+              <div class="text-preview">${escapeHtml(post.text || '[без текста]')}</div>
+            </td>
+            <td>${escapeHtml(formatDate(post.date))}</td>
+            <td>${formatNumber(post.views || 0)}</td>
+            <td>${formatNumber(filteredComments.length)}</td>
+            <td>${formatReactionList(post.reactions)}</td>
+            <td>${post.hasMedia ? '<span class="pill">media</span>' : '-'}</td>
+          </tr>
+          ${isExpanded ? renderPostDetail(post, filteredComments) : ''}
+        `;
+      }).join('');
+    }
+
+    function renderPostDetail(post, comments) {
+      return `
+        <tr>
+          <td colspan="6">
+            <div class="post-detail">
+              <div class="post-full-text">${escapeHtml(post.text || '[без текста]')}</div>
+              ${renderMedia(post.mediaPath)}
+              <div>
+                <span class="pill">post ${escapeHtml(post.id)}</span>
+                <span class="pill">${escapeHtml(formatDate(post.date))}</span>
+                <span class="pill">${formatNumber(post.views || 0)} просмотров</span>
+                <span class="pill">${formatNumber(comments.length)} комментариев</span>
+                ${renderTelegramLink(post.link, 'Открыть пост в Telegram')}
+              </div>
+              <div class="comment-tree">
+                ${renderCommentTree(comments)}
+              </div>
+            </div>
+          </td>
+        </tr>
+      `;
+    }
+
+    function renderCommentTree(comments) {
+      if (!comments.length) {
+        return '<div class="empty">Комментариев нет</div>';
+      }
+
+      const byId = new Map(comments.map((comment) => [comment.id, { ...comment, children: [] }]));
+      const roots = [];
+
+      for (const node of byId.values()) {
+        const parent = byId.get(node.replyTo);
+
+        if (parent && parent.id !== node.id) {
+          parent.children.push(node);
+        } else {
+          roots.push(node);
+        }
+      }
+
+      const sortByDate = (a, b) => getTimestamp(a.date) - getTimestamp(b.date);
+      roots.sort(sortByDate);
+      byId.forEach((node) => node.children.sort(sortByDate));
+
+      return roots.map((node) => renderCommentNode(node, 0)).join('');
+    }
+
+    function renderCommentNode(comment, depth) {
+      const depthClass = `depth-${Math.min(depth, 4)}`;
+      const userButton = comment.userId
+        ? `<button class="user-link" type="button" data-user-id="${escapeAttribute(comment.userId)}">${escapeHtml(comment.fullName)}</button>`
+        : '<span>Unknown user</span>';
+      const replyLabel = comment.replyTo ? `<span class="pill">reply to ${escapeHtml(comment.replyTo)}</span>` : '';
+
+      return `
+        <div class="comment-node ${depthClass}">
+          <div class="comment-meta">
+            ${userButton}
+            <span>${escapeHtml(formatDate(comment.date))}</span>
+            <span class="pill">comment ${escapeHtml(comment.id)}</span>
+            ${replyLabel}
+            ${formatReactionList(comment.reactions)}
+            ${renderTelegramLink(comment.link, 'Открыть комментарий')}
+          </div>
+          ${renderMedia(comment.mediaPath)}
+          <div class="comment-text">${escapeHtml(comment.text || '[без текста]')}</div>
+        </div>
+        ${comment.children.map((child) => renderCommentNode(child, depth + 1)).join('')}
+      `;
+    }
+
+    function handlePostsClick(event) {
+      const postButton = event.target.closest('[data-post-id]');
+      const userButton = event.target.closest('[data-user-id]');
+
+      if (userButton) {
+        openUserDrawer(userButton.dataset.userId);
+        return;
+      }
+
+      if (postButton) {
+        const postId = postButton.dataset.postId;
+        state.expandedPostId = state.expandedPostId === postId ? null : postId;
+        renderPostsTable();
+      }
+    }
+
+    function openUserDrawer(userId) {
+      const user = groupCommentsByUser(state.comments).get(userId);
+
+      if (!user) {
+        return;
+      }
+
+      const comments = [...user.comments].sort((a, b) => getTimestamp(a.date) - getTimestamp(b.date));
+      const first = comments[0];
+      const last = comments[comments.length - 1];
+
+      el.drawerUserName.textContent = user.fullName || 'User';
+      el.drawerUserMeta.textContent = `Id: ${user.id}${user.username ? ` · @${user.username}` : ''}`;
+      el.drawerBody.innerHTML = `
+        <div class="user-stats">
+          <div class="user-stat"><span>User</span><strong>${escapeHtml(user.fullName || '-')}</strong></div>
+          <div class="user-stat"><span>Id</span><strong>${escapeHtml(user.id)}</strong></div>
+          <div class="user-stat"><span>Комментарии</span><strong>${formatNumber(comments.length)}</strong></div>
+          <div class="user-stat"><span>Username</span><strong>${escapeHtml(user.username ? `@${user.username}` : '-')}</strong></div>
+          <div class="user-stat"><span>Первый комментарий</span><strong>${escapeHtml(formatDate(first && first.date))}</strong></div>
+          <div class="user-stat"><span>Последний комментарий</span><strong>${escapeHtml(formatDate(last && last.date))}</strong></div>
+        </div>
+        <div class="comment-tree">
+          ${comments.map((comment) => `
+            <div class="comment-node">
+              <div class="comment-meta">
+                <span>${escapeHtml(formatDate(comment.date))}</span>
+                <button class="post-title" type="button" data-drawer-post-id="${escapeAttribute(comment.postId)}">Post ${escapeHtml(comment.postId)}</button>
+                <span class="pill">comment ${escapeHtml(comment.id)}</span>
+                ${renderTelegramLink(comment.link, 'Открыть комментарий')}
+              </div>
+              ${renderMedia(comment.mediaPath)}
+              <div class="comment-text">${escapeHtml(comment.text || '[без текста]')}</div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+
+      el.drawerBody.querySelectorAll('[data-drawer-post-id]').forEach((button) => {
+        button.addEventListener('click', () => {
+          state.expandedPostId = button.dataset.drawerPostId;
+          closeUserDrawer();
+          setTab('posts');
+          renderPostsTable();
+        });
+      });
+
+      el.drawerBackdrop.classList.add('open');
+      el.userDrawer.classList.add('open');
+    }
+
+    function closeUserDrawer() {
+      el.drawerBackdrop.classList.remove('open');
+      el.userDrawer.classList.remove('open');
+    }
+
+    function setTab(tabName) {
+      state.activeTab = tabName;
+      el.tabs.forEach((tab) => tab.classList.toggle('active', tab.dataset.tab === tabName));
+      el.dashboardView.classList.toggle('active', tabName === 'dashboard');
+      el.postsView.classList.toggle('active', tabName === 'posts');
+      el.exportView.classList.toggle('active', tabName === 'export');
+    }
+
+    const configFields = {
+      API_ID: el.configApiId,
+      API_HASH: el.configApiHash,
+      CHANNEL: el.exportChannel,
+      OUTPUT_FILE: el.configOutputFile,
+      POST_LIMIT: el.configPostLimit,
+      PAUSE_AFTER_500_POSTS_SECONDS: el.configPause500,
+      PAUSE_AFTER_1000_POSTS_SECONDS: el.configPause1000,
+      POSTGRES_HOST: el.configPostgresHost,
+      POSTGRES_PORT: el.configPostgresPort,
+      POSTGRES_DB: el.configPostgresDb,
+      POSTGRES_USER: el.configPostgresUser,
+      POSTGRES_PASSWORD: el.configPostgresPassword,
+      POSTGRES_TABLE: el.configPostgresTable,
+      LLM_ENDPOINT: el.configLlmEndpoint,
+      LLM_MODEL: el.configLlmModel
+    };
+
+    async function loadServerConfig() {
+      try {
+        const response = await fetch('/api/config', { cache: 'no-store' });
+
+        if (!response.ok) {
+          return;
+        }
+
+        const data = await response.json();
+
+        fillConfigForm(data);
+      } catch (_error) {
+        // Static file mode: API is not available.
+      }
+    }
+
+    async function loadAppVersion() {
+      try {
+        const response = await fetch('/api/version', { cache: 'no-store' });
+
+        if (!response.ok) {
+          return;
+        }
+
+        const data = await response.json();
+
+        if (data.version) {
+          el.appVersion.textContent = `v${data.version}`;
+        }
+      } catch (_error) {
+        el.appVersion.textContent = 'v1.0.0';
+      }
+    }
+
+    function fillConfigForm(config) {
+      Object.entries(configFields).forEach(([key, input]) => {
+        if (input && Object.prototype.hasOwnProperty.call(config, key)) {
+          input.value = config[key] || '';
+        }
+      });
+    }
+
+    function collectConfigForm() {
+      const config = {};
+
+      Object.entries(configFields).forEach(([key, input]) => {
+        if (input) {
+          config[key] = input.value.trim();
+        }
+      });
+
+      return config;
+    }
+
+    async function saveConfig() {
+      el.saveConfig.disabled = true;
+      el.exportStatus.textContent = 'Сохранение .env...';
+
+      try {
+        const response = await fetch('/api/config', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(collectConfigForm())
+        });
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+          throw new Error(data.error || 'Не удалось сохранить .env');
+        }
+
+        fillConfigForm(data.config || {});
+        el.exportStatus.textContent = '.env сохранён';
+      } catch (error) {
+        el.exportStatus.textContent = `Ошибка: ${error.message}`;
+      } finally {
+        el.saveConfig.disabled = false;
+      }
+    }
+
+    async function startExport() {
+      const payload = {
+        channel: el.exportChannel.value.trim(),
+        format: el.exportFormat.value,
+        download_media: el.exportMedia.checked,
+        anonymize: el.exportAnonymize.checked,
+        incremental: el.exportIncremental.checked,
+        config: collectConfigForm()
+      };
+
+      if (!payload.channel) {
+        el.exportStatus.textContent = 'Укажите канал';
+        return;
+      }
+
+      el.startExport.disabled = true;
+      el.exportStatus.textContent = 'Запуск...';
+      el.exportProgress.textContent = 'Запуск экспорта...';
+
+      try {
+        const response = await fetch('/api/export/start', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+          throw new Error(data.error || 'Не удалось запустить экспорт');
+        }
+
+        pollExportStatus();
+      } catch (error) {
+        el.exportStatus.textContent = `Ошибка: ${error.message}`;
+        el.startExport.disabled = false;
+      }
+    }
+
+    async function pollExportStatus() {
+      try {
+        const response = await fetch('/api/export/status', { cache: 'no-store' });
+        const data = await response.json();
+        renderExportStatus(data);
+
+        if (data.running) {
+          window.setTimeout(pollExportStatus, 1500);
+        }
+      } catch (error) {
+        el.exportStatus.textContent = `Ошибка статуса: ${error.message}`;
+        el.startExport.disabled = false;
+      }
+    }
+
+    function renderExportStatus(data) {
+      const lines = data.lines || [];
+      el.exportProgress.textContent = lines.length ? lines.join('\n') : 'Нет логов';
+      el.exportProgress.scrollTop = el.exportProgress.scrollHeight;
+
+      if (data.running) {
+        el.exportStatus.textContent = 'Экспорт выполняется';
+        el.startExport.disabled = true;
+        return;
+      }
+
+      if (data.returncode === null || data.returncode === undefined) {
+        el.exportStatus.textContent = 'Готово';
+      } else if (data.returncode === 0) {
+        el.exportStatus.textContent = 'Экспорт завершён';
+      } else {
+        el.exportStatus.textContent = `Экспорт завершился с ошибкой ${data.returncode}`;
+      }
+
+      el.startExport.disabled = false;
+    }
+
+    function populateEmojiFilter() {
+      const emojis = getTopEmoji(state.posts, state.comments).map((item) => item.label);
+      el.filterEmoji.innerHTML = '<option value="">Все</option>' + emojis
+        .map((emoji) => `<option value="${escapeAttribute(emoji)}">${escapeHtml(emoji)}</option>`)
+        .join('');
+    }
+
+    function groupCommentsByUser(comments) {
+      const users = new Map();
+
+      for (const comment of comments) {
+        if (!comment.userId) {
+          continue;
+        }
+
+        const current = users.get(comment.userId) || {
+          id: comment.userId,
+          username: comment.username,
+          fullName: comment.fullName,
+          comments: []
+        };
+
+        current.username = current.username || comment.username;
+        current.fullName = current.fullName || comment.fullName;
+        current.comments.push(comment);
+        users.set(comment.userId, current);
+      }
+
+      return users;
+    }
+
+    function getTopEmoji(posts, comments) {
+      const totals = new Map();
+
+      for (const post of posts) {
+        for (const reaction of post.reactions) {
+          addEmoji(totals, reaction);
+        }
+      }
+
+      for (const comment of comments) {
+        for (const reaction of comment.reactions) {
+          addEmoji(totals, reaction);
+        }
+      }
+
+      return Array.from(totals.entries())
+        .map(([label, value]) => ({ label, value }))
+        .sort((a, b) => b.value - a.value);
+    }
+
+    function addEmoji(totals, reaction) {
+      const emoji = reaction && reaction.emoji;
+      const count = Number(reaction && reaction.count) || 0;
+
+      if (!emoji) {
+        return;
+      }
+
+      totals.set(emoji, (totals.get(emoji) || 0) + count);
+    }
+
+    function countBy(items, getKey) {
+      return items.reduce((acc, item) => {
+        const key = getKey(item) || '-';
+        acc[key] = (acc[key] || 0) + 1;
+        return acc;
+      }, {});
+    }
+
+    function countReactions(posts, comments) {
+      return posts.reduce((sum, post) => sum + sumReactions(post.reactions), 0)
+        + comments.reduce((sum, comment) => sum + sumReactions(comment.reactions), 0);
+    }
+
+    function sumReactions(reactions) {
+      return (reactions || []).reduce((sum, reaction) => sum + (Number(reaction.count) || 0), 0);
+    }
+
+    function formatReactionList(reactions) {
+      if (!reactions || !reactions.length) {
+        return '-';
+      }
+
+      return reactions
+        .map((reaction) => `<span class="pill">${escapeHtml(reaction.emoji || '?')} ${formatNumber(reaction.count || 0)}</span>`)
+        .join(' ');
+    }
+
+    function renderTelegramLink(link, label) {
+      if (!link) {
+        return '';
+      }
+
+      return `<a class="telegram-link" href="${escapeAttribute(link)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>`;
+    }
+
+    function renderMedia(path) {
+      const url = normalizeMediaUrl(path);
+
+      if (!url) {
+        return '';
+      }
+
+      const kind = getMediaKind(url);
+      const safeUrl = escapeAttribute(url);
+
+      if (kind === 'image') {
+        return `<div class="media-preview"><img src="${safeUrl}" alt="media" loading="lazy"></div>`;
+      }
+
+      if (kind === 'video') {
+        return `<div class="media-preview"><video src="${safeUrl}" controls preload="metadata"></video></div>`;
+      }
+
+      if (kind === 'audio') {
+        return `<div class="media-preview"><audio src="${safeUrl}" controls preload="metadata"></audio></div>`;
+      }
+
+      return `<div class="media-preview"><a class="telegram-link" href="${safeUrl}" target="_blank" rel="noopener noreferrer">Открыть медиа</a></div>`;
+    }
+
+    function normalizeMediaUrl(path) {
+      if (!path) {
+        return '';
+      }
+
+      let value = String(path).replace(/\\/g, '/');
+
+      if (/^(https?:|data:|blob:)/i.test(value)) {
+        return value;
+      }
+
+      const marker = 'data/content/';
+      const markerIndex = value.indexOf(marker);
+
+      if (markerIndex >= 0) {
+        return value.slice(markerIndex);
+      }
+
+      const fileName = state.fileName ? state.fileName.replace(/\.json$/i, '') : '';
+
+      if (fileName && !value.includes('/')) {
+        return `data/content/${fileName}/${value}`;
+      }
+
+      return value.replace(/^\/+/, '');
+    }
+
+    function getMediaKind(url) {
+      const cleanUrl = url.split('?')[0].toLowerCase();
+
+      if (/\.(jpg|jpeg|png|gif|webp|bmp|svg)$/.test(cleanUrl)) {
+        return 'image';
+      }
+
+      if (/\.(mp4|webm|mov|m4v|avi|mkv)$/.test(cleanUrl)) {
+        return 'video';
+      }
+
+      if (/\.(mp3|wav|ogg|m4a|aac|flac)$/.test(cleanUrl)) {
+        return 'audio';
+      }
+
+      return 'file';
+    }
+
+    function detectMedia(post) {
+      if (post.has_media || post.post_has_media || post.media || post.post_media || post.post_media_path || post.post_media_file || post.photo || post.video || post.document) {
+        return true;
+      }
+
+      return /https?:\/\/|t\.me\/|youtu\.be|youtube\.com|twitch\.tv|\.jpg|\.jpeg|\.png|\.gif|\.mp4/i.test(post.post_text || '');
+    }
+
+    function isReply(comment) {
+      if (!comment.replyTo) {
+        return false;
+      }
+
+      const post = state.posts.find((item) => item.id === comment.postId);
+      return Boolean(post && post.comments.some((item) => item.id === comment.replyTo));
+    }
+
+    function dateInRange(value, from, to) {
+      const timestamp = getTimestamp(value);
+
+      if (!timestamp) {
+        return true;
+      }
+
+      if (from && timestamp < new Date(`${from}T00:00:00`).getTime()) {
+        return false;
+      }
+
+      if (to && timestamp > new Date(`${to}T23:59:59`).getTime()) {
+        return false;
+      }
+
+      return true;
+    }
+
+    function formatUserName(user) {
+      if (!user) {
+        return 'Unknown user';
+      }
+
+      const name = [user.first_name, user.last_name].filter(Boolean).join(' ').trim();
+      return name || (user.username ? `@${user.username}` : `User ${user.user_id}`);
+    }
+
+    function formatDay(value) {
+      const date = new Date(value);
+
+      if (Number.isNaN(date.getTime())) {
+        return '-';
+      }
+
+      return date.toISOString().slice(0, 10);
+    }
+
+    function formatDate(value) {
+      if (!value) {
+        return '';
+      }
+
+      const date = new Date(value);
+
+      if (Number.isNaN(date.getTime())) {
+        return value;
+      }
+
+      return new Intl.DateTimeFormat('ru-RU', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      }).format(date);
+    }
+
+    function getTimestamp(value) {
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+    }
+
+    function formatNumber(value) {
+      return new Intl.NumberFormat('ru-RU').format(Number(value) || 0);
+    }
+
+    function resetState() {
+      state.rawPosts = [];
+      state.posts = [];
+      state.filteredPosts = [];
+      state.comments = [];
+      state.filteredComments = [];
+      state.users = new Map();
+      state.expandedPostId = null;
+      renderAll();
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function escapeAttribute(value) {
+      return escapeHtml(value).replace(/`/g, '&#096;');
+    }
+
+    renderAll();
+    loadAppVersion();
+    loadServerConfig();
+    pollExportStatus();
+  </script>
+</body>
+</html>

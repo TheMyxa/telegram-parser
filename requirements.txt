@@ -1,0 +1,3 @@
+telethon
+psycopg2-binary
+pyarrow
