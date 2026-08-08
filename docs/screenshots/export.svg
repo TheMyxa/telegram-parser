@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="760" viewBox="0 0 1280 760" role="img" aria-label="TG export screen screenshot">
+  <rect width="1280" height="760" fill="#f5f7fb"/>
+  <rect x="0" y="0" width="1280" height="72" fill="#111827"/>
+  <text x="40" y="45" fill="#ffffff" font-family="Arial, sans-serif" font-size="28" font-weight="700">TG Comments Dashboard</text>
+  <rect x="940" y="20" width="110" height="34" rx="6" fill="#374151"/>
+  <text x="967" y="43" fill="#ffffff" font-family="Arial, sans-serif" font-size="14">Dashboard</text>
+  <rect x="1064" y="20" width="80" height="34" rx="6" fill="#374151"/>
+  <text x="1087" y="43" fill="#ffffff" font-family="Arial, sans-serif" font-size="14">Posts</text>
+  <rect x="1158" y="20" width="82" height="34" rx="6" fill="#2563eb"/>
+  <text x="1178" y="43" fill="#ffffff" font-family="Arial, sans-serif" font-size="14">Export</text>
+
+  <rect x="120" y="116" width="1040" height="220" rx="8" fill="#ffffff" stroke="#e5e7eb"/>
+  <text x="152" y="158" fill="#111827" font-family="Arial, sans-serif" font-size="24" font-weight="700">Run export</text>
+  <text x="152" y="184" fill="#6b7280" font-family="Arial, sans-serif" font-size="15">Choose channel, format and export options.</text>
+
+  <text x="152" y="228" fill="#374151" font-family="Arial, sans-serif" font-size="14" font-weight="700">Channel</text>
+  <rect x="152" y="240" width="420" height="46" rx="6" fill="#f9fafb" stroke="#d1d5db"/>
+  <text x="170" y="269" fill="#111827" font-family="Arial, sans-serif" font-size="15">demo_channel</text>
+
+  <text x="604" y="228" fill="#374151" font-family="Arial, sans-serif" font-size="14" font-weight="700">Format</text>
+  <rect x="604" y="240" width="180" height="46" rx="6" fill="#f9fafb" stroke="#d1d5db"/>
+  <text x="624" y="269" fill="#111827" font-family="Arial, sans-serif" font-size="15">JSON</text>
+
+  <rect x="820" y="240" width="18" height="18" rx="3" fill="#2563eb"/>
+  <path d="M824 249 L829 254 L836 244" stroke="#fff" stroke-width="2" fill="none"/>
+  <text x="848" y="255" fill="#111827" font-family="Arial, sans-serif" font-size="15">Incremental</text>
+
+  <rect x="820" y="276" width="18" height="18" rx="3" fill="#ffffff" stroke="#9ca3af"/>
+  <text x="848" y="291" fill="#111827" font-family="Arial, sans-serif" font-size="15">Download media</text>
+
+  <rect x="152" y="304" width="170" height="44" rx="6" fill="#2563eb"/>
+  <text x="184" y="332" fill="#ffffff" font-family="Arial, sans-serif" font-size="15" font-weight="700">Start export</text>
+
+  <rect x="120" y="370" width="1040" height="290" rx="8" fill="#111827"/>
+  <text x="152" y="410" fill="#93c5fd" font-family="Consolas, monospace" font-size="16">Starting export for channel demo_channel</text>
+  <text x="152" y="442" fill="#d1d5db" font-family="Consolas, monospace" font-size="16">Export format: json</text>
+  <text x="152" y="474" fill="#d1d5db" font-family="Consolas, monospace" font-size="16">Incremental export: True</text>
+  <text x="152" y="506" fill="#d1d5db" font-family="Consolas, monospace" font-size="16">Dataset path: data/raw/demo_channel_dataset.json</text>
+  <text x="152" y="538" fill="#d1d5db" font-family="Consolas, monospace" font-size="16">Processing post 1003</text>
+  <text x="152" y="570" fill="#d1d5db" font-family="Consolas, monospace" font-size="16">Processing post 1002</text>
+  <text x="152" y="602" fill="#86efac" font-family="Consolas, monospace" font-size="16">Done. Saved to data/raw/demo_channel_dataset.json</text>
+</svg>

@@ -1,0 +1,31 @@
+name: tg
+
+services:
+  dashboard:
+    build: .
+    image: tg:latest
+    env_file:
+      - .env
+    command: ["dashboard"]
+    ports:
+      - "9595:9595"
+    volumes:
+      - ./.env:/app/.env
+      - ./data:/app/data
+      - ./sessions:/app/sessions
+    restart: unless-stopped
+
+  cli:
+    build: .
+    image: tg:latest
+    env_file:
+      - .env
+    profiles:
+      - tools
+    volumes:
+      - ./.env:/app/.env
+      - ./data:/app/data
+      - ./sessions:/app/sessions
+    command: ["--help"]
+    stdin_open: true
+    tty: true

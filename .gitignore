@@ -1,0 +1,14 @@
+.env
+sessions/*
+!sessions/.gitkeep
+data/*.json
+data/raw/*
+!data/raw/.gitkeep
+data/analysis/*
+!data/analysis/.gitkeep
+data/content/*
+!data/content/.gitkeep
+data/state/*
+!data/state/.gitkeep
+__pycache__/
+*.pyc
