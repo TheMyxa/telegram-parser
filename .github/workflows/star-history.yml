@@ -17,6 +17,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Create assets directory
+        run: mkdir -p assets
+
       - name: Generate Star History
         uses: xpzouying/star-history@v1
         with:
