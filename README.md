@@ -1,8 +1,10 @@
 # TG
 
+[Русский](README_ru.md) | [中文](README_cn.md)
+
 TG is a Telegram comments exporter and local analytics dashboard. It exports channel posts, discussion comments, reactions, media links, optional media files, and can update the same dataset incrementally.
 
-![Dashboard screenshot](docs/screenshots/dashboard.svg)
+![Dashboard screenshot](docs/screenshots/dashboard.png)
 
 ## Features
 
@@ -19,15 +21,15 @@ TG is a Telegram comments exporter and local analytics dashboard. It exports cha
 
 ### Dashboard
 
-![Dashboard](docs/screenshots/dashboard.svg)
+![Dashboard](docs/screenshots/dashboard.png)
 
 ### Export Screen
 
-![Export screen](docs/screenshots/export.svg)
+![Export screen](docs/screenshots/export.png)
 
 ## Demo JSON
 
-A small demo dataset is available at [examples/demo_export.json](examples/demo_export.json).
+A small demo dataset is available at [examples/example.json](examples/example.json).
 
 Open the dashboard and upload this file to test charts, post details, users, reactions, links, and comment tree without connecting to Telegram.
 
@@ -308,7 +310,7 @@ The main JSON format is a list of posts:
 ]
 ```
 
-See [examples/demo_export.json](examples/demo_export.json) for a complete demo file.
+See [examples/example.json](examples/example.json) for a complete demo file.
 
 ## Notes About Telegram Limits
 

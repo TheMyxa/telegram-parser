@@ -17,6 +17,46 @@
       --warn: #a85516;
       --danger: #b42318;
       --shadow: 0 12px 30px rgba(20, 35, 50, 0.08);
+      --topbar: #18212b;
+      --topbar-text: #f4f7fb;
+      --topbar-muted: #b8c4d2;
+      --topbar-field: rgba(255, 255, 255, 0.06);
+      --topbar-line: rgba(255, 255, 255, 0.14);
+      --table-head: #f9fbfd;
+      --row-hover: #f7fafc;
+      --detail-bg: #fbfcfe;
+      --control-hover: #f0f5ff;
+      --progress-bg: #101820;
+      --progress-text: #d8e7f3;
+      --backdrop: rgba(8, 15, 25, 0.42);
+      --drawer-shadow: -18px 0 40px rgba(20, 35, 50, 0.16);
+    }
+
+    body[data-theme="dark"] {
+      --bg: #0f1419;
+      --surface: #151d26;
+      --surface-2: #202a35;
+      --text: #e6edf3;
+      --muted: #9aa9b8;
+      --line: #2f3b48;
+      --accent: #35b58f;
+      --accent-2: #7aa7ff;
+      --warn: #f2a65a;
+      --danger: #ff7b72;
+      --shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
+      --topbar: #0b1117;
+      --topbar-text: #f4f7fb;
+      --topbar-muted: #9fb0c2;
+      --topbar-field: rgba(255, 255, 255, 0.07);
+      --topbar-line: rgba(255, 255, 255, 0.16);
+      --table-head: #111821;
+      --row-hover: #1b2530;
+      --detail-bg: #10171f;
+      --control-hover: #1e2d43;
+      --progress-bg: #070b10;
+      --progress-text: #d8e7f3;
+      --backdrop: rgba(0, 0, 0, 0.62);
+      --drawer-shadow: -18px 0 40px rgba(0, 0, 0, 0.34);
     }
 
     * {
@@ -49,8 +89,8 @@
     }
 
     .topbar {
-      background: #18212b;
-      color: #f4f7fb;
+      background: var(--topbar);
+      color: var(--topbar-text);
       padding: 18px 24px;
       display: grid;
       grid-template-columns: minmax(220px, 1fr) minmax(260px, 420px);
@@ -76,17 +116,17 @@
       align-items: center;
       min-height: 24px;
       padding: 3px 8px;
-      border: 1px solid rgba(255, 255, 255, 0.18);
+      border: 1px solid var(--topbar-line);
       border-radius: 8px;
-      background: rgba(255, 255, 255, 0.08);
-      color: #dce6f2;
+      background: var(--topbar-field);
+      color: var(--topbar-text);
       font-size: 12px;
       font-weight: 700;
     }
 
     .brand div {
       margin-top: 5px;
-      color: #b8c4d2;
+      color: var(--topbar-muted);
       line-height: 1.35;
     }
 
@@ -94,18 +134,60 @@
       display: grid;
       gap: 8px;
       padding: 12px;
-      border: 1px solid rgba(255, 255, 255, 0.14);
+      border: 1px solid var(--topbar-line);
       border-radius: 8px;
-      background: rgba(255, 255, 255, 0.06);
+      background: var(--topbar-field);
     }
 
     .file-box label {
       font-weight: 700;
     }
 
-    .file-box input {
-      width: 100%;
-      color: #dce6f2;
+    .file-actions {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .file-picker {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 8px;
+      align-items: center;
+      min-width: 0;
+    }
+
+    .file-input-native {
+      position: absolute;
+      inline-size: 1px;
+      block-size: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .file-name {
+      color: var(--topbar-text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .theme-toggle,
+    .file-button {
+      height: 38px;
+      border: 1px solid var(--topbar-line);
+      border-radius: 8px;
+      background: var(--topbar-field);
+      color: var(--topbar-text);
+      font-weight: 700;
+      padding: 0 12px;
+      white-space: nowrap;
+    }
+
+    .theme-toggle:hover,
+    .file-button:hover {
+      background: rgba(255, 255, 255, 0.12);
     }
 
     main {
@@ -263,8 +345,8 @@
       overflow: auto;
       margin: 0;
       padding: 14px;
-      background: #101820;
-      color: #d8e7f3;
+      background: var(--progress-bg);
+      color: var(--progress-text);
       font-family: Consolas, Monaco, monospace;
       font-size: 13px;
       line-height: 1.45;
@@ -340,13 +422,39 @@
 
     th {
       color: var(--muted);
-      background: #f9fbfd;
+      background: var(--table-head);
       font-size: 12px;
       text-transform: uppercase;
     }
 
     tbody tr:hover {
-      background: #f7fafc;
+      background: var(--row-hover);
+    }
+
+    .post-row {
+      cursor: pointer;
+    }
+
+    .post-row:hover .post-title {
+      text-decoration: underline;
+    }
+
+    .post-row.expanded {
+      background: var(--row-hover);
+    }
+
+    .row-action {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      margin-left: 8px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--surface-2);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
     }
 
     .post-title,
@@ -370,7 +478,7 @@
 
     .post-detail {
       padding: 18px;
-      background: #fbfcfe;
+      background: var(--detail-bg);
       display: grid;
       gap: 14px;
     }
@@ -466,7 +574,7 @@
     }
 
     .button:hover {
-      background: #f0f5ff;
+      background: var(--control-hover);
     }
 
     .telegram-link {
@@ -484,7 +592,7 @@
     }
 
     .telegram-link:hover {
-      background: #f0f5ff;
+      background: var(--control-hover);
     }
 
     .empty {
@@ -497,7 +605,7 @@
       position: fixed;
       inset: 0;
       display: none;
-      background: rgba(8, 15, 25, 0.42);
+      background: var(--backdrop);
       z-index: 20;
     }
 
@@ -513,7 +621,7 @@
       height: 100vh;
       background: var(--surface);
       border-left: 1px solid var(--line);
-      box-shadow: -18px 0 40px rgba(20, 35, 50, 0.16);
+      box-shadow: var(--drawer-shadow);
       transform: translateX(100%);
       transition: transform 0.18s ease;
       z-index: 21;
@@ -557,7 +665,7 @@
       padding: 12px;
       border: 1px solid var(--line);
       border-radius: 8px;
-      background: #fbfcfe;
+      background: var(--detail-bg);
     }
 
     .user-stat span {
@@ -573,6 +681,25 @@
 
     .error {
       color: var(--danger);
+    }
+
+    .footer {
+      padding: 0 22px 22px;
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .footer select {
+      height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+      padding: 0 10px;
     }
 
     @media (max-width: 1100px) {
@@ -609,6 +736,23 @@
         align-items: start;
         flex-direction: column;
       }
+
+      .file-actions {
+        grid-template-columns: 1fr;
+      }
+
+      .theme-toggle {
+        width: 100%;
+      }
+
+      .footer {
+        padding: 0 14px 14px;
+        justify-content: stretch;
+      }
+
+      .footer select {
+        flex: 1;
+      }
     }
   </style>
 </head>
@@ -620,26 +764,33 @@
           <h1>TG Comments Dashboard</h1>
           <span id="appVersion" class="app-version">v...</span>
         </div>
-        <div>Загрузите JSON-экспорт и изучайте посты, комментарии, реакции и активность пользователей.</div>
+        <div data-i18n="heroSubtitle">Загрузите JSON-экспорт и изучайте посты, комментарии, реакции и активность пользователей.</div>
       </div>
       <div class="file-box">
-        <label for="jsonFile">Загрузить JSON-файл</label>
-        <input id="jsonFile" type="file" accept=".json,application/json">
+        <label for="jsonFile" data-i18n="uploadJson">Загрузить JSON-файл</label>
+        <div class="file-actions">
+          <div class="file-picker">
+            <input id="jsonFile" class="file-input-native" type="file" accept=".json,application/json">
+            <label class="file-button" for="jsonFile" data-i18n="chooseFile">Выбор файла</label>
+            <span id="selectedFileName" class="file-name" data-i18n="noFileSelected">Файл не выбран</span>
+          </div>
+          <button id="themeToggle" class="theme-toggle" type="button" aria-pressed="false">Ночная тема</button>
+        </div>
       </div>
     </header>
 
     <main>
       <nav class="tabs" aria-label="Разделы">
         <button class="tab active" type="button" data-tab="dashboard">Dashboard</button>
-        <button class="tab" type="button" data-tab="posts">Страница постов</button>
-        <button class="tab" type="button" data-tab="export">Экспорт</button>
+        <button class="tab" type="button" data-tab="posts" data-i18n="postsPage">Страница постов</button>
+        <button class="tab" type="button" data-tab="export" data-i18n="export">Экспорт</button>
       </nav>
 
       <section class="panel">
         <div class="filters">
           <div class="field">
-            <label for="searchText">Поиск</label>
-            <input id="searchText" type="search" placeholder="Текст, post_id, comment_id">
+            <label for="searchText" data-i18n="search">Поиск</label>
+            <input id="searchText" type="search" placeholder="Текст, post_id, comment_id" data-i18n-placeholder="searchPlaceholder">
           </div>
           <div class="field">
             <label for="filterUserId">User ID</label>
@@ -650,22 +801,22 @@
             <input id="filterUsername" type="search" placeholder="username">
           </div>
           <div class="field">
-            <label for="filterDateFrom">Дата от</label>
+            <label for="filterDateFrom" data-i18n="dateFrom">Дата от</label>
             <input id="filterDateFrom" type="date">
           </div>
           <div class="field">
-            <label for="filterDateTo">Дата до</label>
+            <label for="filterDateTo" data-i18n="dateTo">Дата до</label>
             <input id="filterDateTo" type="date">
           </div>
           <div class="field">
-            <label for="filterEmoji">Эмодзи</label>
+            <label for="filterEmoji" data-i18n="emoji">Эмодзи</label>
             <select id="filterEmoji">
-              <option value="">Все</option>
+              <option value="" data-i18n="all">Все</option>
             </select>
           </div>
           <div class="checks">
-            <label><input id="filterMedia" type="checkbox"> Только с медиа</label>
-            <label><input id="filterReplies" type="checkbox"> Только ответы</label>
+            <label><input id="filterMedia" type="checkbox"> <span data-i18n="onlyMedia">Только с медиа</span></label>
+            <label><input id="filterReplies" type="checkbox"> <span data-i18n="onlyReplies">Только ответы</span></label>
           </div>
         </div>
       </section>
@@ -673,23 +824,23 @@
       <section id="dashboardView" class="view active">
         <section class="summary">
           <div class="metric">
-            <span>Файл</span>
+            <span data-i18n="file">Файл</span>
             <strong id="metricFile">-</strong>
           </div>
           <div class="metric">
-            <span>Постов</span>
+            <span data-i18n="postsCount">Постов</span>
             <strong id="metricPosts">0</strong>
           </div>
           <div class="metric">
-            <span>Комментариев</span>
+            <span data-i18n="commentsCount">Комментариев</span>
             <strong id="metricComments">0</strong>
           </div>
           <div class="metric">
-            <span>Уникальных пользователей</span>
+            <span data-i18n="uniqueUsers">Уникальных пользователей</span>
             <strong id="metricUsers">0</strong>
           </div>
           <div class="metric">
-            <span>Реакций</span>
+            <span data-i18n="reactionsCount">Реакций</span>
             <strong id="metricReactions">0</strong>
           </div>
         </section>
@@ -697,28 +848,28 @@
         <section class="charts">
           <div class="panel chart">
             <div class="panel-head">
-              <h2>Комментарии по дням</h2>
+              <h2 data-i18n="commentsByDay">Комментарии по дням</h2>
               <div id="daysStatus" class="status">Нет данных</div>
             </div>
             <div id="commentsByDayChart" class="chart-body"></div>
           </div>
           <div class="panel chart">
             <div class="panel-head">
-              <h2>Топ пользователей</h2>
+              <h2 data-i18n="topUsers">Топ пользователей</h2>
               <div id="usersStatus" class="status">Нет данных</div>
             </div>
             <div id="topUsersChart" class="chart-body"></div>
           </div>
           <div class="panel chart">
             <div class="panel-head">
-              <h2>Топ эмодзи</h2>
+              <h2 data-i18n="topEmoji">Топ эмодзи</h2>
               <div id="emojiStatus" class="status">Нет данных</div>
             </div>
             <div id="topEmojiChart" class="chart-body"></div>
           </div>
           <div class="panel chart">
             <div class="panel-head">
-              <h2>Самые обсуждаемые посты</h2>
+              <h2 data-i18n="topPosts">Самые обсуждаемые посты</h2>
               <div id="postsStatus" class="status">Нет данных</div>
             </div>
             <div id="topPostsChart" class="chart-body"></div>
@@ -729,7 +880,7 @@
       <section id="postsView" class="view">
         <section class="panel">
           <div class="panel-head">
-            <h2>Посты канала</h2>
+            <h2 data-i18n="channelPosts">Посты канала</h2>
             <div id="tableStatus" class="status">Выберите JSON-файл</div>
           </div>
           <div class="table-wrap">
@@ -737,11 +888,11 @@
               <thead>
                 <tr>
                   <th>Post</th>
-                  <th>Дата</th>
-                  <th>Просмотры</th>
-                  <th>Комментарии</th>
-                  <th>Реакции</th>
-                  <th>Медиа</th>
+                  <th data-i18n="date">Дата</th>
+                  <th data-i18n="views">Просмотры</th>
+                  <th data-i18n="comments">Комментарии</th>
+                  <th data-i18n="reactions">Реакции</th>
+                  <th data-i18n="media">Медиа</th>
                 </tr>
               </thead>
               <tbody id="postsBody">
@@ -755,13 +906,13 @@
       <section id="exportView" class="view">
         <section class="panel">
           <div class="panel-head">
-            <h2>Запуск экспорта</h2>
+            <h2 data-i18n="exportRun">Запуск экспорта</h2>
             <div id="exportStatus" class="status">Готово</div>
           </div>
           <div class="export-grid">
             <div class="field">
-              <label for="exportChannel">Канал</label>
-              <input id="exportChannel" type="text" placeholder="channel или https://t.me/channel">
+              <label for="exportChannel" data-i18n="channel">Канал</label>
+              <input id="exportChannel" type="text" placeholder="channel или https://t.me/channel" data-i18n-placeholder="channelPlaceholder">
             </div>
             <div class="field">
               <label for="configApiId">API ID</label>
@@ -772,7 +923,7 @@
               <input id="configApiHash" type="password" placeholder="your_api_hash">
             </div>
             <div class="field">
-              <label for="exportFormat">Формат</label>
+              <label for="exportFormat" data-i18n="format">Формат</label>
               <select id="exportFormat">
                 <option value="json">JSON</option>
                 <option value="csv">CSV</option>
@@ -789,11 +940,11 @@
               <input id="configPostLimit" type="number" min="1" step="1" placeholder="500">
             </div>
             <div class="field">
-              <label for="configPause500">Пауза после 500</label>
+              <label for="configPause500" data-i18n="pause500">Пауза после 500</label>
               <input id="configPause500" type="number" min="0" step="1" placeholder="30">
             </div>
             <div class="field">
-              <label for="configPause1000">Пауза после 1000</label>
+              <label for="configPause1000" data-i18n="pause1000">Пауза после 1000</label>
               <input id="configPause1000" type="number" min="0" step="1" placeholder="60">
             </div>
             <div class="field">
@@ -829,17 +980,25 @@
               <input id="configLlmModel" type="text" placeholder="local-model">
             </div>
             <div class="checks">
-              <label><input id="exportMedia" type="checkbox"> Скачать медиа</label>
-              <label><input id="exportAnonymize" type="checkbox"> Анонимизация</label>
-              <label><input id="exportIncremental" type="checkbox" checked> Инкрементально</label>
+              <label><input id="exportMedia" type="checkbox"> <span data-i18n="downloadMedia">Скачать медиа</span></label>
+              <label><input id="exportAnonymize" type="checkbox"> <span data-i18n="anonymization">Анонимизация</span></label>
+              <label><input id="exportIncremental" type="checkbox" checked> <span data-i18n="incremental">Инкрементально</span></label>
             </div>
-            <button id="saveConfig" class="button" type="button">Сохранить .env</button>
-            <button id="startExport" class="button" type="button">Запустить экспорт</button>
+            <button id="saveConfig" class="button" type="button" data-i18n="saveEnv">Сохранить .env</button>
+            <button id="startExport" class="button" type="button" data-i18n="startExport">Запустить экспорт</button>
           </div>
           <pre id="exportProgress" class="progress-log">Экспорт ещё не запускался.</pre>
         </section>
       </section>
     </main>
+    <footer class="footer">
+      <label for="languageSelect" data-i18n="language">Язык</label>
+      <select id="languageSelect">
+        <option value="ru">Русский</option>
+        <option value="en">English</option>
+        <option value="zh">中文</option>
+      </select>
+    </footer>
   </div>
 
   <div id="drawerBackdrop" class="drawer-backdrop"></div>
@@ -849,7 +1008,7 @@
         <h2 id="drawerUserName">User</h2>
         <div id="drawerUserMeta" class="status"></div>
       </div>
-      <button id="closeDrawer" class="button" type="button">Закрыть</button>
+      <button id="closeDrawer" class="button" type="button" data-i18n="close">Закрыть</button>
     </div>
     <div id="drawerBody" class="drawer-body"></div>
   </aside>
@@ -864,12 +1023,16 @@
       filteredComments: [],
       users: new Map(),
       expandedPostId: null,
-      activeTab: 'dashboard'
+      activeTab: 'dashboard',
+      language: 'ru'
     };
 
     const el = {
       appVersion: document.getElementById('appVersion'),
       fileInput: document.getElementById('jsonFile'),
+      selectedFileName: document.getElementById('selectedFileName'),
+      themeToggle: document.getElementById('themeToggle'),
+      languageSelect: document.getElementById('languageSelect'),
       tabs: document.querySelectorAll('.tab'),
       dashboardView: document.getElementById('dashboardView'),
       postsView: document.getElementById('postsView'),
@@ -928,11 +1091,259 @@
       exportProgress: document.getElementById('exportProgress')
     };
 
+    const translations = {
+      ru: {
+        heroSubtitle: 'Загрузите JSON-экспорт и изучайте посты, комментарии, реакции и активность пользователей.',
+        uploadJson: 'Загрузить JSON-файл',
+        chooseFile: 'Выбор файла',
+        noFileSelected: 'Файл не выбран',
+        nightTheme: 'Ночная тема',
+        lightTheme: 'Светлая тема',
+        postsPage: 'Страница постов',
+        export: 'Экспорт',
+        search: 'Поиск',
+        searchPlaceholder: 'Текст, post_id, comment_id',
+        dateFrom: 'Дата от',
+        dateTo: 'Дата до',
+        emoji: 'Эмодзи',
+        all: 'Все',
+        onlyMedia: 'Только с медиа',
+        onlyReplies: 'Только ответы',
+        file: 'Файл',
+        postsCount: 'Постов',
+        commentsCount: 'Комментариев',
+        uniqueUsers: 'Уникальных пользователей',
+        reactionsCount: 'Реакций',
+        commentsByDay: 'Комментарии по дням',
+        topUsers: 'Топ пользователей',
+        topEmoji: 'Топ эмодзи',
+        topPosts: 'Самые обсуждаемые посты',
+        channelPosts: 'Посты канала',
+        date: 'Дата',
+        views: 'Просмотры',
+        comments: 'Комментарии',
+        reactions: 'Реакции',
+        media: 'Медиа',
+        exportRun: 'Запуск экспорта',
+        channel: 'Канал',
+        channelPlaceholder: 'channel или https://t.me/channel',
+        format: 'Формат',
+        pause500: 'Пауза после 500',
+        pause1000: 'Пауза после 1000',
+        downloadMedia: 'Скачать медиа',
+        anonymization: 'Анонимизация',
+        incremental: 'Инкрементально',
+        saveEnv: 'Сохранить .env',
+        startExport: 'Запустить экспорт',
+        exportNotStarted: 'Экспорт ещё не запускался.',
+        close: 'Закрыть',
+        language: 'Язык',
+        noData: 'Нет данных',
+        rows: 'строк',
+        chooseJson: 'Выберите JSON-файл',
+        noLoadedData: 'Нет загруженных данных',
+        noPostsForFilters: 'Нет постов для выбранных фильтров',
+        posts: 'постов',
+        collapse: 'Свернуть',
+        expand: 'Развернуть',
+        openInTg: 'Открыть в TG',
+        noText: '[без текста]',
+        viewsPill: 'просмотров',
+        commentsPill: 'комментариев',
+        noComments: 'Комментариев нет',
+        openComment: 'Открыть комментарий',
+        userComments: 'Комментарии',
+        firstComment: 'Первый комментарий',
+        lastComment: 'Последний комментарий',
+        saveEnvProgress: 'Сохранение .env...',
+        saveEnvFailed: 'Не удалось сохранить .env',
+        envSaved: '.env сохранён',
+        error: 'Ошибка',
+        channelRequired: 'Укажите канал',
+        starting: 'Запуск...',
+        exportStarting: 'Запуск экспорта...',
+        exportStartFailed: 'Не удалось запустить экспорт',
+        statusError: 'Ошибка статуса',
+        noLogs: 'Нет логов',
+        exportRunning: 'Экспорт выполняется',
+        ready: 'Готово',
+        exportDone: 'Экспорт завершён',
+        exportFailed: 'Экспорт завершился с ошибкой',
+        openMedia: 'Открыть медиа',
+        jsonMustBeArray: 'JSON должен быть массивом постов'
+      },
+      en: {
+        heroSubtitle: 'Upload a JSON export and explore posts, comments, reactions, and user activity.',
+        uploadJson: 'Upload JSON file',
+        chooseFile: 'Choose file',
+        noFileSelected: 'No file selected',
+        nightTheme: 'Dark theme',
+        lightTheme: 'Light theme',
+        postsPage: 'Posts page',
+        export: 'Export',
+        search: 'Search',
+        searchPlaceholder: 'Text, post_id, comment_id',
+        dateFrom: 'Date from',
+        dateTo: 'Date to',
+        emoji: 'Emoji',
+        all: 'All',
+        onlyMedia: 'Only with media',
+        onlyReplies: 'Only replies',
+        file: 'File',
+        postsCount: 'Posts',
+        commentsCount: 'Comments',
+        uniqueUsers: 'Unique users',
+        reactionsCount: 'Reactions',
+        commentsByDay: 'Comments by day',
+        topUsers: 'Top users',
+        topEmoji: 'Top emoji',
+        topPosts: 'Most discussed posts',
+        channelPosts: 'Channel posts',
+        date: 'Date',
+        views: 'Views',
+        comments: 'Comments',
+        reactions: 'Reactions',
+        media: 'Media',
+        exportRun: 'Run export',
+        channel: 'Channel',
+        channelPlaceholder: 'channel or https://t.me/channel',
+        format: 'Format',
+        pause500: 'Pause after 500',
+        pause1000: 'Pause after 1000',
+        downloadMedia: 'Download media',
+        anonymization: 'Anonymization',
+        incremental: 'Incremental',
+        saveEnv: 'Save .env',
+        startExport: 'Start export',
+        exportNotStarted: 'Export has not started yet.',
+        close: 'Close',
+        language: 'Language',
+        noData: 'No data',
+        rows: 'rows',
+        chooseJson: 'Choose a JSON file',
+        noLoadedData: 'No loaded data',
+        noPostsForFilters: 'No posts for selected filters',
+        posts: 'posts',
+        collapse: 'Collapse',
+        expand: 'Expand',
+        openInTg: 'Open in TG',
+        noText: '[no text]',
+        viewsPill: 'views',
+        commentsPill: 'comments',
+        noComments: 'No comments',
+        openComment: 'Open comment',
+        userComments: 'Comments',
+        firstComment: 'First comment',
+        lastComment: 'Last comment',
+        saveEnvProgress: 'Saving .env...',
+        saveEnvFailed: 'Could not save .env',
+        envSaved: '.env saved',
+        error: 'Error',
+        channelRequired: 'Enter a channel',
+        starting: 'Starting...',
+        exportStarting: 'Starting export...',
+        exportStartFailed: 'Could not start export',
+        statusError: 'Status error',
+        noLogs: 'No logs',
+        exportRunning: 'Export is running',
+        ready: 'Ready',
+        exportDone: 'Export completed',
+        exportFailed: 'Export failed with code',
+        openMedia: 'Open media',
+        jsonMustBeArray: 'JSON must be an array of posts'
+      },
+      zh: {
+        heroSubtitle: '上传 JSON 导出文件，查看帖子、评论、反应和用户活跃度。',
+        uploadJson: '上传 JSON 文件',
+        chooseFile: '选择文件',
+        noFileSelected: '未选择文件',
+        nightTheme: '夜间主题',
+        lightTheme: '浅色主题',
+        postsPage: '帖子页面',
+        export: '导出',
+        search: '搜索',
+        searchPlaceholder: '文本、post_id、comment_id',
+        dateFrom: '开始日期',
+        dateTo: '结束日期',
+        emoji: '表情',
+        all: '全部',
+        onlyMedia: '仅含媒体',
+        onlyReplies: '仅回复',
+        file: '文件',
+        postsCount: '帖子',
+        commentsCount: '评论',
+        uniqueUsers: '唯一用户',
+        reactionsCount: '反应',
+        commentsByDay: '每日评论',
+        topUsers: '热门用户',
+        topEmoji: '热门表情',
+        topPosts: '讨论最多的帖子',
+        channelPosts: '频道帖子',
+        date: '日期',
+        views: '浏览量',
+        comments: '评论',
+        reactions: '反应',
+        media: '媒体',
+        exportRun: '运行导出',
+        channel: '频道',
+        channelPlaceholder: 'channel 或 https://t.me/channel',
+        format: '格式',
+        pause500: '500 后暂停',
+        pause1000: '1000 后暂停',
+        downloadMedia: '下载媒体',
+        anonymization: '匿名化',
+        incremental: '增量',
+        saveEnv: '保存 .env',
+        startExport: '开始导出',
+        exportNotStarted: '导出尚未开始。',
+        close: '关闭',
+        language: '语言',
+        noData: '没有数据',
+        rows: '行',
+        chooseJson: '请选择 JSON 文件',
+        noLoadedData: '没有已加载数据',
+        noPostsForFilters: '没有符合筛选条件的帖子',
+        posts: '帖子',
+        collapse: '收起',
+        expand: '展开',
+        openInTg: '在 TG 打开',
+        noText: '[无文本]',
+        viewsPill: '浏览',
+        commentsPill: '评论',
+        noComments: '没有评论',
+        openComment: '打开评论',
+        userComments: '评论',
+        firstComment: '第一条评论',
+        lastComment: '最后一条评论',
+        saveEnvProgress: '正在保存 .env...',
+        saveEnvFailed: '无法保存 .env',
+        envSaved: '.env 已保存',
+        error: '错误',
+        channelRequired: '请输入频道',
+        starting: '正在启动...',
+        exportStarting: '正在启动导出...',
+        exportStartFailed: '无法启动导出',
+        statusError: '状态错误',
+        noLogs: '没有日志',
+        exportRunning: '导出运行中',
+        ready: '就绪',
+        exportDone: '导出完成',
+        exportFailed: '导出失败，代码',
+        openMedia: '打开媒体',
+        jsonMustBeArray: 'JSON 必须是帖子数组'
+      }
+    };
+
+    initTheme();
+    initLanguage();
     el.fileInput.addEventListener('change', handleFile);
+    el.themeToggle.addEventListener('click', toggleTheme);
+    el.languageSelect.addEventListener('change', () => setLanguage(el.languageSelect.value, true));
     el.tabs.forEach((tab) => tab.addEventListener('click', () => setTab(tab.dataset.tab)));
     [el.searchText, el.filterUserId, el.filterUsername, el.filterDateFrom, el.filterDateTo, el.filterEmoji, el.filterMedia, el.filterReplies]
       .forEach((input) => input.addEventListener('input', applyFilters));
     el.postsBody.addEventListener('click', handlePostsClick);
+    el.postsBody.addEventListener('keydown', handlePostsKeydown);
     el.closeDrawer.addEventListener('click', closeUserDrawer);
     el.drawerBackdrop.addEventListener('click', closeUserDrawer);
     el.saveConfig.addEventListener('click', saveConfig);
@@ -942,6 +1353,7 @@
       const file = event.target.files[0];
 
       if (!file) {
+        el.selectedFileName.textContent = t('noFileSelected');
         return;
       }
 
@@ -950,19 +1362,95 @@
         const data = JSON.parse(text);
 
         if (!Array.isArray(data)) {
-          throw new Error('JSON должен быть массивом постов');
+          throw new Error(t('jsonMustBeArray'));
         }
 
         state.fileName = file.name;
+        el.selectedFileName.textContent = file.name;
         parseExport(data);
         populateEmojiFilter();
         applyFilters();
       } catch (error) {
         state.fileName = '';
+        el.selectedFileName.textContent = t('noFileSelected');
         resetState();
-        el.tableStatus.textContent = `Ошибка: ${error.message}`;
+        el.tableStatus.textContent = `${t('error')}: ${error.message}`;
         el.tableStatus.classList.add('error');
       }
+    }
+
+    function initTheme() {
+      const savedTheme = localStorage.getItem('tg-dashboard-theme');
+      const initialTheme = savedTheme === 'dark' ? 'dark' : 'light';
+      applyTheme(initialTheme);
+    }
+
+    function toggleTheme() {
+      const nextTheme = document.body.dataset.theme === 'dark' ? 'light' : 'dark';
+      applyTheme(nextTheme);
+      localStorage.setItem('tg-dashboard-theme', nextTheme);
+    }
+
+    function applyTheme(theme) {
+      const isDark = theme === 'dark';
+      document.body.dataset.theme = isDark ? 'dark' : 'light';
+      el.themeToggle.textContent = isDark ? t('lightTheme') : t('nightTheme');
+      el.themeToggle.setAttribute('aria-pressed', isDark ? 'true' : 'false');
+    }
+
+    function initLanguage() {
+      const savedLanguage = localStorage.getItem('tg-dashboard-language');
+      const initialLanguage = translations[savedLanguage] ? savedLanguage : 'ru';
+      setLanguage(initialLanguage, false);
+    }
+
+    function setLanguage(language, persist) {
+      state.language = translations[language] ? language : 'ru';
+      el.languageSelect.value = state.language;
+
+      if (persist) {
+        localStorage.setItem('tg-dashboard-language', state.language);
+      }
+
+      applyLanguage();
+    }
+
+    function t(key) {
+      return (translations[state.language] && translations[state.language][key])
+        || translations.ru[key]
+        || key;
+    }
+
+    function applyLanguage() {
+      document.documentElement.lang = state.language === 'zh' ? 'zh' : state.language;
+
+      document.querySelectorAll('[data-i18n]').forEach((node) => {
+        node.textContent = t(node.dataset.i18n);
+      });
+
+      document.querySelectorAll('[data-i18n-placeholder]').forEach((node) => {
+        node.setAttribute('placeholder', t(node.dataset.i18nPlaceholder));
+      });
+
+      applyTheme(document.body.dataset.theme === 'dark' ? 'dark' : 'light');
+
+      if (!state.fileName) {
+        el.selectedFileName.textContent = t('noFileSelected');
+        el.tableStatus.textContent = t('chooseJson');
+        el.daysStatus.textContent = t('noData');
+        el.usersStatus.textContent = t('noData');
+        el.emojiStatus.textContent = t('noData');
+        el.postsStatus.textContent = t('noData');
+      } else {
+        el.selectedFileName.textContent = state.fileName;
+      }
+
+      if (!el.exportProgress.dataset.touched) {
+        el.exportProgress.textContent = t('exportNotStarted');
+      }
+
+      renderAll();
+      populateEmojiFilter();
     }
 
     function parseExport(rawPosts) {
@@ -1165,13 +1653,13 @@
 
     function renderBarChart(container, data, statusElement, onClick) {
       if (!data.length) {
-        container.innerHTML = '<div class="empty">Нет данных</div>';
+        container.innerHTML = `<div class="empty">${escapeHtml(t('noData'))}</div>`;
         statusElement.textContent = '0';
         return;
       }
 
       const max = Math.max(...data.map((item) => item.value), 1);
-      statusElement.textContent = `${formatNumber(data.length)} строк`;
+      statusElement.textContent = `${formatNumber(data.length)} ${t('rows')}`;
       container.innerHTML = data.map((item) => {
         const width = Math.max(3, (item.value / max) * 100);
         const buttonAttrs = onClick ? `type="button" data-chart-label="${escapeAttribute(item.label)}"` : '';
@@ -1198,11 +1686,12 @@
     function renderPostsTable() {
       el.tableStatus.classList.remove('error');
       el.tableStatus.textContent = state.fileName
-        ? `${formatNumber(state.filteredPosts.length)} постов`
-        : 'Выберите JSON-файл';
+        ? `${formatNumber(state.filteredPosts.length)} ${t('posts')}`
+        : t('chooseJson');
 
       if (!state.filteredPosts.length) {
-        el.postsBody.innerHTML = '<tr><td colspan="6" class="empty">Нет постов для выбранных фильтров</td></tr>';
+        const emptyMessage = state.fileName ? t('noPostsForFilters') : t('noLoadedData');
+        el.postsBody.innerHTML = `<tr><td colspan="6" class="empty">${escapeHtml(emptyMessage)}</td></tr>`;
         return;
       }
 
@@ -1212,12 +1701,13 @@
         const reactionsCount = sumReactions(post.reactions);
 
         return `
-          <tr>
+          <tr class="post-row ${isExpanded ? 'expanded' : ''}" data-post-id="${escapeAttribute(post.id)}" tabindex="0" aria-expanded="${isExpanded ? 'true' : 'false'}">
             <td>
-              <button class="post-title" type="button" data-post-id="${escapeAttribute(post.id)}">Post ${escapeHtml(post.id)}</button>
-              ${renderTelegramLink(post.link, 'Открыть пост')}
+              <span class="post-title">Post ${escapeHtml(post.id)}</span>
+              <span class="row-action">${isExpanded ? escapeHtml(t('collapse')) : escapeHtml(t('expand'))}</span>
+              ${renderTelegramLink(post.link, t('openInTg'))}
               ${renderMedia(post.mediaPath)}
-              <div class="text-preview">${escapeHtml(post.text || '[без текста]')}</div>
+              <div class="text-preview">${escapeHtml(post.text || t('noText'))}</div>
             </td>
             <td>${escapeHtml(formatDate(post.date))}</td>
             <td>${formatNumber(post.views || 0)}</td>
@@ -1235,14 +1725,14 @@
         <tr>
           <td colspan="6">
             <div class="post-detail">
-              <div class="post-full-text">${escapeHtml(post.text || '[без текста]')}</div>
+              <div class="post-full-text">${escapeHtml(post.text || t('noText'))}</div>
               ${renderMedia(post.mediaPath)}
               <div>
                 <span class="pill">post ${escapeHtml(post.id)}</span>
                 <span class="pill">${escapeHtml(formatDate(post.date))}</span>
-                <span class="pill">${formatNumber(post.views || 0)} просмотров</span>
-                <span class="pill">${formatNumber(comments.length)} комментариев</span>
-                ${renderTelegramLink(post.link, 'Открыть пост в Telegram')}
+                <span class="pill">${formatNumber(post.views || 0)} ${escapeHtml(t('viewsPill'))}</span>
+                <span class="pill">${formatNumber(comments.length)} ${escapeHtml(t('commentsPill'))}</span>
+                ${renderTelegramLink(post.link, t('openInTg'))}
               </div>
               <div class="comment-tree">
                 ${renderCommentTree(comments)}
@@ -1255,7 +1745,7 @@
 
     function renderCommentTree(comments) {
       if (!comments.length) {
-        return '<div class="empty">Комментариев нет</div>';
+        return `<div class="empty">${escapeHtml(t('noComments'))}</div>`;
       }
 
       const byId = new Map(comments.map((comment) => [comment.id, { ...comment, children: [] }]));
@@ -1293,29 +1783,49 @@
             <span class="pill">comment ${escapeHtml(comment.id)}</span>
             ${replyLabel}
             ${formatReactionList(comment.reactions)}
-            ${renderTelegramLink(comment.link, 'Открыть комментарий')}
+            ${renderTelegramLink(comment.link, t('openComment'))}
           </div>
           ${renderMedia(comment.mediaPath)}
-          <div class="comment-text">${escapeHtml(comment.text || '[без текста]')}</div>
+          <div class="comment-text">${escapeHtml(comment.text || t('noText'))}</div>
         </div>
         ${comment.children.map((child) => renderCommentNode(child, depth + 1)).join('')}
       `;
     }
 
     function handlePostsClick(event) {
-      const postButton = event.target.closest('[data-post-id]');
       const userButton = event.target.closest('[data-user-id]');
+      const postRow = event.target.closest('.post-row');
 
       if (userButton) {
         openUserDrawer(userButton.dataset.userId);
         return;
       }
 
-      if (postButton) {
-        const postId = postButton.dataset.postId;
-        state.expandedPostId = state.expandedPostId === postId ? null : postId;
-        renderPostsTable();
+      if (!postRow || event.target.closest('a, button, input, select, textarea')) {
+        return;
       }
+
+      togglePostRow(postRow.dataset.postId);
+    }
+
+    function handlePostsKeydown(event) {
+      if (event.key !== 'Enter' && event.key !== ' ') {
+        return;
+      }
+
+      const postRow = event.target.closest('.post-row');
+
+      if (!postRow) {
+        return;
+      }
+
+      event.preventDefault();
+      togglePostRow(postRow.dataset.postId);
+    }
+
+    function togglePostRow(postId) {
+      state.expandedPostId = state.expandedPostId === postId ? null : postId;
+      renderPostsTable();
     }
 
     function openUserDrawer(userId) {
@@ -1335,10 +1845,10 @@
         <div class="user-stats">
           <div class="user-stat"><span>User</span><strong>${escapeHtml(user.fullName || '-')}</strong></div>
           <div class="user-stat"><span>Id</span><strong>${escapeHtml(user.id)}</strong></div>
-          <div class="user-stat"><span>Комментарии</span><strong>${formatNumber(comments.length)}</strong></div>
+          <div class="user-stat"><span>${escapeHtml(t('userComments'))}</span><strong>${formatNumber(comments.length)}</strong></div>
           <div class="user-stat"><span>Username</span><strong>${escapeHtml(user.username ? `@${user.username}` : '-')}</strong></div>
-          <div class="user-stat"><span>Первый комментарий</span><strong>${escapeHtml(formatDate(first && first.date))}</strong></div>
-          <div class="user-stat"><span>Последний комментарий</span><strong>${escapeHtml(formatDate(last && last.date))}</strong></div>
+          <div class="user-stat"><span>${escapeHtml(t('firstComment'))}</span><strong>${escapeHtml(formatDate(first && first.date))}</strong></div>
+          <div class="user-stat"><span>${escapeHtml(t('lastComment'))}</span><strong>${escapeHtml(formatDate(last && last.date))}</strong></div>
         </div>
         <div class="comment-tree">
           ${comments.map((comment) => `
@@ -1347,10 +1857,10 @@
                 <span>${escapeHtml(formatDate(comment.date))}</span>
                 <button class="post-title" type="button" data-drawer-post-id="${escapeAttribute(comment.postId)}">Post ${escapeHtml(comment.postId)}</button>
                 <span class="pill">comment ${escapeHtml(comment.id)}</span>
-                ${renderTelegramLink(comment.link, 'Открыть комментарий')}
+                ${renderTelegramLink(comment.link, t('openComment'))}
               </div>
               ${renderMedia(comment.mediaPath)}
-              <div class="comment-text">${escapeHtml(comment.text || '[без текста]')}</div>
+              <div class="comment-text">${escapeHtml(comment.text || t('noText'))}</div>
             </div>
           `).join('')}
         </div>
@@ -1430,7 +1940,7 @@
           el.appVersion.textContent = `v${data.version}`;
         }
       } catch (_error) {
-        el.appVersion.textContent = 'v1.0.0';
+        el.appVersion.textContent = 'v1.1.0';
       }
     }
 
@@ -1456,7 +1966,7 @@
 
     async function saveConfig() {
       el.saveConfig.disabled = true;
-      el.exportStatus.textContent = 'Сохранение .env...';
+      el.exportStatus.textContent = t('saveEnvProgress');
 
       try {
         const response = await fetch('/api/config', {
@@ -1469,13 +1979,13 @@
         const data = await response.json();
 
         if (!response.ok || !data.ok) {
-          throw new Error(data.error || 'Не удалось сохранить .env');
+          throw new Error(data.error || t('saveEnvFailed'));
         }
 
         fillConfigForm(data.config || {});
-        el.exportStatus.textContent = '.env сохранён';
+        el.exportStatus.textContent = t('envSaved');
       } catch (error) {
-        el.exportStatus.textContent = `Ошибка: ${error.message}`;
+        el.exportStatus.textContent = `${t('error')}: ${error.message}`;
       } finally {
         el.saveConfig.disabled = false;
       }
@@ -1492,13 +2002,14 @@
       };
 
       if (!payload.channel) {
-        el.exportStatus.textContent = 'Укажите канал';
+        el.exportStatus.textContent = t('channelRequired');
         return;
       }
 
       el.startExport.disabled = true;
-      el.exportStatus.textContent = 'Запуск...';
-      el.exportProgress.textContent = 'Запуск экспорта...';
+      el.exportStatus.textContent = t('starting');
+      el.exportProgress.textContent = t('exportStarting');
+      el.exportProgress.dataset.touched = 'true';
 
       try {
         const response = await fetch('/api/export/start', {
@@ -1511,12 +2022,12 @@
         const data = await response.json();
 
         if (!response.ok || !data.ok) {
-          throw new Error(data.error || 'Не удалось запустить экспорт');
+          throw new Error(data.error || t('exportStartFailed'));
         }
 
         pollExportStatus();
       } catch (error) {
-        el.exportStatus.textContent = `Ошибка: ${error.message}`;
+        el.exportStatus.textContent = `${t('error')}: ${error.message}`;
         el.startExport.disabled = false;
       }
     }
@@ -1531,28 +2042,28 @@
           window.setTimeout(pollExportStatus, 1500);
         }
       } catch (error) {
-        el.exportStatus.textContent = `Ошибка статуса: ${error.message}`;
+        el.exportStatus.textContent = `${t('statusError')}: ${error.message}`;
         el.startExport.disabled = false;
       }
     }
 
     function renderExportStatus(data) {
       const lines = data.lines || [];
-      el.exportProgress.textContent = lines.length ? lines.join('\n') : 'Нет логов';
+      el.exportProgress.textContent = lines.length ? lines.join('\n') : t('noLogs');
       el.exportProgress.scrollTop = el.exportProgress.scrollHeight;
 
       if (data.running) {
-        el.exportStatus.textContent = 'Экспорт выполняется';
+        el.exportStatus.textContent = t('exportRunning');
         el.startExport.disabled = true;
         return;
       }
 
       if (data.returncode === null || data.returncode === undefined) {
-        el.exportStatus.textContent = 'Готово';
+        el.exportStatus.textContent = t('ready');
       } else if (data.returncode === 0) {
-        el.exportStatus.textContent = 'Экспорт завершён';
+        el.exportStatus.textContent = t('exportDone');
       } else {
-        el.exportStatus.textContent = `Экспорт завершился с ошибкой ${data.returncode}`;
+        el.exportStatus.textContent = `${t('exportFailed')} ${data.returncode}`;
       }
 
       el.startExport.disabled = false;
@@ -1560,7 +2071,7 @@
 
     function populateEmojiFilter() {
       const emojis = getTopEmoji(state.posts, state.comments).map((item) => item.label);
-      el.filterEmoji.innerHTML = '<option value="">Все</option>' + emojis
+      el.filterEmoji.innerHTML = `<option value="">${escapeHtml(t('all'))}</option>` + emojis
         .map((emoji) => `<option value="${escapeAttribute(emoji)}">${escapeHtml(emoji)}</option>`)
         .join('');
     }
@@ -1677,7 +2188,7 @@
         return `<div class="media-preview"><audio src="${safeUrl}" controls preload="metadata"></audio></div>`;
       }
 
-      return `<div class="media-preview"><a class="telegram-link" href="${safeUrl}" target="_blank" rel="noopener noreferrer">Открыть медиа</a></div>`;
+      return `<div class="media-preview"><a class="telegram-link" href="${safeUrl}" target="_blank" rel="noopener noreferrer">${escapeHtml(t('openMedia'))}</a></div>`;
     }
 
     function normalizeMediaUrl(path) {

@@ -4,6 +4,7 @@ sessions/*
 data/*.json
 data/raw/*
 !data/raw/.gitkeep
+!data/raw/AGENTS.md
 data/analysis/*
 !data/analysis/.gitkeep
 data/content/*

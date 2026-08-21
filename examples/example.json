@@ -1,0 +1,213 @@
+[
+  {
+    "post_id": 1003,
+    "post_date": "2026-07-10 12:00:00+00:00",
+    "post_text": "We released a new TG version with incremental export, media support, and an updated dashboard.",
+    "post_views": 18420,
+    "post_forwards": 96,
+    "post_link": "https://t.me/demo_channel/1003",
+    "post_media": null,
+    "post_reactions": [
+      {
+        "emoji": "🔥",
+        "count": 147
+      },
+      {
+        "emoji": "👍",
+        "count": 89
+      },
+      {
+        "emoji": "❤️",
+        "count": 31
+      }
+    ],
+    "comments": [
+      {
+        "comment_id": 7001,
+        "comment_date": "2026-07-10 12:05:10+00:00",
+        "comment_text": "Incremental mode saves a lot of time on large channels.",
+        "comment_link": "https://t.me/demo_comments/7001",
+        "comment_media": null,
+        "reply_to_msg_id": null,
+        "comment_reactions": [
+          {
+            "emoji": "👍",
+            "count": 12
+          }
+        ],
+        "user": {
+          "user_id": 101,
+          "username": "data_maker",
+          "first_name": "Alice",
+          "last_name": "Morgan",
+          "bot": false,
+          "premium": true
+        }
+      },
+      {
+        "comment_id": 7002,
+        "comment_date": "2026-07-10 12:07:44+00:00",
+        "comment_text": "Can we export directly to Parquet for analytics workflows?",
+        "comment_link": "https://t.me/demo_comments/7002",
+        "comment_media": null,
+        "reply_to_msg_id": 7001,
+        "comment_reactions": [
+          {
+            "emoji": "🔥",
+            "count": 5
+          }
+        ],
+        "user": {
+          "user_id": 102,
+          "username": "analytics_pro",
+          "first_name": "Maria",
+          "last_name": "Stone",
+          "bot": false,
+          "premium": false
+        }
+      },
+      {
+        "comment_id": 7003,
+        "comment_date": "2026-07-10 12:11:03+00:00",
+        "comment_text": "Yes, Parquet export is available with the export parquet command.",
+        "comment_link": "https://t.me/demo_comments/7003",
+        "comment_media": null,
+        "reply_to_msg_id": 7002,
+        "comment_reactions": [],
+        "user": {
+          "user_id": 103,
+          "username": "tg_admin",
+          "first_name": "TG",
+          "last_name": "Admin",
+          "bot": false,
+          "premium": false
+        }
+      }
+    ]
+  },
+  {
+    "post_id": 1002,
+    "post_date": "2026-07-09 18:30:00+00:00",
+    "post_text": "The Web UI can now start exports directly from the browser and show live progress.",
+    "post_views": 12670,
+    "post_forwards": 41,
+    "post_link": "https://t.me/demo_channel/1002",
+    "post_media": "data/content/example/post_1002/photo.jpg",
+    "post_reactions": [
+      {
+        "emoji": "👍",
+        "count": 104
+      },
+      {
+        "emoji": "👏",
+        "count": 27
+      }
+    ],
+    "comments": [
+      {
+        "comment_id": 6901,
+        "comment_date": "2026-07-09 18:32:12+00:00",
+        "comment_text": "The export tab is useful because I can watch progress without opening a terminal.",
+        "comment_link": "https://t.me/demo_comments/6901",
+        "comment_media": null,
+        "reply_to_msg_id": null,
+        "comment_reactions": [
+          {
+            "emoji": "👏",
+            "count": 8
+          }
+        ],
+        "user": {
+          "user_id": 104,
+          "username": "ui_researcher",
+          "first_name": "Daniel",
+          "last_name": null,
+          "bot": false,
+          "premium": false
+        }
+      },
+      {
+        "comment_id": 6902,
+        "comment_date": "2026-07-09 18:35:21+00:00",
+        "comment_text": "Search by emoji and reply-only filtering would be helpful for moderation reviews.",
+        "comment_link": "https://t.me/demo_comments/6902",
+        "comment_media": null,
+        "reply_to_msg_id": null,
+        "comment_reactions": [
+          {
+            "emoji": "👍",
+            "count": 3
+          }
+        ],
+        "user": {
+          "user_id": 102,
+          "username": "analytics_pro",
+          "first_name": "Maria",
+          "last_name": "Stone",
+          "bot": false,
+          "premium": false
+        }
+      }
+    ]
+  },
+  {
+    "post_id": 1001,
+    "post_date": "2026-07-08 09:15:00+00:00",
+    "post_text": "First test export of Telegram channel comments.",
+    "post_views": 9021,
+    "post_forwards": 18,
+    "post_link": "https://t.me/demo_channel/1001",
+    "post_media": null,
+    "post_reactions": [
+      {
+        "emoji": "❤️",
+        "count": 52
+      },
+      {
+        "emoji": "👍",
+        "count": 44
+      }
+    ],
+    "comments": [
+      {
+        "comment_id": 6801,
+        "comment_date": "2026-07-08 09:18:00+00:00",
+        "comment_text": "The JSON file opened in the dashboard without any conversion.",
+        "comment_link": "https://t.me/demo_comments/6801",
+        "comment_media": null,
+        "reply_to_msg_id": null,
+        "comment_reactions": [
+          {
+            "emoji": "❤️",
+            "count": 6
+          }
+        ],
+        "user": {
+          "user_id": 101,
+          "username": "data_maker",
+          "first_name": "Alice",
+          "last_name": "Morgan",
+          "bot": false,
+          "premium": true
+        }
+      },
+      {
+        "comment_id": 6802,
+        "comment_date": "2026-07-08 09:22:36+00:00",
+        "comment_text": "A Markdown LLM report for each exported dataset would make this great for research notes.",
+        "comment_link": "https://t.me/demo_comments/6802",
+        "comment_media": null,
+        "reply_to_msg_id": 6801,
+        "comment_reactions": [],
+        "user": {
+          "user_id": 105,
+          "username": "ml_builder",
+          "first_name": "Oliver",
+          "last_name": "Reed",
+          "bot": false,
+          "premium": false
+        }
+      }
+    ]
+  }
+]
