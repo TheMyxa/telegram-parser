@@ -1,0 +1,87 @@
+{
+  "repository": "TheMyxa/telegram-parser",
+  "collected_at": "2026-08-26T18:21:25.754394+00:00",
+  "period": "last_14_days",
+  "views": {
+    "count": 418,
+    "uniques": 18
+  },
+  "clones": {
+    "count": 13,
+    "uniques": 7
+  },
+  "top_referrers": [
+    {
+      "referrer": "github.com",
+      "count": 23,
+      "uniques": 7
+    },
+    {
+      "referrer": "noref.site",
+      "count": 1,
+      "uniques": 1
+    }
+  ],
+  "popular_paths": [
+    {
+      "path": "/TheMyxa/telegram-parser",
+      "title": "Overview",
+      "count": 96,
+      "uniques": 18
+    },
+    {
+      "path": "/TheMyxa/telegram-parser/pulse",
+      "title": "/pulse",
+      "count": 36,
+      "uniques": 2
+    },
+    {
+      "path": "/TheMyxa/telegram-parser/community",
+      "title": "/community",
+      "count": 26,
+      "uniques": 1
+    },
+    {
+      "path": "/TheMyxa/telegram-parser/graphs/traffic",
+      "title": "/graphs/traffic",
+      "count": 26,
+      "uniques": 1
+    },
+    {
+      "path": "/TheMyxa/telegram-parser/graphs/community",
+      "title": "/graphs/community",
+      "count": 23,
+      "uniques": 1
+    },
+    {
+      "path": "/TheMyxa/telegram-parser/stargazers",
+      "title": "/stargazers",
+      "count": 19,
+      "uniques": 1
+    },
+    {
+      "path": "/TheMyxa/telegram-parser/graphs/commit-activity",
+      "title": "/graphs/commit-activity",
+      "count": 18,
+      "uniques": 1
+    },
+    {
+      "path": "/TheMyxa/telegram-parser/graphs/contributors",
+      "title": "/graphs/contributors",
+      "count": 16,
+      "uniques": 1
+    },
+    {
+      "path": "/TheMyxa/telegram-parser/actions/metrics/usage",
+      "title": "/actions/metrics/usage",
+      "count": 10,
+      "uniques": 1
+    },
+    {
+      "path": "/TheMyxa/telegram-parser/graphs/code-frequency",
+      "title": "/graphs/code-frequency",
+      "count": 10,
+      "uniques": 1
+    }
+  ]
+}
