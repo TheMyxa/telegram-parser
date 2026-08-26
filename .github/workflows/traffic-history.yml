@@ -1,0 +1,373 @@
+name: Save GitHub Traffic History
+
+on:
+  schedule:
+    # Каждый день в 03:27 UTC
+    - cron: '27 6 * * *'
+
+  # Возможность ручного запуска
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: traffic-history
+  cancel-in-progress: true
+
+jobs:
+  collect-traffic:
+    runs-on: ubuntu-latest
+
+    env:
+      REPO: ${{ github.repository }}
+      API_VERSION: 2026-03-10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # -----------------------------------------------------
+      # Получаем данные из GitHub Traffic API
+      # -----------------------------------------------------
+      - name: Download traffic data
+        shell: bash
+        env:
+          TRAFFIC_TOKEN: ${{ secrets.TRAFFIC_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p /tmp/traffic-api
+
+          curl --fail-with-body -sS -L \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${TRAFFIC_TOKEN}" \
+            -H "X-GitHub-Api-Version: ${API_VERSION}" \
+            "https://api.github.com/repos/${REPO}/traffic/views?per=day" \
+            > /tmp/traffic-api/views.json
+
+          curl --fail-with-body -sS -L \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${TRAFFIC_TOKEN}" \
+            -H "X-GitHub-Api-Version: ${API_VERSION}" \
+            "https://api.github.com/repos/${REPO}/traffic/clones?per=day" \
+            > /tmp/traffic-api/clones.json
+
+          curl --fail-with-body -sS -L \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${TRAFFIC_TOKEN}" \
+            -H "X-GitHub-Api-Version: ${API_VERSION}" \
+            "https://api.github.com/repos/${REPO}/traffic/popular/referrers" \
+            > /tmp/traffic-api/referrers.json
+
+          curl --fail-with-body -sS -L \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${TRAFFIC_TOKEN}" \
+            -H "X-GitHub-Api-Version: ${API_VERSION}" \
+            "https://api.github.com/repos/${REPO}/traffic/popular/paths" \
+            > /tmp/traffic-api/popular-paths.json
+
+      # -----------------------------------------------------
+      # Загружаем ранее накопленную статистику
+      # -----------------------------------------------------
+      - name: Restore traffic history
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf /tmp/traffic-history
+          mkdir -p /tmp/traffic-history/traffic
+
+          if git ls-remote --exit-code --heads origin traffic-history > /dev/null 2>&1; then
+            echo "Existing traffic-history branch found"
+
+            git fetch origin \
+              traffic-history:refs/remotes/origin/traffic-history
+
+            git archive origin/traffic-history | \
+              tar -x -C /tmp/traffic-history
+          else
+            echo "First run - traffic-history branch will be created"
+          fi
+
+          mkdir -p /tmp/traffic-history/traffic/snapshots
+
+      # -----------------------------------------------------
+      # Объединяем последние 14 дней со старым CSV
+      # -----------------------------------------------------
+      - name: Update traffic database
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python3 <<'PY'
+          import csv
+          import json
+          import os
+          from pathlib import Path
+          from datetime import datetime, timezone
+
+          repo = os.environ["REPO"]
+
+          api_dir = Path("/tmp/traffic-api")
+          root = Path("/tmp/traffic-history")
+          traffic_dir = root / "traffic"
+          traffic_dir.mkdir(parents=True, exist_ok=True)
+
+          csv_file = traffic_dir / "daily.csv"
+
+          def load_json(name):
+              with open(api_dir / name, "r", encoding="utf-8") as f:
+                  return json.load(f)
+
+          views = load_json("views.json")
+          clones = load_json("clones.json")
+          referrers = load_json("referrers.json")
+          paths = load_json("popular-paths.json")
+
+          # -------------------------------------------------
+          # Загружаем старые данные
+          # -------------------------------------------------
+
+          rows = {}
+
+          if csv_file.exists():
+              with open(csv_file, "r", encoding="utf-8", newline="") as f:
+                  reader = csv.DictReader(f)
+
+                  for row in reader:
+                      date = row["date"]
+
+                      rows[date] = {
+                          "date": date,
+                          "views": int(row.get("views", 0) or 0),
+                          "unique_visitors": int(
+                              row.get("unique_visitors", 0) or 0
+                          ),
+                          "clones": int(row.get("clones", 0) or 0),
+                          "unique_cloners": int(
+                              row.get("unique_cloners", 0) or 0
+                          ),
+                      }
+
+          # -------------------------------------------------
+          # Обновляем Views
+          # -------------------------------------------------
+
+          for item in views.get("views", []):
+              date = item["timestamp"][:10]
+
+              row = rows.setdefault(
+                  date,
+                  {
+                      "date": date,
+                      "views": 0,
+                      "unique_visitors": 0,
+                      "clones": 0,
+                      "unique_cloners": 0,
+                  },
+              )
+
+              row["views"] = int(item.get("count", 0))
+              row["unique_visitors"] = int(item.get("uniques", 0))
+
+          # -------------------------------------------------
+          # Обновляем Clones
+          # -------------------------------------------------
+
+          for item in clones.get("clones", []):
+              date = item["timestamp"][:10]
+
+              row = rows.setdefault(
+                  date,
+                  {
+                      "date": date,
+                      "views": 0,
+                      "unique_visitors": 0,
+                      "clones": 0,
+                      "unique_cloners": 0,
+                  },
+              )
+
+              row["clones"] = int(item.get("count", 0))
+              row["unique_cloners"] = int(item.get("uniques", 0))
+
+          # -------------------------------------------------
+          # Перезаписываем CSV
+          # -------------------------------------------------
+
+          fieldnames = [
+              "date",
+              "views",
+              "unique_visitors",
+              "clones",
+              "unique_cloners",
+          ]
+
+          with open(csv_file, "w", encoding="utf-8", newline="") as f:
+              writer = csv.DictWriter(f, fieldnames=fieldnames)
+              writer.writeheader()
+
+              for date in sorted(rows):
+                  writer.writerow(rows[date])
+
+          # -------------------------------------------------
+          # Snapshot
+          # -------------------------------------------------
+
+          now = datetime.now(timezone.utc)
+          today = now.strftime("%Y-%m-%d")
+
+          snapshot_dir = traffic_dir / "snapshots" / today
+          snapshot_dir.mkdir(parents=True, exist_ok=True)
+
+          with open(
+              snapshot_dir / "referrers.json",
+              "w",
+              encoding="utf-8",
+          ) as f:
+              json.dump(
+                  referrers,
+                  f,
+                  indent=2,
+                  ensure_ascii=False,
+              )
+
+          with open(
+              snapshot_dir / "popular-paths.json",
+              "w",
+              encoding="utf-8",
+          ) as f:
+              json.dump(
+                  paths,
+                  f,
+                  indent=2,
+                  ensure_ascii=False,
+              )
+
+          # -------------------------------------------------
+          # Latest 14-day statistics
+          # -------------------------------------------------
+
+          latest = {
+              "repository": repo,
+              "collected_at": now.isoformat(),
+              "period": "last_14_days",
+              "views": {
+                  "count": views.get("count", 0),
+                  "uniques": views.get("uniques", 0),
+              },
+              "clones": {
+                  "count": clones.get("count", 0),
+                  "uniques": clones.get("uniques", 0),
+              },
+              "top_referrers": referrers,
+              "popular_paths": paths,
+          }
+
+          with open(
+              traffic_dir / "latest.json",
+              "w",
+              encoding="utf-8",
+          ) as f:
+              json.dump(
+                  latest,
+                  f,
+                  indent=2,
+                  ensure_ascii=False,
+              )
+
+          # -------------------------------------------------
+          # Итоговая статистика
+          # -------------------------------------------------
+
+          dates = sorted(rows)
+
+          summary = {
+              "repository": repo,
+              "first_recorded_date": dates[0] if dates else None,
+              "last_recorded_date": dates[-1] if dates else None,
+              "recorded_days": len(dates),
+              "total_views": sum(
+                  r["views"] for r in rows.values()
+              ),
+              "total_clones": sum(
+                  r["clones"] for r in rows.values()
+              ),
+              "note": (
+                  "unique_visitors and unique_cloners are not summed "
+                  "because the same user may appear on multiple days"
+              ),
+          }
+
+          with open(
+              traffic_dir / "summary.json",
+              "w",
+              encoding="utf-8",
+          ) as f:
+              json.dump(
+                  summary,
+                  f,
+                  indent=2,
+                  ensure_ascii=False,
+              )
+
+          print("Traffic history updated")
+          print(f"Days stored: {len(rows)}")
+          print(f"Total recorded views: {summary['total_views']}")
+          print(f"Total recorded clones: {summary['total_clones']}")
+          PY
+
+      # -----------------------------------------------------
+      # Публикуем данные в отдельную ветку
+      # -----------------------------------------------------
+      - name: Publish traffic-history branch
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git remote set-url origin \
+            "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+
+          if git ls-remote --exit-code --heads origin traffic-history > /dev/null 2>&1; then
+
+            git fetch origin \
+              traffic-history:refs/remotes/origin/traffic-history
+
+            git switch -C \
+              traffic-history \
+              origin/traffic-history
+
+          else
+
+            git switch --orphan traffic-history
+
+            git rm -rf . > /dev/null 2>&1 || true
+
+          fi
+
+          rm -rf traffic
+
+          cp -a \
+            /tmp/traffic-history/traffic \
+            ./traffic
+
+          git add traffic
+
+          if git diff --cached --quiet; then
+            echo "No traffic changes"
+            exit 0
+          fi
+
+          git commit \
+            -m "chore: update GitHub traffic history"
+
+          git push origin HEAD:traffic-history
