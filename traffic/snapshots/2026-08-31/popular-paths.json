@@ -1,0 +1,62 @@
+[
+  {
+    "path": "/TheMyxa/telegram-parser",
+    "title": "Overview",
+    "count": 147,
+    "uniques": 20
+  },
+  {
+    "path": "/TheMyxa/telegram-parser/pulse",
+    "title": "/pulse",
+    "count": 40,
+    "uniques": 2
+  },
+  {
+    "path": "/TheMyxa/telegram-parser/graphs/traffic",
+    "title": "/graphs/traffic",
+    "count": 32,
+    "uniques": 1
+  },
+  {
+    "path": "/TheMyxa/telegram-parser/community",
+    "title": "/community",
+    "count": 30,
+    "uniques": 1
+  },
+  {
+    "path": "/TheMyxa/telegram-parser/graphs/community",
+    "title": "/graphs/community",
+    "count": 26,
+    "uniques": 1
+  },
+  {
+    "path": "/TheMyxa/telegram-parser/stargazers",
+    "title": "/stargazers",
+    "count": 20,
+    "uniques": 1
+  },
+  {
+    "path": "/TheMyxa/telegram-parser/tree/star-history",
+    "title": "/tree/star-history",
+    "count": 20,
+    "uniques": 1
+  },
+  {
+    "path": "/TheMyxa/telegram-parser/graphs/commit-activity",
+    "title": "/graphs/commit-activity",
+    "count": 19,
+    "uniques": 1
+  },
+  {
+    "path": "/TheMyxa/telegram-parser/graphs/contributors",
+    "title": "/graphs/contributors",
+    "count": 17,
+    "uniques": 1
+  },
+  {
+    "path": "/TheMyxa/telegram-parser/tree/master",
+    "title": "/tree/master",
+    "count": 16,
+    "uniques": 1
+  }
+]

@@ -1,20 +1,20 @@
 {
   "repository": "TheMyxa/telegram-parser",
-  "collected_at": "2026-08-30T12:04:29.241487+00:00",
+  "collected_at": "2026-08-31T14:13:07.926887+00:00",
   "period": "last_14_days",
   "views": {
-    "count": 516,
-    "uniques": 18
+    "count": 577,
+    "uniques": 20
   },
   "clones": {
-    "count": 35,
-    "uniques": 17
+    "count": 38,
+    "uniques": 18
   },
   "top_referrers": [
     {
       "referrer": "github.com",
-      "count": 27,
-      "uniques": 7
+      "count": 30,
+      "uniques": 8
     },
     {
       "referrer": "noref.site",
@@ -26,61 +26,61 @@
     {
       "path": "/TheMyxa/telegram-parser",
       "title": "Overview",
-      "count": 121,
-      "uniques": 18
+      "count": 147,
+      "uniques": 20
     },
     {
       "path": "/TheMyxa/telegram-parser/pulse",
       "title": "/pulse",
-      "count": 38,
+      "count": 40,
       "uniques": 2
     },
     {
       "path": "/TheMyxa/telegram-parser/graphs/traffic",
       "title": "/graphs/traffic",
-      "count": 29,
+      "count": 32,
       "uniques": 1
     },
     {
       "path": "/TheMyxa/telegram-parser/community",
       "title": "/community",
-      "count": 27,
+      "count": 30,
       "uniques": 1
     },
     {
       "path": "/TheMyxa/telegram-parser/graphs/community",
       "title": "/graphs/community",
-      "count": 23,
+      "count": 26,
       "uniques": 1
     },
     {
       "path": "/TheMyxa/telegram-parser/stargazers",
       "title": "/stargazers",
-      "count": 19,
-      "uniques": 1
-    },
-    {
-      "path": "/TheMyxa/telegram-parser/graphs/commit-activity",
-      "title": "/graphs/commit-activity",
-      "count": 18,
-      "uniques": 1
-    },
-    {
-      "path": "/TheMyxa/telegram-parser/graphs/contributors",
-      "title": "/graphs/contributors",
-      "count": 16,
+      "count": 20,
       "uniques": 1
     },
     {
       "path": "/TheMyxa/telegram-parser/tree/star-history",
       "title": "/tree/star-history",
-      "count": 15,
+      "count": 20,
+      "uniques": 1
+    },
+    {
+      "path": "/TheMyxa/telegram-parser/graphs/commit-activity",
+      "title": "/graphs/commit-activity",
+      "count": 19,
+      "uniques": 1
+    },
+    {
+      "path": "/TheMyxa/telegram-parser/graphs/contributors",
+      "title": "/graphs/contributors",
+      "count": 17,
       "uniques": 1
     },
     {
       "path": "/TheMyxa/telegram-parser/tree/master",
       "title": "/tree/master",
-      "count": 14,
+      "count": 16,
       "uniques": 1
     }
   ]
