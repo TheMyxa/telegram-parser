@@ -1,14 +1,14 @@
 {
   "repository": "TheMyxa/telegram-parser",
-  "collected_at": "2026-09-02T11:32:51.373469+00:00",
+  "collected_at": "2026-09-03T11:29:07.144416+00:00",
   "period": "last_14_days",
   "views": {
-    "count": 470,
+    "count": 447,
     "uniques": 15
   },
   "clones": {
-    "count": 43,
-    "uniques": 19
+    "count": 55,
+    "uniques": 25
   },
   "top_referrers": [
     {
@@ -31,13 +31,13 @@
     {
       "path": "/TheMyxa/telegram-parser",
       "title": "Overview",
-      "count": 133,
+      "count": 134,
       "uniques": 15
     },
     {
       "path": "/TheMyxa/telegram-parser/pulse",
       "title": "/pulse",
-      "count": 30,
+      "count": 27,
       "uniques": 2
     },
     {
@@ -49,25 +49,25 @@
     {
       "path": "/TheMyxa/telegram-parser/tree/star-history",
       "title": "/tree/star-history",
-      "count": 23,
+      "count": 24,
       "uniques": 1
     },
     {
       "path": "/TheMyxa/telegram-parser/tree/star-history/assets",
       "title": "/tree/star-history/assets",
-      "count": 20,
+      "count": 21,
       "uniques": 1
     },
     {
       "path": "/TheMyxa/telegram-parser/blob/star-history/assets/star-history-dark.svg",
       "title": "/blob/star-history/assets/star-history-dark.svg",
-      "count": 18,
+      "count": 19,
       "uniques": 1
     },
     {
       "path": "/TheMyxa/telegram-parser/community",
       "title": "/community",
-      "count": 18,
+      "count": 16,
       "uniques": 1
     },
     {
@@ -79,14 +79,14 @@
     {
       "path": "/TheMyxa/telegram-parser/graphs/community",
       "title": "/graphs/community",
-      "count": 15,
+      "count": 13,
       "uniques": 1
     },
     {
-      "path": "/TheMyxa/telegram-parser/stargazers",
-      "title": "/stargazers",
-      "count": 15,
-      "uniques": 1
+      "path": "/TheMyxa/telegram-parser/actions",
+      "title": "/actions",
+      "count": 11,
+      "uniques": 2
     }
   ]
 }
