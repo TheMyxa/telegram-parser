@@ -1,0 +1,62 @@
+[
+  {
+    "path": "/TheMyxa/telegram-parser",
+    "title": "Overview",
+    "count": 137,
+    "uniques": 15
+  },
+  {
+    "path": "/TheMyxa/telegram-parser/tree/star-history",
+    "title": "/tree/star-history",
+    "count": 24,
+    "uniques": 1
+  },
+  {
+    "path": "/TheMyxa/telegram-parser/pulse",
+    "title": "/pulse",
+    "count": 23,
+    "uniques": 2
+  },
+  {
+    "path": "/TheMyxa/telegram-parser/graphs/traffic",
+    "title": "/graphs/traffic",
+    "count": 23,
+    "uniques": 1
+  },
+  {
+    "path": "/TheMyxa/telegram-parser/tree/star-history/assets",
+    "title": "/tree/star-history/assets",
+    "count": 21,
+    "uniques": 1
+  },
+  {
+    "path": "/TheMyxa/telegram-parser/blob/star-history/assets/star-history-dark.svg",
+    "title": "/blob/star-history/assets/star-history-dark.svg",
+    "count": 19,
+    "uniques": 1
+  },
+  {
+    "path": "/TheMyxa/telegram-parser/tree/master",
+    "title": "/tree/master",
+    "count": 16,
+    "uniques": 1
+  },
+  {
+    "path": "/TheMyxa/telegram-parser/community",
+    "title": "/community",
+    "count": 14,
+    "uniques": 1
+  },
+  {
+    "path": "/TheMyxa/telegram-parser/graphs/community",
+    "title": "/graphs/community",
+    "count": 12,
+    "uniques": 1
+  },
+  {
+    "path": "/TheMyxa/telegram-parser/actions",
+    "title": "/actions",
+    "count": 11,
+    "uniques": 2
+  }
+]
