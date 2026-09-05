@@ -21,10 +21,12 @@ CONFIG_KEYS = [
     "API_ID",
     "API_HASH",
     "CHANNEL",
+    "TELEGRAM_SESSION",
     "OUTPUT_FILE",
     "POST_LIMIT",
-    "PAUSE_AFTER_500_POSTS_SECONDS",
-    "PAUSE_AFTER_1000_POSTS_SECONDS",
+    "INCREMENTAL_LOOKBACK_POSTS",
+    "POSTS_PAUSE_SECONDS",
+    "POSTS_PAUSE_AFTER_POSTS",
     "POSTGRES_HOST",
     "POSTGRES_PORT",
     "POSTGRES_DB",
@@ -37,8 +39,9 @@ CONFIG_KEYS = [
 INT_CONFIG_KEYS = {
     "API_ID",
     "POST_LIMIT",
-    "PAUSE_AFTER_500_POSTS_SECONDS",
-    "PAUSE_AFTER_1000_POSTS_SECONDS",
+    "INCREMENTAL_LOOKBACK_POSTS",
+    "POSTS_PAUSE_SECONDS",
+    "POSTS_PAUSE_AFTER_POSTS",
     "POSTGRES_PORT",
 }
 EXPORT_JOB = {
@@ -48,6 +51,11 @@ EXPORT_JOB = {
     "finished_at": None,
     "command": [],
     "lines": [],
+    "current_channel": None,
+    "completed_channels": [],
+    "failed_channels": [],
+    "last_error": None,
+    "summary": None,
 }
 EXPORT_LOCK = threading.Lock()
 
@@ -186,8 +194,8 @@ def start_export_job(payload):
 
     channel = str(payload.get("channel") or os.getenv("CHANNEL", "")).strip()
 
-    if not channel:
-        raise ValueError("Channel is required")
+    if not parse_channel_list(channel):
+        raise ValueError("At least one channel is required")
 
     command = [sys.executable, "main.py", "export", export_format]
 
@@ -214,22 +222,44 @@ def start_export_job(payload):
             "started_at": time.time(),
             "finished_at": None,
             "command": command,
-            "lines": [f"Starting export for channel {channel}: {' '.join(command)}"],
+            "lines": [f"Starting export for channel(s) {channel}: {' '.join(command)}"],
+            "current_channel": None,
+            "completed_channels": [],
+            "failed_channels": [],
+            "last_error": None,
+            "summary": None,
         })
 
-    process = subprocess.Popen(
-        command,
-        cwd=str(ROOT),
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-    )
+    try:
+        process = subprocess.Popen(
+            command,
+            cwd=str(ROOT),
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+    except OSError as e:
+        with EXPORT_LOCK:
+            EXPORT_JOB["running"] = False
+            EXPORT_JOB["returncode"] = -1
+            EXPORT_JOB["finished_at"] = time.time()
+            EXPORT_JOB["last_error"] = str(e)
+            EXPORT_JOB["lines"].append(f"Failed to start export: {e}")
+        raise RuntimeError(f"Failed to start export: {e}") from e
 
     thread = threading.Thread(target=watch_export_process, args=(process,), daemon=True)
     thread.start()
+
+
+def parse_channel_list(value):
+    return [
+        item.strip()
+        for item in value.replace("\n", ",").replace(";", ",").split(",")
+        if item.strip()
+    ]
 
 
 def parse_env_file(path=ENV_FILE):
@@ -349,6 +379,49 @@ def append_export_line(line):
     with EXPORT_LOCK:
         EXPORT_JOB["lines"].append(line)
         EXPORT_JOB["lines"] = EXPORT_JOB["lines"][-500:]
+        update_export_status_from_line(line)
+
+
+def update_export_status_from_line(line):
+    if line.startswith("Channel:"):
+        EXPORT_JOB["current_channel"] = line.removeprefix("Channel:").strip()
+        return
+
+    if line.startswith("CHANNEL_STATUS "):
+        payload = parse_status_payload(line, "CHANNEL_STATUS ")
+
+        if not payload:
+            return
+
+        channel = payload.get("channel")
+
+        if payload.get("ok"):
+            if channel and channel not in EXPORT_JOB["completed_channels"]:
+                EXPORT_JOB["completed_channels"].append(channel)
+        elif channel and channel not in EXPORT_JOB["failed_channels"]:
+            EXPORT_JOB["failed_channels"].append(channel)
+
+        errors = payload.get("errors") or []
+
+        if errors:
+            EXPORT_JOB["last_error"] = errors[-1]
+
+        return
+
+    if line.startswith("EXPORT_SUMMARY "):
+        payload = parse_status_payload(line, "EXPORT_SUMMARY ")
+
+        if payload:
+            EXPORT_JOB["summary"] = payload
+            failed_channels = payload.get("failed_channels") or []
+            EXPORT_JOB["failed_channels"] = failed_channels
+
+
+def parse_status_payload(line, prefix):
+    try:
+        return json.loads(line.removeprefix(prefix))
+    except json.JSONDecodeError:
+        return None
 
 
 def get_export_status():
@@ -360,6 +433,11 @@ def get_export_status():
             "finished_at": EXPORT_JOB["finished_at"],
             "command": EXPORT_JOB["command"],
             "lines": EXPORT_JOB["lines"],
+            "current_channel": EXPORT_JOB["current_channel"],
+            "completed_channels": EXPORT_JOB["completed_channels"],
+            "failed_channels": EXPORT_JOB["failed_channels"],
+            "last_error": EXPORT_JOB["last_error"],
+            "summary": EXPORT_JOB["summary"],
         }
 
 

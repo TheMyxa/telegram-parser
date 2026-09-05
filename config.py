@@ -43,17 +43,31 @@ def get_required_int(name):
     return int(get_required(name))
 
 
+def parse_list(value):
+    return [
+        item.strip()
+        for item in value.replace("\n", ",").replace(";", ",").split(",")
+        if item.strip()
+    ]
+
+
 load_dotenv()
 
 API_ID = get_required_int("API_ID")
 API_HASH = get_required("API_HASH")
 
 CHANNEL = get_required("CHANNEL")
+CHANNELS = parse_list(CHANNEL)
+TELEGRAM_SESSION = os.getenv("TELEGRAM_SESSION", "sessions/session")
 OUTPUT_FILE = os.getenv("OUTPUT_FILE", "data/raw/export.json")
 
 POST_LIMIT = get_int("POST_LIMIT", 500)
-PAUSE_AFTER_500_POSTS_SECONDS = get_int("PAUSE_AFTER_500_POSTS_SECONDS", 30)
-PAUSE_AFTER_1000_POSTS_SECONDS = get_int("PAUSE_AFTER_1000_POSTS_SECONDS", 60)
+INCREMENTAL_LOOKBACK_POSTS = get_int("INCREMENTAL_LOOKBACK_POSTS", 50)
+POSTS_PAUSE_SECONDS = get_int(
+    "POSTS_PAUSE_SECONDS",
+    get_int("PAUSE_AFTER_500_POSTS_SECONDS", get_int("PAUSE_AFTER_1000_POSTS_SECONDS", 30)),
+)
+POSTS_PAUSE_AFTER_POSTS = get_int("POSTS_PAUSE_AFTER_POSTS", 500)
 
 POSTGRES_HOST = os.getenv("POSTGRES_HOST", "localhost")
 POSTGRES_PORT = get_int("POSTGRES_PORT", 5432)
