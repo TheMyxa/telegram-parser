@@ -11,12 +11,30 @@ from config import LLM_ENDPOINT, LLM_MODEL
 
 RAW_DIR = Path("data/raw")
 ANALYSIS_DIR = Path("data/analysis")
+PROMPTS_DIR = Path("prompts")
+DEFAULT_PROMPT_LANGUAGE = "ru"
+PROMPT_FILES = {
+    "ru": "llm_ru.json",
+    "en": "llm_en.json",
+    "zh": "llm_zh.json",
+}
 
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description="Analyze exported Telegram comments with an LLM endpoint.")
     parser.add_argument("file", help="JSON file name from data/raw or a direct path to a JSON file.")
     parser.add_argument("--limit", type=int, default=None, help="Analyze only first N posts.")
+    parser.add_argument(
+        "--language",
+        choices=tuple(PROMPT_FILES),
+        default=None,
+        help="Prompt language shortcut: ru, en, or zh. Default: ru.",
+    )
+    parser.add_argument(
+        "--prompt-file",
+        default=None,
+        help="Path to a prompt JSON file. Overrides --language.",
+    )
     return parser.parse_args(argv)
 
 
@@ -39,7 +57,63 @@ def build_output_path(input_path):
     return ANALYSIS_DIR / f"analysis_{input_path.name}"
 
 
-def build_prompt(post):
+def resolve_prompt_path(prompt_file=None, language=None):
+    if prompt_file:
+        path = Path(prompt_file)
+
+        if path.exists():
+            return path
+
+        prompts_path = PROMPTS_DIR / prompt_file
+
+        if prompts_path.exists():
+            return prompts_path
+
+        raise FileNotFoundError(f"Prompt file not found: {prompt_file}. Checked current path and {PROMPTS_DIR}.")
+
+    prompt_language = language or DEFAULT_PROMPT_LANGUAGE
+    return PROMPTS_DIR / PROMPT_FILES[prompt_language]
+
+
+def load_prompt_config(path):
+    with path.open("r", encoding="utf-8") as f:
+        config = json.load(f)
+
+    if not isinstance(config, dict):
+        raise RuntimeError(f"Prompt file must contain a JSON object: {path}")
+
+    for key in ("system", "user_template"):
+        if not isinstance(config.get(key), str) or not config[key].strip():
+            raise RuntimeError(f"Prompt file must contain non-empty string field '{key}': {path}")
+
+    if "{data}" not in config["user_template"]:
+        raise RuntimeError(f"Prompt user_template must contain '{{data}}' placeholder: {path}")
+
+    return config
+
+
+def write_json_atomic(data, path):
+    tmp_path = path.with_name(f"{path.name}.tmp")
+
+    with tmp_path.open("w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+    os.replace(tmp_path, path)
+
+
+def build_analysis_output(input_path, analyses, prompt_path=None, prompt_config=None):
+    return {
+        "source_file": str(input_path),
+        "prompt_file": str(prompt_path) if prompt_path else None,
+        "prompt_language": (prompt_config or {}).get("language"),
+        "llm_endpoint": LLM_ENDPOINT,
+        "llm_model": LLM_MODEL,
+        "posts_analyzed": len(analyses),
+        "analyses": analyses,
+    }
+
+
+def build_prompt(post, prompt_config):
     comments = post.get("comments") or []
     comments_payload = []
 
@@ -69,22 +143,17 @@ def build_prompt(post):
         "comments": comments_payload,
     }
 
-    return (
-        "Проанализируй Telegram-пост и комментарии к нему. "
-        "Верни краткий структурированный анализ на русском языке: "
-        "1) главная тема поста, 2) тональность обсуждения, 3) основные вопросы/темы в комментариях, "
-        "4) самые активные или заметные пользователи, 5) риски/негатив, 6) краткий вывод.\n\n"
-        f"Данные:\n{json.dumps(payload, ensure_ascii=False, indent=2)}"
-    )
+    data = json.dumps(payload, ensure_ascii=False, indent=2)
+    return prompt_config["user_template"].format(data=data)
 
 
-def call_llm(prompt):
+def call_llm(prompt, system_prompt):
     request_payload = {
         "model": LLM_MODEL,
         "messages": [
             {
                 "role": "system",
-                "content": "Ты аналитик Telegram-комментариев. Отвечай конкретно и структурированно.",
+                "content": system_prompt,
             },
             {
                 "role": "user",
@@ -148,25 +217,65 @@ def extract_analysis_text(response_json):
     return json.dumps(response_json, ensure_ascii=False, indent=2)
 
 
-def analyze_posts(posts, limit=None):
+def analyze_posts(posts, limit=None, input_path=None, output_path=None, prompt_path=None, prompt_config=None):
     selected_posts = posts[:limit] if limit else posts
     result = []
+    active_prompt_config = prompt_config or load_prompt_config(prompt_path or resolve_prompt_path())
 
     for index, post in enumerate(selected_posts, start=1):
+        if not isinstance(post, dict):
+            item = {
+                "post_id": None,
+                "post_date": None,
+                "comments_count": 0,
+                "analysis": None,
+                "raw_response": None,
+                "analysis_error": f"Post item at index {index} must be an object.",
+            }
+            result.append(item)
+
+            if input_path and output_path:
+                write_json_atomic(
+                    build_analysis_output(input_path, result, prompt_path, active_prompt_config),
+                    output_path,
+                )
+
+            continue
+
         post_id = post.get("post_id")
         comments_count = len(post.get("comments") or [])
         print(f"Analyzing post {post_id} ({index}/{len(selected_posts)}), comments: {comments_count}")
 
-        prompt = build_prompt(post)
-        llm_result = call_llm(prompt)
+        try:
+            prompt = build_prompt(post, active_prompt_config)
+            llm_result = call_llm(prompt, active_prompt_config["system"])
+            analysis = llm_result["analysis"]
+            raw_response = llm_result["raw_response"]
+            error = None
+        except Exception as e:
+            analysis = None
+            raw_response = None
+            error = str(e)
+            print(f"Error analyzing post {post_id}: {e}", file=sys.stderr)
 
-        result.append({
+        item = {
             "post_id": post_id,
             "post_date": post.get("post_date"),
             "comments_count": comments_count,
-            "analysis": llm_result["analysis"],
-            "raw_response": llm_result["raw_response"],
-        })
+            "analysis": analysis,
+            "raw_response": raw_response,
+        }
+
+        if error:
+            item["analysis_error"] = error
+
+        result.append(item)
+
+        if input_path and output_path:
+            write_json_atomic(
+                build_analysis_output(input_path, result, prompt_path, active_prompt_config),
+                output_path,
+            )
 
     return result
 
@@ -176,6 +285,8 @@ def main(args=None):
         args = parse_args()
     input_path = resolve_input_path(args.file)
     output_path = build_output_path(input_path)
+    prompt_path = resolve_prompt_path(args.prompt_file, args.language)
+    prompt_config = load_prompt_config(prompt_path)
 
     with input_path.open("r", encoding="utf-8") as f:
         posts = json.load(f)
@@ -183,17 +294,9 @@ def main(args=None):
     if not isinstance(posts, list):
         raise RuntimeError("Input JSON must be a list of posts.")
 
-    analyses = analyze_posts(posts, args.limit)
-    output = {
-        "source_file": str(input_path),
-        "llm_endpoint": LLM_ENDPOINT,
-        "llm_model": LLM_MODEL,
-        "posts_analyzed": len(analyses),
-        "analyses": analyses,
-    }
-
-    with output_path.open("w", encoding="utf-8") as f:
-        json.dump(output, f, ensure_ascii=False, indent=2)
+    analyses = analyze_posts(posts, args.limit, input_path, output_path, prompt_path, prompt_config)
+    output = build_analysis_output(input_path, analyses, prompt_path, prompt_config)
+    write_json_atomic(output, output_path)
 
     print(f"Done. Analysis saved to {output_path}")
 

@@ -2,20 +2,22 @@
 
 [Русский](README_ru.md) | [中文](README_cn.md)
 
-TG is a Telegram comments exporter and local analytics dashboard. It exports channel posts, discussion comments, reactions, media links, optional media files, and can update the same dataset incrementally.
+TG is a local-first Telegram comments exporter and analytics dashboard. It exports channel posts, discussion comments, reactions, links, optional media files, and can update existing datasets incrementally.
 
 ![Dashboard screenshot](docs/screenshots/dashboard.png)
 
 ## Features
 
 - Export Telegram channel posts and comments with Telethon.
-- Save data as `JSON`, `CSV`, `Parquet`, or into `PostgreSQL`.
-- Incremental export: remembers the last `post_id`, updates the existing dataset, and downloads only missing media.
+- Use one or more channels in `CHANNEL`, separated by commas.
+- Save exports as `JSON`, `CSV`, `Parquet`, or `PostgreSQL`.
+- True incremental export: scan new posts and revisit older exported posts to refresh comments, reactions, and counters.
 - Optional media download into `data/content/<dataset_name>/`.
 - Optional anonymization of `user_id`, `username`, `first_name`, and `last_name`.
 - Web UI on port `9595` with dashboard, post view, comment tree, filters, user profiles, and export launch screen.
-- LLM analyzer for exported JSON files.
-- Docker Compose setup for one-command local start.
+- LLM analyzer for exported JSON files with Russian, English, and Chinese prompt files.
+- MCP server for local automation through AI clients.
+- Docker Compose setup for local use.
 
 ## Screenshots
 
@@ -29,29 +31,30 @@ TG is a Telegram comments exporter and local analytics dashboard. It exports cha
 
 ## Demo JSON
 
-A small demo dataset is available at [examples/example.json](examples/example.json).
-
-Open the dashboard and upload this file to test charts, post details, users, reactions, links, and comment tree without connecting to Telegram.
+Use [examples/example.json](examples/example.json) to test the dashboard without connecting to Telegram.
 
 ## Project Structure
 
 ```text
 .
-├── main.py                    # Unified CLI: export, analyze, dashboard, config-check
+├── main.py                    # Unified CLI: export, analyze, dashboard, config-check, mcp
 ├── export_comments.py         # Telegram exporter
 ├── comments_dashboard.html    # Web dashboard
 ├── web_server.py              # Local web server and export API
+├── mcp_server.py              # MCP server for local exports and analysis
 ├── llm_analyzer.py            # LLM analysis for exported JSON
 ├── config.py                  # .env/config loader
 ├── docker-compose.yml         # Docker Compose services
 ├── anonymizer                 # Aliases for anonymized users
+├── prompts/                   # LLM prompt files
 ├── data/
 │   ├── raw/                   # Exported datasets
 │   ├── content/               # Downloaded media
 │   ├── analysis/              # LLM analysis output
 │   └── state/                 # Incremental export state
 └── examples/
-    └── demo_export.json       # Demo dataset
+    ├── example.json
+    └── demo_export.json
 ```
 
 ## Requirements
@@ -77,11 +80,13 @@ Edit `.env`:
 ```env
 API_ID=123456
 API_HASH=your_api_hash_here
-CHANNEL=your_channel
+CHANNEL=your_channel,another_channel
+TELEGRAM_SESSION=sessions/session
 OUTPUT_FILE=data/raw/export.json
 POST_LIMIT=500
-PAUSE_AFTER_500_POSTS_SECONDS=30
-PAUSE_AFTER_1000_POSTS_SECONDS=60
+INCREMENTAL_LOOKBACK_POSTS=50
+POSTS_PAUSE_SECONDS=30
+POSTS_PAUSE_AFTER_POSTS=500
 
 POSTGRES_HOST=host.docker.internal
 POSTGRES_PORT=5432
@@ -97,11 +102,14 @@ LLM_MODEL=local-model
 Important fields:
 
 - `API_ID`, `API_HASH`: Telegram API app credentials.
-- `CHANNEL`: channel username, for example `durov` or `https://t.me/durov`.
-- `POST_LIMIT`: how many latest posts to scan per export run.
-- `PAUSE_AFTER_500_POSTS_SECONDS`, `PAUSE_AFTER_1000_POSTS_SECONDS`: safety pauses.
+- `CHANNEL`: one or more channel usernames or links separated by commas, for example `durov,telegram`.
+- `TELEGRAM_SESSION`: Telethon session file path, usually inside `sessions/`.
+- `POST_LIMIT`: how many new/latest posts to scan per export run.
+- `INCREMENTAL_LOOKBACK_POSTS`: in incremental mode, how many already exported older posts to revisit at or below the saved `last_post_id`.
+- `POSTS_PAUSE_SECONDS`: pause duration in seconds.
+- `POSTS_PAUSE_AFTER_POSTS`: pause after every N processed posts.
 - `OUTPUT_FILE`: base output directory is taken from this path, usually `data/raw/export.json`.
-- `LLM_ENDPOINT`, `LLM_MODEL`: used only by `analyze`.
+- `LLM_ENDPOINT`, `LLM_MODEL`: used by `analyze`.
 
 ## Docker Usage
 
@@ -117,15 +125,10 @@ Open:
 http://localhost:9595
 ```
 
-Run CLI help:
+Run CLI commands:
 
 ```powershell
 docker compose run --rm cli --help
-```
-
-Check config:
-
-```powershell
 docker compose run --rm cli config-check
 ```
 
@@ -137,7 +140,7 @@ The project uses one CLI entrypoint:
 tg <command> [options]
 ```
 
-In Docker, use:
+In Docker:
 
 ```powershell
 docker compose run --rm cli <command> [options]
@@ -168,7 +171,7 @@ data/raw/<channel>_dataset.json
 data/state/<channel>_state.json
 ```
 
-It merges posts by `post_id`, merges comments by `comment_id`, refreshes counters and reactions, and keeps already downloaded media files.
+It scans posts newer than the saved `last_post_id` plus `INCREMENTAL_LOOKBACK_POSTS` already exported posts at or below that `last_post_id`. This refreshes counters, reactions, and comments on older posts that changed after a previous run. It merges posts by `post_id`, merges comments by `comment_id`, and keeps already downloaded media files.
 
 ### Export With Media
 
@@ -182,21 +185,11 @@ Media is saved to:
 data/content/<channel>_dataset/
 ```
 
-### Export CSV
+### Other Export Formats
 
 ```powershell
 docker compose run --rm cli export csv
-```
-
-### Export Parquet
-
-```powershell
 docker compose run --rm cli export parquet
-```
-
-### Export To PostgreSQL
-
-```powershell
 docker compose run --rm cli export postgresql
 ```
 
@@ -208,35 +201,61 @@ PostgreSQL settings are read from `.env`.
 docker compose run --rm cli export json --incremental --anonymize
 ```
 
-Aliases are loaded from:
-
-```text
-anonymizer
-```
-
-Use a custom file:
-
-```powershell
-docker compose run --rm cli export json --anonymize --anonymizer-file anonymizer
-```
+Aliases are loaded from `anonymizer`. Use `--anonymizer-file <path>` to pass a custom file.
 
 ### Analyze Exported JSON With LLM
 
 ```powershell
-docker compose run --rm cli analyze <file_name_from_data_raw>.json
-```
-
-Example:
-
-```powershell
 docker compose run --rm cli analyze durov_dataset.json --limit 10
 ```
+
+Use a built-in prompt language:
+
+```powershell
+docker compose run --rm cli analyze durov_dataset.json --limit 10 --language en
+docker compose run --rm cli analyze durov_dataset.json --limit 10 --language zh
+```
+
+Built-in prompt files:
+
+- `prompts/llm_ru.json`
+- `prompts/llm_en.json`
+- `prompts/llm_zh.json`
+
+Pass a custom prompt file:
+
+```powershell
+docker compose run --rm cli analyze durov_dataset.json --prompt-file prompts/llm_en.json
+```
+
+Prompt files are JSON objects with `system` and `user_template` fields. `user_template` must include `{data}`.
 
 Analysis files are saved to:
 
 ```text
 data/analysis/analysis_<source_file>.json
 ```
+
+### MCP Server
+
+Run a Model Context Protocol server over stdio:
+
+```powershell
+docker compose run --rm -i cli mcp
+```
+
+Local Python:
+
+```powershell
+python main.py mcp
+```
+
+The MCP server exposes tools for local automation:
+
+- `get_config_safe`: read non-secret config values with secrets masked.
+- `list_exports`, `get_export_summary`, `get_post`, `search_comments`: inspect JSON exports in `data/raw`.
+- `list_analysis_files`, `read_analysis`, `run_analysis`: work with LLM analysis files.
+- `start_export`, `get_export_process_status`: start and monitor a Telegram export. `start_export` requires `confirm=true`.
 
 ### Run Dashboard
 
@@ -250,7 +269,7 @@ The dashboard can:
 - show file name, posts, comments, unique users, reactions;
 - draw charts by day, top users, top emoji, discussed posts;
 - open a post and show comments as a tree;
-- filter by `user_id`, `username`, date range, emoji, media, and replies;
+- filter by user, date range, emoji, media, and replies;
 - open user details;
 - edit `.env` settings from the Export tab;
 - start exports from the browser and show progress.
@@ -270,6 +289,7 @@ python main.py --help
 python main.py config-check
 python main.py export json --incremental
 python main.py dashboard
+python main.py mcp
 ```
 
 ## Data Format
@@ -286,7 +306,7 @@ The main JSON format is a list of posts:
     "post_forwards": 10,
     "post_link": "https://t.me/channel/101",
     "post_media": null,
-    "post_reactions": [{"emoji": "🔥", "count": 12}],
+    "post_reactions": [{"emoji": "fire", "count": 12}],
     "comments": [
       {
         "comment_id": 501,
@@ -310,6 +330,8 @@ The main JSON format is a list of posts:
 ]
 ```
 
+When an exporter step fails but partial data can still be saved, posts may include optional `post_media_error` or `export_errors` fields, and comments may include `comment_media_error`.
+
 See [examples/example.json](examples/example.json) for a complete demo file.
 
 ## Notes About Telegram Limits
@@ -326,7 +348,7 @@ Recommended practice:
 
 ## Troubleshooting
 
-### Docker is not running
+### Docker Is Not Running
 
 Start Docker Desktop and run again:
 
@@ -334,7 +356,7 @@ Start Docker Desktop and run again:
 docker compose up --build dashboard
 ```
 
-### Missing API_ID or API_HASH
+### Missing API_ID Or API_HASH
 
 Check `.env`:
 
@@ -344,7 +366,7 @@ docker compose run --rm cli config-check
 
 ### First Telethon Login
 
-On first run Telethon may ask for phone/login code. The session is stored in:
+On first run Telethon may ask for phone/login code. The session file is configured with `TELEGRAM_SESSION` and is usually stored in:
 
 ```text
 sessions/

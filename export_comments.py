@@ -4,21 +4,25 @@ import csv
 import json
 import os
 import re
+import shutil
 from datetime import datetime
 from pathlib import Path
 
 from telethon import TelegramClient
-from telethon.errors import FloodWaitError
+from telethon.errors import FloodWaitError, RPCError
 from telethon.tl.functions.messages import GetDiscussionMessageRequest
 
 from config import (
     API_HASH,
     API_ID,
     CHANNEL,
+    CHANNELS,
+    INCREMENTAL_LOOKBACK_POSTS,
     OUTPUT_FILE as CONFIG_OUTPUT_FILE,
-    PAUSE_AFTER_500_POSTS_SECONDS,
-    PAUSE_AFTER_1000_POSTS_SECONDS,
     POST_LIMIT,
+    POSTS_PAUSE_AFTER_POSTS,
+    POSTS_PAUSE_SECONDS,
+    TELEGRAM_SESSION,
     POSTGRES_DB,
     POSTGRES_HOST,
     POSTGRES_PASSWORD,
@@ -31,6 +35,8 @@ from config import (
 EXPORT_FORMATS = ("json", "csv", "postgresql", "parquet")
 OUTPUT_DIR = os.path.dirname(CONFIG_OUTPUT_FILE) or "."
 STATE_DIR = Path("data/state")
+RETRY_ATTEMPTS = 3
+RETRY_BASE_DELAY_SECONDS = 2
 
 
 def parse_args(argv=None):
@@ -178,7 +184,10 @@ async def download_message_media(client, message, content_dir, prefix):
 
     media_dir = content_dir / prefix.rstrip("_")
     media_dir.mkdir(parents=True, exist_ok=True)
-    media_path = await client.download_media(message, file=str(media_dir))
+    media_path = await run_with_retries(
+        f"Download media for message {getattr(message, 'id', 'unknown')}",
+        lambda: client.download_media(message, file=str(media_dir)),
+    )
     return normalize_media_path(media_path)
 
 
@@ -204,8 +213,13 @@ def load_json_dataset(path):
     if not dataset_path.exists():
         return []
 
-    with dataset_path.open("r", encoding="utf-8") as f:
-        data = json.load(f)
+    try:
+        with dataset_path.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+    except json.JSONDecodeError as e:
+        backup_path = backup_problem_file(dataset_path)
+        print(f"Cannot read JSON dataset {dataset_path}: {e}. Backup saved to {backup_path}. Starting empty dataset.")
+        return []
 
     if not isinstance(data, list):
         raise ValueError(f"Dataset must contain a JSON list: {dataset_path}")
@@ -219,8 +233,20 @@ def load_incremental_state(channel):
     if not state_path.exists():
         return {}
 
-    with state_path.open("r", encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with state_path.open("r", encoding="utf-8") as f:
+            return json.load(f)
+    except json.JSONDecodeError as e:
+        backup_path = backup_problem_file(state_path)
+        print(f"Cannot read incremental state {state_path}: {e}. Backup saved to {backup_path}. Starting empty state.")
+        return {}
+
+
+def backup_problem_file(path):
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_path = path.with_name(f"{path.name}.bak_{timestamp}")
+    shutil.copy2(path, backup_path)
+    return backup_path
 
 
 def save_incremental_state(channel, export_target, export_data):
@@ -233,11 +259,11 @@ def save_incremental_state(channel, export_target, export_data):
         "dataset_path": str(get_incremental_dataset_path(channel).as_posix()),
         "export_format": export_target["format"],
         "export_target": describe_export_target(export_target),
+        "lookback_posts": INCREMENTAL_LOOKBACK_POSTS,
         "updated_at": datetime.now().isoformat(timespec="seconds"),
     }
 
-    with state_path.open("w", encoding="utf-8") as f:
-        json.dump(payload, f, ensure_ascii=False, indent=2)
+    write_json_atomic(payload, state_path)
 
 
 def get_last_post_id(export_data):
@@ -418,11 +444,19 @@ def ensure_parent_dir(path):
         os.makedirs(parent, exist_ok=True)
 
 
-def save_json(export_data, path):
-    ensure_parent_dir(path)
+def write_json_atomic(data, path):
+    target_path = Path(path)
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = target_path.with_name(f"{target_path.name}.tmp")
 
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(export_data, f, ensure_ascii=False, indent=5)
+    with tmp_path.open("w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=5)
+
+    os.replace(tmp_path, target_path)
+
+
+def save_json(export_data, path):
+    write_json_atomic(export_data, path)
 
 
 def save_csv(export_data, path, export_run_id):
@@ -608,40 +642,104 @@ async def safe_sleep(seconds=1):
     await asyncio.sleep(seconds)
 
 
+def is_retryable_error(error):
+    return isinstance(error, (OSError, TimeoutError, asyncio.TimeoutError, RPCError))
+
+
+async def run_with_retries(label, operation, attempts=RETRY_ATTEMPTS):
+    last_error = None
+
+    for attempt in range(1, attempts + 1):
+        try:
+            return await operation()
+        except FloodWaitError:
+            raise
+        except Exception as e:
+            if not is_retryable_error(e) or attempt == attempts:
+                raise
+
+            last_error = e
+            delay = RETRY_BASE_DELAY_SECONDS * attempt
+            print(f"{label} failed ({attempt}/{attempts}): {e}. Retrying in {delay} seconds.")
+            await safe_sleep(delay)
+
+    raise last_error
+
+
 async def pause_after_processed_posts(processed_posts):
-    pause_seconds = 0
+    should_pause = (
+        processed_posts > 0
+        and POSTS_PAUSE_AFTER_POSTS > 0
+        and processed_posts % POSTS_PAUSE_AFTER_POSTS == 0
+    )
 
-    if processed_posts > 0 and processed_posts % 1000 == 0:
-        pause_seconds = PAUSE_AFTER_1000_POSTS_SECONDS
-    elif processed_posts > 0 and processed_posts % 500 == 0:
-        pause_seconds = PAUSE_AFTER_500_POSTS_SECONDS
-
-    if pause_seconds > 0:
-        print(f"Processed {processed_posts} posts. Sleeping {pause_seconds} seconds.")
-        await safe_sleep(pause_seconds)
+    if should_pause and POSTS_PAUSE_SECONDS > 0:
+        print(f"Processed {processed_posts} posts. Sleeping {POSTS_PAUSE_SECONDS} seconds.")
+        await safe_sleep(POSTS_PAUSE_SECONDS)
 
 
-async def main(args=None):
-    if args is None:
-        args = parse_args()
+async def fetch_posts_for_export(client, channel, incremental, last_post_id):
+    if not incremental or not last_post_id:
+        posts = await run_with_retries(
+            f"Get posts for channel {channel}",
+            lambda: client.get_messages(channel, limit=POST_LIMIT),
+        )
+        return list(posts)
 
+    async def collect_incremental_posts():
+        posts = []
+        new_posts = 0
+        old_posts = 0
+        max_posts = POST_LIMIT + INCREMENTAL_LOOKBACK_POSTS
+
+        async for post in client.iter_messages(channel):
+            if post.id > last_post_id:
+                if new_posts >= POST_LIMIT:
+                    break
+
+                posts.append(post)
+                new_posts += 1
+            else:
+                if old_posts >= INCREMENTAL_LOOKBACK_POSTS:
+                    break
+
+                posts.append(post)
+                old_posts += 1
+
+            if len(posts) >= max_posts:
+                break
+
+        print(
+            "Incremental scan:",
+            f"new_posts={new_posts}",
+            f"lookback_posts={old_posts}",
+            f"last_post_id={last_post_id}",
+        )
+        return posts
+
+    return await run_with_retries(
+        f"Get incremental posts for channel {channel}",
+        collect_incremental_posts,
+    )
+
+
+async def export_channel(client, channel, args, anonymizer):
+    channel_errors = []
     incremental = getattr(args, "incremental", False)
     if incremental:
-        export_target = build_incremental_export_target(CHANNEL, args.export_format)
-        dataset_path = get_incremental_dataset_path(CHANNEL)
+        export_target = build_incremental_export_target(channel, args.export_format)
+        dataset_path = get_incremental_dataset_path(channel)
         existing_data = load_json_dataset(dataset_path)
-        incremental_state = load_incremental_state(CHANNEL)
+        incremental_state = load_incremental_state(channel)
     else:
-        export_target = build_export_target(CHANNEL, args.export_format)
+        export_target = build_export_target(channel, args.export_format)
         dataset_path = None
         existing_data = []
         incremental_state = {}
 
     content_dir = build_content_dir(export_target)
-    anonymizer = UserAnonymizer(args.anonymizer_file) if args.anonymize else None
 
-    await asyncio.sleep(2)
-
+    print("Channel:", channel)
     print("Export format:", args.export_format)
     print("Export target:", describe_export_target(export_target))
     print("Incremental export:", incremental)
@@ -649,18 +747,11 @@ async def main(args=None):
         print("Dataset path:", dataset_path)
         print("Existing posts:", len(existing_data))
         print("Last post_id:", get_last_post_id(existing_data) or incremental_state.get("last_post_id"))
+        print("Incremental lookback posts:", INCREMENTAL_LOOKBACK_POSTS)
     print("Download media:", args.download_media)
     print("Anonymize users:", args.anonymize)
     if args.download_media:
         print("Content dir:", content_dir)
-    print("API_ID =", API_ID)
-    print("API_HASH length =", len(API_HASH))
-    print("Current working dir:", os.getcwd())
-    print("Session path:", os.path.abspath("sessions"))
-    print("Data path:", os.path.abspath("data"))
-
-    client = TelegramClient("/app/sessions/session_el_liz00", API_ID, API_HASH)
-    await client.start()
 
     export_data = []
     existing_posts = {
@@ -682,14 +773,16 @@ async def main(args=None):
         data = current_export_data(extra_post)
 
         if incremental:
-            save_incremental_export_data(data, export_target, CHANNEL)
+            save_incremental_export_data(data, export_target, channel)
         else:
             save_export_data(data, export_target)
 
     try:
-        posts = await client.get_messages(CHANNEL, limit=POST_LIMIT)
+        last_post_id = get_last_post_id(existing_data) or incremental_state.get("last_post_id")
+        posts = await fetch_posts_for_export(client, channel, incremental, last_post_id)
 
         for post in posts:
+            post_errors = []
             existing_post = existing_posts.get(post.id) or {}
             post_media = existing_media_path(existing_post.get("post_media"))
             post_data = {
@@ -698,7 +791,7 @@ async def main(args=None):
                 "post_text": post.text,
                 "post_views": post.views,
                 "post_forwards": post.forwards,
-                "post_link": build_post_link(CHANNEL, post.id),
+                "post_link": build_post_link(channel, post.id),
                 "post_media": post_media,
                 "post_reactions": extract_reactions(post),
                 "comments": [],
@@ -711,32 +804,45 @@ async def main(args=None):
 
             print(f"Processing post {post.id}")
             if args.download_media and not post_data["post_media"]:
-                post_data["post_media"] = await download_message_media(
-                    client,
-                    post,
-                    content_dir,
-                    f"post_{post.id}_",
-                )
+                try:
+                    post_data["post_media"] = await download_message_media(
+                        client,
+                        post,
+                        content_dir,
+                        f"post_{post.id}_",
+                    )
+                except Exception as e:
+                    error_message = f"Post media download failed: {e}"
+                    print(f"Post {post.id}: {error_message}")
+                    post_data["post_media_error"] = error_message
+                    post_errors.append(error_message)
             await safe_sleep(1)
 
             if not post.replies:
                 print(f"Post {post.id} has no comments")
+                if post_errors:
+                    post_data["export_errors"] = post_errors
                 export_data.append(post_data)
                 processed_posts += 1
                 await pause_after_processed_posts(processed_posts)
                 continue
 
             try:
-                discussion = await client(
-                    GetDiscussionMessageRequest(
-                        peer=CHANNEL,
-                        msg_id=post.id,
-                    )
+                discussion = await run_with_retries(
+                    f"Get discussion for post {post.id}",
+                    lambda: client(
+                        GetDiscussionMessageRequest(
+                            peer=channel,
+                            msg_id=post.id,
+                        )
+                    ),
                 )
 
                 await safe_sleep(1)
 
                 if not discussion.chats or not discussion.messages:
+                    if post_errors:
+                        post_data["export_errors"] = post_errors
                     export_data.append(post_data)
                     processed_posts += 1
                     await pause_after_processed_posts(processed_posts)
@@ -749,7 +855,15 @@ async def main(args=None):
                     discussion_chat,
                     reply_to=root_message_id,
                 ):
-                    sender = await comment.get_sender()
+                    try:
+                        sender = await run_with_retries(
+                            f"Get sender for comment {comment.id}",
+                            lambda: comment.get_sender(),
+                        )
+                    except Exception as e:
+                        error_message = f"Comment sender fetch failed: {e}"
+                        print(f"Post {post.id}, comment {comment.id}: {error_message}")
+                        sender = None
 
                     comment_data = {
                         "comment_id": comment.id,
@@ -765,12 +879,17 @@ async def main(args=None):
                     }
 
                     if args.download_media and not comment_data["comment_media"]:
-                        comment_data["comment_media"] = await download_message_media(
-                            client,
-                            comment,
-                            content_dir,
-                            f"post_{post.id}_comment_{comment.id}_",
-                        )
+                        try:
+                            comment_data["comment_media"] = await download_message_media(
+                                client,
+                                comment,
+                                content_dir,
+                                f"post_{post.id}_comment_{comment.id}_",
+                            )
+                        except Exception as e:
+                            error_message = f"Comment media download failed: {e}"
+                            print(f"Post {post.id}, comment {comment.id}: {error_message}")
+                            comment_data["comment_media_error"] = error_message
 
                     post_data["comments"].append(comment_data)
                     await safe_sleep(1)
@@ -782,24 +901,102 @@ async def main(args=None):
                 await asyncio.sleep(e.seconds)
 
             except Exception as e:
-                print(f"Error while processing post {post.id}: {e}")
+                error_message = f"Error while processing post {post.id}: {e}"
+                print(error_message)
+                post_errors.append(error_message)
 
+            if post_errors:
+                post_data["export_errors"] = post_errors
             export_data.append(post_data)
             processed_posts += 1
             await pause_after_processed_posts(processed_posts)
             await safe_sleep(1)
 
     except FloodWaitError as e:
-        print(f"FloodWaitError: Telegram requested wait for {e.seconds} seconds")
+        error_message = f"FloodWaitError: Telegram requested wait for {e.seconds} seconds"
+        print(error_message)
+        channel_errors.append(error_message)
         save_current_export()
         print(f"Partial export saved to {describe_export_target(export_target)}")
         await asyncio.sleep(e.seconds)
 
-    finally:
-        await client.disconnect()
+    except Exception as e:
+        error_message = f"Channel {channel} failed: {e}"
+        print(error_message)
+        channel_errors.append(error_message)
+        save_current_export()
+        print(f"Partial export saved to {describe_export_target(export_target)}")
 
     save_current_export()
     print(f"Done. Saved to {describe_export_target(export_target)}")
+    return {
+        "channel": str(channel),
+        "ok": not channel_errors,
+        "posts_processed": processed_posts,
+        "errors_count": len(channel_errors),
+        "errors": channel_errors,
+        "output": describe_export_target(export_target),
+    }
+
+
+async def main(args=None):
+    if args is None:
+        args = parse_args()
+
+    if not CHANNELS:
+        raise RuntimeError("Missing required config value: CHANNEL")
+
+    anonymizer = UserAnonymizer(args.anonymizer_file) if args.anonymize else None
+
+    await asyncio.sleep(2)
+
+    print("Channels:", ", ".join(CHANNELS))
+    print("API_ID =", API_ID)
+    print("API_HASH length =", len(API_HASH))
+    print("Current working dir:", os.getcwd())
+    print("Session file:", os.path.abspath(TELEGRAM_SESSION))
+    print("Data path:", os.path.abspath("data"))
+
+    session_parent = Path(TELEGRAM_SESSION).parent
+    if str(session_parent) not in ("", "."):
+        session_parent.mkdir(parents=True, exist_ok=True)
+
+    client = TelegramClient(TELEGRAM_SESSION, API_ID, API_HASH)
+    await client.start()
+
+    try:
+        summaries = []
+        for channel in CHANNELS:
+            print("")
+            try:
+                summary = await export_channel(client, channel, args, anonymizer)
+            except Exception as e:
+                error_message = f"Channel {channel} failed before export could start: {e}"
+                print(error_message)
+                summary = {
+                    "channel": str(channel),
+                    "ok": False,
+                    "posts_processed": 0,
+                    "errors_count": 1,
+                    "errors": [error_message],
+                    "output": None,
+                }
+            summaries.append(summary)
+            print("CHANNEL_STATUS", json.dumps(summary, ensure_ascii=False))
+    finally:
+        await client.disconnect()
+
+    failed_channels = [summary for summary in summaries if not summary["ok"]]
+    final_summary = {
+        "channels_total": len(summaries),
+        "channels_ok": len(summaries) - len(failed_channels),
+        "channels_failed": len(failed_channels),
+        "failed_channels": [summary["channel"] for summary in failed_channels],
+    }
+    print("EXPORT_SUMMARY", json.dumps(final_summary, ensure_ascii=False))
+
+    if summaries and len(failed_channels) == len(summaries):
+        raise RuntimeError("All channel exports failed")
 
 
 if __name__ == "__main__":

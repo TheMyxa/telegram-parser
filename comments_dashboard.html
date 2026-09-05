@@ -911,8 +911,12 @@
           </div>
           <div class="export-grid">
             <div class="field">
-              <label for="exportChannel" data-i18n="channel">Канал</label>
-              <input id="exportChannel" type="text" placeholder="channel или https://t.me/channel" data-i18n-placeholder="channelPlaceholder">
+              <label for="exportChannel" data-i18n="channel">Каналы</label>
+              <input id="exportChannel" type="text" placeholder="channel, another_channel или https://t.me/channel" data-i18n-placeholder="channelPlaceholder">
+            </div>
+            <div class="field">
+              <label for="configTelegramSession">TELEGRAM_SESSION</label>
+              <input id="configTelegramSession" type="text" placeholder="sessions/session">
             </div>
             <div class="field">
               <label for="configApiId">API ID</label>
@@ -940,12 +944,16 @@
               <input id="configPostLimit" type="number" min="1" step="1" placeholder="500">
             </div>
             <div class="field">
-              <label for="configPause500" data-i18n="pause500">Пауза после 500</label>
-              <input id="configPause500" type="number" min="0" step="1" placeholder="30">
+              <label for="configIncrementalLookbackPosts">INCREMENTAL_LOOKBACK_POSTS</label>
+              <input id="configIncrementalLookbackPosts" type="number" min="0" step="1" placeholder="50">
             </div>
             <div class="field">
-              <label for="configPause1000" data-i18n="pause1000">Пауза после 1000</label>
-              <input id="configPause1000" type="number" min="0" step="1" placeholder="60">
+              <label for="configPostsPauseSeconds" data-i18n="postsPauseSeconds">Пауза, секунд</label>
+              <input id="configPostsPauseSeconds" type="number" min="0" step="1" placeholder="30">
+            </div>
+            <div class="field">
+              <label for="configPostsPauseAfterPosts" data-i18n="postsPauseAfterPosts">Пауза каждые N постов</label>
+              <input id="configPostsPauseAfterPosts" type="number" min="0" step="1" placeholder="500">
             </div>
             <div class="field">
               <label for="configPostgresHost">Postgres host</label>
@@ -1067,12 +1075,14 @@
       drawerBody: document.getElementById('drawerBody'),
       closeDrawer: document.getElementById('closeDrawer'),
       exportChannel: document.getElementById('exportChannel'),
+      configTelegramSession: document.getElementById('configTelegramSession'),
       configApiId: document.getElementById('configApiId'),
       configApiHash: document.getElementById('configApiHash'),
       configOutputFile: document.getElementById('configOutputFile'),
       configPostLimit: document.getElementById('configPostLimit'),
-      configPause500: document.getElementById('configPause500'),
-      configPause1000: document.getElementById('configPause1000'),
+      configIncrementalLookbackPosts: document.getElementById('configIncrementalLookbackPosts'),
+      configPostsPauseSeconds: document.getElementById('configPostsPauseSeconds'),
+      configPostsPauseAfterPosts: document.getElementById('configPostsPauseAfterPosts'),
       configPostgresHost: document.getElementById('configPostgresHost'),
       configPostgresPort: document.getElementById('configPostgresPort'),
       configPostgresDb: document.getElementById('configPostgresDb'),
@@ -1125,11 +1135,11 @@
         reactions: 'Реакции',
         media: 'Медиа',
         exportRun: 'Запуск экспорта',
-        channel: 'Канал',
-        channelPlaceholder: 'channel или https://t.me/channel',
+        channel: 'Каналы',
+        channelPlaceholder: 'channel, another_channel или https://t.me/channel',
         format: 'Формат',
-        pause500: 'Пауза после 500',
-        pause1000: 'Пауза после 1000',
+        postsPauseSeconds: 'Пауза, секунд',
+        postsPauseAfterPosts: 'Пауза каждые N постов',
         downloadMedia: 'Скачать медиа',
         anonymization: 'Анонимизация',
         incremental: 'Инкрементально',
@@ -1159,7 +1169,7 @@
         saveEnvFailed: 'Не удалось сохранить .env',
         envSaved: '.env сохранён',
         error: 'Ошибка',
-        channelRequired: 'Укажите канал',
+        channelRequired: 'Укажите хотя бы один канал',
         starting: 'Запуск...',
         exportStarting: 'Запуск экспорта...',
         exportStartFailed: 'Не удалось запустить экспорт',
@@ -1169,6 +1179,10 @@
         ready: 'Готово',
         exportDone: 'Экспорт завершён',
         exportFailed: 'Экспорт завершился с ошибкой',
+        currentChannel: 'Текущий канал',
+        completedChannels: 'Готово',
+        failedChannels: 'Ошибки',
+        lastError: 'Последняя ошибка',
         openMedia: 'Открыть медиа',
         jsonMustBeArray: 'JSON должен быть массивом постов'
       },
@@ -1205,11 +1219,11 @@
         reactions: 'Reactions',
         media: 'Media',
         exportRun: 'Run export',
-        channel: 'Channel',
-        channelPlaceholder: 'channel or https://t.me/channel',
+        channel: 'Channels',
+        channelPlaceholder: 'channel, another_channel or https://t.me/channel',
         format: 'Format',
-        pause500: 'Pause after 500',
-        pause1000: 'Pause after 1000',
+        postsPauseSeconds: 'Pause, seconds',
+        postsPauseAfterPosts: 'Pause every N posts',
         downloadMedia: 'Download media',
         anonymization: 'Anonymization',
         incremental: 'Incremental',
@@ -1239,7 +1253,7 @@
         saveEnvFailed: 'Could not save .env',
         envSaved: '.env saved',
         error: 'Error',
-        channelRequired: 'Enter a channel',
+        channelRequired: 'Enter at least one channel',
         starting: 'Starting...',
         exportStarting: 'Starting export...',
         exportStartFailed: 'Could not start export',
@@ -1249,6 +1263,10 @@
         ready: 'Ready',
         exportDone: 'Export completed',
         exportFailed: 'Export failed with code',
+        currentChannel: 'Current channel',
+        completedChannels: 'Completed',
+        failedChannels: 'Failed',
+        lastError: 'Last error',
         openMedia: 'Open media',
         jsonMustBeArray: 'JSON must be an array of posts'
       },
@@ -1286,10 +1304,10 @@
         media: '媒体',
         exportRun: '运行导出',
         channel: '频道',
-        channelPlaceholder: 'channel 或 https://t.me/channel',
+        channelPlaceholder: 'channel, another_channel 或 https://t.me/channel',
         format: '格式',
-        pause500: '500 后暂停',
-        pause1000: '1000 后暂停',
+        postsPauseSeconds: '暂停秒数',
+        postsPauseAfterPosts: '每 N 篇帖子暂停',
         downloadMedia: '下载媒体',
         anonymization: '匿名化',
         incremental: '增量',
@@ -1329,6 +1347,10 @@
         ready: '就绪',
         exportDone: '导出完成',
         exportFailed: '导出失败，代码',
+        currentChannel: '当前频道',
+        completedChannels: '已完成',
+        failedChannels: '失败',
+        lastError: '最后错误',
         openMedia: '打开媒体',
         jsonMustBeArray: 'JSON 必须是帖子数组'
       }
@@ -1896,10 +1918,12 @@
       API_ID: el.configApiId,
       API_HASH: el.configApiHash,
       CHANNEL: el.exportChannel,
+      TELEGRAM_SESSION: el.configTelegramSession,
       OUTPUT_FILE: el.configOutputFile,
       POST_LIMIT: el.configPostLimit,
-      PAUSE_AFTER_500_POSTS_SECONDS: el.configPause500,
-      PAUSE_AFTER_1000_POSTS_SECONDS: el.configPause1000,
+      INCREMENTAL_LOOKBACK_POSTS: el.configIncrementalLookbackPosts,
+      POSTS_PAUSE_SECONDS: el.configPostsPauseSeconds,
+      POSTS_PAUSE_AFTER_POSTS: el.configPostsPauseAfterPosts,
       POSTGRES_HOST: el.configPostgresHost,
       POSTGRES_PORT: el.configPostgresPort,
       POSTGRES_DB: el.configPostgresDb,
@@ -2049,7 +2073,9 @@
 
     function renderExportStatus(data) {
       const lines = data.lines || [];
-      el.exportProgress.textContent = lines.length ? lines.join('\n') : t('noLogs');
+      const statusDetails = formatExportStatusDetails(data);
+      const progressLines = statusDetails.length ? statusDetails.concat(lines) : lines;
+      el.exportProgress.textContent = progressLines.length ? progressLines.join('\n') : t('noLogs');
       el.exportProgress.scrollTop = el.exportProgress.scrollHeight;
 
       if (data.running) {
@@ -2067,6 +2093,32 @@
       }
 
       el.startExport.disabled = false;
+    }
+
+    function formatExportStatusDetails(data) {
+      const details = [];
+
+      if (data.current_channel) {
+        details.push(`${t('currentChannel')}: ${data.current_channel}`);
+      }
+
+      if ((data.completed_channels || []).length) {
+        details.push(`${t('completedChannels')}: ${data.completed_channels.join(', ')}`);
+      }
+
+      if ((data.failed_channels || []).length) {
+        details.push(`${t('failedChannels')}: ${data.failed_channels.join(', ')}`);
+      }
+
+      if (data.last_error) {
+        details.push(`${t('lastError')}: ${data.last_error}`);
+      }
+
+      if (details.length) {
+        details.push('');
+      }
+
+      return details;
     }
 
     function populateEmojiFilter() {

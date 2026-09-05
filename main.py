@@ -59,6 +59,17 @@ def build_parser():
     )
     analyze_parser.add_argument("file", help="JSON file name from data/raw or direct path.")
     analyze_parser.add_argument("--limit", type=int, default=None, help="Analyze only first N posts.")
+    analyze_parser.add_argument(
+        "--language",
+        choices=("ru", "en", "zh"),
+        default=None,
+        help="Prompt language shortcut: ru, en, or zh. Default: ru.",
+    )
+    analyze_parser.add_argument(
+        "--prompt-file",
+        default=None,
+        help="Path to a prompt JSON file. Overrides --language.",
+    )
     analyze_parser.set_defaults(handler=run_analyze)
 
     dashboard_parser = subparsers.add_parser(
@@ -74,6 +85,13 @@ def build_parser():
         description="Validate and print current configuration.",
     )
     config_parser.set_defaults(handler=run_config_check)
+
+    mcp_parser = subparsers.add_parser(
+        "mcp",
+        help="Run MCP server over stdio.",
+        description="Run MCP server over stdio.",
+    )
+    mcp_parser.set_defaults(handler=run_mcp)
 
     return parser
 
@@ -102,13 +120,22 @@ def run_config_check(_args):
 
     print("Config OK")
     print(f"CHANNEL={config.CHANNEL}")
+    print(f"CHANNELS={', '.join(config.CHANNELS)}")
+    print(f"TELEGRAM_SESSION={config.TELEGRAM_SESSION}")
     print(f"POST_LIMIT={config.POST_LIMIT}")
+    print(f"INCREMENTAL_LOOKBACK_POSTS={config.INCREMENTAL_LOOKBACK_POSTS}")
     print(f"OUTPUT_FILE={config.OUTPUT_FILE}")
     print(f"LLM_ENDPOINT={config.LLM_ENDPOINT}")
     print(f"LLM_MODEL={config.LLM_MODEL}")
     print(f"POSTGRES_HOST={config.POSTGRES_HOST}")
     print(f"POSTGRES_DB={config.POSTGRES_DB}")
     print(f"POSTGRES_TABLE={config.POSTGRES_TABLE}")
+
+
+def run_mcp(_args):
+    import mcp_server
+
+    mcp_server.main()
 
 
 def main(argv=None):
