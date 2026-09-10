@@ -1,14 +1,14 @@
 {
   "repository": "TheMyxa/telegram-parser",
-  "collected_at": "2026-09-09T11:37:38.275142+00:00",
+  "collected_at": "2026-09-10T11:35:56.244458+00:00",
   "period": "last_14_days",
   "views": {
-    "count": 398,
-    "uniques": 31
+    "count": 426,
+    "uniques": 60
   },
   "clones": {
-    "count": 114,
-    "uniques": 55
+    "count": 128,
+    "uniques": 60
   },
   "top_referrers": [
     {
@@ -18,27 +18,21 @@
     },
     {
       "referrer": "github.com",
-      "count": 7,
-      "uniques": 2
+      "count": 3,
+      "uniques": 1
     }
   ],
   "popular_paths": [
     {
       "path": "/TheMyxa/telegram-parser",
       "title": "Overview",
-      "count": 179,
-      "uniques": 31
+      "count": 222,
+      "uniques": 60
     },
     {
       "path": "/TheMyxa/telegram-parser/graphs/traffic",
       "title": "/graphs/traffic",
-      "count": 23,
-      "uniques": 1
-    },
-    {
-      "path": "/TheMyxa/telegram-parser/tree/star-history",
-      "title": "/tree/star-history",
-      "count": 21,
+      "count": 26,
       "uniques": 1
     },
     {
@@ -48,21 +42,27 @@
       "uniques": 1
     },
     {
+      "path": "/TheMyxa/telegram-parser/tree/star-history",
+      "title": "/tree/star-history",
+      "count": 20,
+      "uniques": 1
+    },
+    {
+      "path": "/TheMyxa/telegram-parser/pulse",
+      "title": "/pulse",
+      "count": 19,
+      "uniques": 1
+    },
+    {
       "path": "/TheMyxa/telegram-parser/tree/star-history/assets",
       "title": "/tree/star-history/assets",
       "count": 19,
       "uniques": 1
     },
     {
-      "path": "/TheMyxa/telegram-parser/pulse",
-      "title": "/pulse",
-      "count": 17,
-      "uniques": 1
-    },
-    {
       "path": "/TheMyxa/telegram-parser/tree/master",
       "title": "/tree/master",
-      "count": 10,
+      "count": 9,
       "uniques": 1
     },
     {
@@ -78,9 +78,9 @@
       "uniques": 1
     },
     {
-      "path": "/TheMyxa/telegram-parser/tree/traffic-history/traffic",
-      "title": "/tree/traffic-history/traffic",
-      "count": 6,
+      "path": "/TheMyxa/telegram-parser/community",
+      "title": "/community",
+      "count": 5,
       "uniques": 1
     }
   ]
