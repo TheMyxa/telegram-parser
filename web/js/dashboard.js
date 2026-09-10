@@ -1,1028 +1,4 @@
-<!doctype html>
-<html lang="ru">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>TG Comments Dashboard</title>
-  <style>
-    :root {
-      --bg: #f4f6f8;
-      --surface: #ffffff;
-      --surface-2: #eef2f6;
-      --text: #17202a;
-      --muted: #627183;
-      --line: #d9e1ea;
-      --accent: #1f8a70;
-      --accent-2: #2f6fed;
-      --warn: #a85516;
-      --danger: #b42318;
-      --shadow: 0 12px 30px rgba(20, 35, 50, 0.08);
-      --topbar: #18212b;
-      --topbar-text: #f4f7fb;
-      --topbar-muted: #b8c4d2;
-      --topbar-field: rgba(255, 255, 255, 0.06);
-      --topbar-line: rgba(255, 255, 255, 0.14);
-      --table-head: #f9fbfd;
-      --row-hover: #f7fafc;
-      --detail-bg: #fbfcfe;
-      --control-hover: #f0f5ff;
-      --progress-bg: #101820;
-      --progress-text: #d8e7f3;
-      --backdrop: rgba(8, 15, 25, 0.42);
-      --drawer-shadow: -18px 0 40px rgba(20, 35, 50, 0.16);
-    }
-
-    body[data-theme="dark"] {
-      --bg: #0f1419;
-      --surface: #151d26;
-      --surface-2: #202a35;
-      --text: #e6edf3;
-      --muted: #9aa9b8;
-      --line: #2f3b48;
-      --accent: #35b58f;
-      --accent-2: #7aa7ff;
-      --warn: #f2a65a;
-      --danger: #ff7b72;
-      --shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
-      --topbar: #0b1117;
-      --topbar-text: #f4f7fb;
-      --topbar-muted: #9fb0c2;
-      --topbar-field: rgba(255, 255, 255, 0.07);
-      --topbar-line: rgba(255, 255, 255, 0.16);
-      --table-head: #111821;
-      --row-hover: #1b2530;
-      --detail-bg: #10171f;
-      --control-hover: #1e2d43;
-      --progress-bg: #070b10;
-      --progress-text: #d8e7f3;
-      --backdrop: rgba(0, 0, 0, 0.62);
-      --drawer-shadow: -18px 0 40px rgba(0, 0, 0, 0.34);
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      margin: 0;
-      color: var(--text);
-      background: var(--bg);
-      font-family: Arial, Helvetica, sans-serif;
-      font-size: 15px;
-      letter-spacing: 0;
-    }
-
-    button,
-    input,
-    select {
-      font: inherit;
-    }
-
-    button {
-      cursor: pointer;
-    }
-
-    .page {
-      min-height: 100vh;
-      display: grid;
-      grid-template-rows: auto 1fr;
-    }
-
-    .topbar {
-      background: var(--topbar);
-      color: var(--topbar-text);
-      padding: 18px 24px;
-      display: grid;
-      grid-template-columns: minmax(220px, 1fr) minmax(260px, 420px);
-      gap: 18px;
-      align-items: center;
-    }
-
-    .brand h1 {
-      margin: 0;
-      font-size: 22px;
-      line-height: 1.15;
-    }
-
-    .brand-title {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .app-version {
-      display: inline-flex;
-      align-items: center;
-      min-height: 24px;
-      padding: 3px 8px;
-      border: 1px solid var(--topbar-line);
-      border-radius: 8px;
-      background: var(--topbar-field);
-      color: var(--topbar-text);
-      font-size: 12px;
-      font-weight: 700;
-    }
-
-    .brand div {
-      margin-top: 5px;
-      color: var(--topbar-muted);
-      line-height: 1.35;
-    }
-
-    .file-box {
-      display: grid;
-      gap: 8px;
-      padding: 12px;
-      border: 1px solid var(--topbar-line);
-      border-radius: 8px;
-      background: var(--topbar-field);
-    }
-
-    .file-box label {
-      font-weight: 700;
-    }
-
-    .file-actions {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 10px;
-      align-items: center;
-    }
-
-    .file-picker {
-      display: grid;
-      grid-template-columns: auto minmax(0, 1fr);
-      gap: 8px;
-      align-items: center;
-      min-width: 0;
-    }
-
-    .file-input-native {
-      position: absolute;
-      inline-size: 1px;
-      block-size: 1px;
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    .file-name {
-      color: var(--topbar-text);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .theme-toggle,
-    .file-button {
-      height: 38px;
-      border: 1px solid var(--topbar-line);
-      border-radius: 8px;
-      background: var(--topbar-field);
-      color: var(--topbar-text);
-      font-weight: 700;
-      padding: 0 12px;
-      white-space: nowrap;
-    }
-
-    .theme-toggle:hover,
-    .file-button:hover {
-      background: rgba(255, 255, 255, 0.12);
-    }
-
-    main {
-      padding: 22px;
-      display: grid;
-      gap: 16px;
-      align-content: start;
-    }
-
-    .tabs {
-      display: flex;
-      gap: 8px;
-      border-bottom: 1px solid var(--line);
-    }
-
-    .tab {
-      height: 42px;
-      padding: 0 16px;
-      border: 1px solid var(--line);
-      border-bottom: 0;
-      border-radius: 8px 8px 0 0;
-      background: var(--surface-2);
-      color: var(--muted);
-      font-weight: 700;
-    }
-
-    .tab.active {
-      background: var(--surface);
-      color: var(--text);
-    }
-
-    .view {
-      display: none;
-      gap: 16px;
-    }
-
-    .view.active {
-      display: grid;
-    }
-
-    .panel {
-      background: var(--surface);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      box-shadow: var(--shadow);
-      overflow: hidden;
-    }
-
-    .panel-head {
-      padding: 16px 18px;
-      border-bottom: 1px solid var(--line);
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      align-items: center;
-    }
-
-    .panel-head h2 {
-      margin: 0;
-      font-size: 18px;
-    }
-
-    .status {
-      color: var(--muted);
-      font-size: 13px;
-      text-align: right;
-    }
-
-    .summary {
-      display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
-      gap: 12px;
-    }
-
-    .metric {
-      min-width: 0;
-      background: var(--surface);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 16px;
-      box-shadow: var(--shadow);
-    }
-
-    .metric span {
-      color: var(--muted);
-      display: block;
-      margin-bottom: 8px;
-    }
-
-    .metric strong {
-      display: block;
-      font-size: 28px;
-      line-height: 1;
-      overflow-wrap: anywhere;
-    }
-
-    .filters {
-      display: grid;
-      grid-template-columns: repeat(6, minmax(130px, 1fr));
-      gap: 10px;
-      padding: 14px;
-    }
-
-    .field {
-      display: grid;
-      gap: 6px;
-      min-width: 0;
-    }
-
-    .field label {
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 700;
-      text-transform: uppercase;
-    }
-
-    .field input,
-    .field select {
-      width: 100%;
-      height: 38px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: var(--surface);
-      color: var(--text);
-      padding: 0 10px;
-    }
-
-    .checks {
-      display: flex;
-      align-items: end;
-      gap: 14px;
-      padding-bottom: 6px;
-      color: var(--muted);
-      white-space: nowrap;
-    }
-
-    .checks label {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      height: 38px;
-    }
-
-    .export-grid {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(160px, 1fr));
-      gap: 12px;
-      padding: 16px;
-      align-items: end;
-    }
-
-    .progress-log {
-      min-height: 320px;
-      max-height: 520px;
-      overflow: auto;
-      margin: 0;
-      padding: 14px;
-      background: var(--progress-bg);
-      color: var(--progress-text);
-      font-family: Consolas, Monaco, monospace;
-      font-size: 13px;
-      line-height: 1.45;
-      white-space: pre-wrap;
-    }
-
-    .charts {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px;
-    }
-
-    .chart {
-      min-height: 280px;
-    }
-
-    .chart-body {
-      padding: 16px;
-      display: grid;
-      gap: 10px;
-    }
-
-    .bar-row {
-      display: grid;
-      grid-template-columns: minmax(110px, 180px) minmax(0, 1fr) 60px;
-      gap: 10px;
-      align-items: center;
-    }
-
-    .bar-label {
-      color: var(--text);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .bar-track {
-      height: 10px;
-      border-radius: 999px;
-      background: var(--surface-2);
-      overflow: hidden;
-    }
-
-    .bar-fill {
-      height: 100%;
-      width: 0;
-      background: var(--accent);
-    }
-
-    .bar-value {
-      color: var(--muted);
-      text-align: right;
-      font-variant-numeric: tabular-nums;
-    }
-
-    .table-wrap {
-      overflow-x: auto;
-    }
-
-    table {
-      width: 100%;
-      min-width: 940px;
-      border-collapse: collapse;
-    }
-
-    th,
-    td {
-      padding: 12px 14px;
-      border-bottom: 1px solid var(--line);
-      text-align: left;
-      vertical-align: top;
-    }
-
-    th {
-      color: var(--muted);
-      background: var(--table-head);
-      font-size: 12px;
-      text-transform: uppercase;
-    }
-
-    tbody tr:hover {
-      background: var(--row-hover);
-    }
-
-    .post-row {
-      cursor: pointer;
-    }
-
-    .post-row:hover .post-title {
-      text-decoration: underline;
-    }
-
-    .post-row.expanded {
-      background: var(--row-hover);
-    }
-
-    .row-action {
-      display: inline-flex;
-      align-items: center;
-      min-height: 22px;
-      margin-left: 8px;
-      padding: 2px 8px;
-      border-radius: 999px;
-      background: var(--surface-2);
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 700;
-      white-space: nowrap;
-    }
-
-    .post-title,
-    .user-link {
-      color: var(--accent-2);
-      background: none;
-      border: 0;
-      padding: 0;
-      text-align: left;
-      font-weight: 700;
-    }
-
-    .text-preview {
-      max-width: 520px;
-      max-height: 58px;
-      overflow: hidden;
-      line-height: 1.35;
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-    }
-
-    .post-detail {
-      padding: 18px;
-      background: var(--detail-bg);
-      display: grid;
-      gap: 14px;
-    }
-
-    .post-full-text {
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-      line-height: 1.45;
-      padding: 12px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: var(--surface);
-    }
-
-    .comment-tree {
-      display: grid;
-      gap: 8px;
-    }
-
-    .comment-node {
-      display: grid;
-      gap: 8px;
-      padding: 10px 12px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: var(--surface);
-    }
-
-    .comment-node.depth-1,
-    .comment-node.depth-2,
-    .comment-node.depth-3,
-    .comment-node.depth-4 {
-      margin-left: 24px;
-      border-left: 3px solid var(--accent-2);
-    }
-
-    .comment-meta {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      color: var(--muted);
-      font-size: 13px;
-      align-items: center;
-    }
-
-    .comment-text {
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-      line-height: 1.4;
-    }
-
-    .media-preview {
-      display: grid;
-      gap: 8px;
-      max-width: 720px;
-      margin-top: 4px;
-    }
-
-    .media-preview img,
-    .media-preview video {
-      width: min(100%, 720px);
-      max-height: 420px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: #000;
-      object-fit: contain;
-    }
-
-    .media-preview audio {
-      width: min(100%, 520px);
-    }
-
-    .pill {
-      display: inline-flex;
-      align-items: center;
-      min-height: 24px;
-      padding: 3px 8px;
-      border-radius: 999px;
-      background: var(--surface-2);
-      color: var(--muted);
-      font-size: 13px;
-      white-space: nowrap;
-    }
-
-    .button {
-      height: 34px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: var(--surface);
-      color: var(--accent-2);
-      font-weight: 700;
-      padding: 0 12px;
-    }
-
-    .button:hover {
-      background: var(--control-hover);
-    }
-
-    .telegram-link {
-      display: inline-flex;
-      align-items: center;
-      min-height: 28px;
-      padding: 4px 10px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: var(--surface);
-      color: var(--accent-2);
-      font-size: 13px;
-      font-weight: 700;
-      text-decoration: none;
-    }
-
-    .telegram-link:hover {
-      background: var(--control-hover);
-    }
-
-    .empty {
-      padding: 34px 18px;
-      color: var(--muted);
-      text-align: center;
-    }
-
-    .drawer-backdrop {
-      position: fixed;
-      inset: 0;
-      display: none;
-      background: var(--backdrop);
-      z-index: 20;
-    }
-
-    .drawer-backdrop.open {
-      display: block;
-    }
-
-    .drawer {
-      position: fixed;
-      top: 0;
-      right: 0;
-      width: min(560px, 100vw);
-      height: 100vh;
-      background: var(--surface);
-      border-left: 1px solid var(--line);
-      box-shadow: var(--drawer-shadow);
-      transform: translateX(100%);
-      transition: transform 0.18s ease;
-      z-index: 21;
-      display: grid;
-      grid-template-rows: auto 1fr;
-    }
-
-    .drawer.open {
-      transform: translateX(0);
-    }
-
-    .drawer-head {
-      padding: 18px;
-      border-bottom: 1px solid var(--line);
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      align-items: start;
-    }
-
-    .drawer-head h2 {
-      margin: 0;
-      font-size: 20px;
-    }
-
-    .drawer-body {
-      padding: 18px;
-      overflow: auto;
-      display: grid;
-      gap: 14px;
-      align-content: start;
-    }
-
-    .user-stats {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
-    }
-
-    .user-stat {
-      padding: 12px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: var(--detail-bg);
-    }
-
-    .user-stat span {
-      display: block;
-      color: var(--muted);
-      font-size: 13px;
-      margin-bottom: 5px;
-    }
-
-    .user-stat strong {
-      overflow-wrap: anywhere;
-    }
-
-    .error {
-      color: var(--danger);
-    }
-
-    .footer {
-      padding: 0 22px 22px;
-      display: flex;
-      justify-content: flex-end;
-      align-items: center;
-      gap: 10px;
-      color: var(--muted);
-      font-size: 13px;
-    }
-
-    .footer select {
-      height: 34px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: var(--surface);
-      color: var(--text);
-      padding: 0 10px;
-    }
-
-    @media (max-width: 1100px) {
-      .summary {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      .filters {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      .charts {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    @media (max-width: 720px) {
-      .topbar {
-        grid-template-columns: 1fr;
-      }
-
-      main {
-        padding: 14px;
-      }
-
-      .summary,
-      .filters,
-      .export-grid,
-      .user-stats {
-        grid-template-columns: 1fr;
-      }
-
-      .checks {
-        align-items: start;
-        flex-direction: column;
-      }
-
-      .file-actions {
-        grid-template-columns: 1fr;
-      }
-
-      .theme-toggle {
-        width: 100%;
-      }
-
-      .footer {
-        padding: 0 14px 14px;
-        justify-content: stretch;
-      }
-
-      .footer select {
-        flex: 1;
-      }
-    }
-  </style>
-</head>
-<body>
-  <div class="page">
-    <header class="topbar">
-      <div class="brand">
-        <div class="brand-title">
-          <h1>TG Comments Dashboard</h1>
-          <span id="appVersion" class="app-version">v...</span>
-        </div>
-        <div data-i18n="heroSubtitle">Загрузите JSON-экспорт и изучайте посты, комментарии, реакции и активность пользователей.</div>
-      </div>
-      <div class="file-box">
-        <label for="jsonFile" data-i18n="uploadJson">Загрузить JSON-файл</label>
-        <div class="file-actions">
-          <div class="file-picker">
-            <input id="jsonFile" class="file-input-native" type="file" accept=".json,application/json">
-            <label class="file-button" for="jsonFile" data-i18n="chooseFile">Выбор файла</label>
-            <span id="selectedFileName" class="file-name" data-i18n="noFileSelected">Файл не выбран</span>
-          </div>
-          <button id="themeToggle" class="theme-toggle" type="button" aria-pressed="false">Ночная тема</button>
-        </div>
-      </div>
-    </header>
-
-    <main>
-      <nav class="tabs" aria-label="Разделы">
-        <button class="tab active" type="button" data-tab="dashboard">Dashboard</button>
-        <button class="tab" type="button" data-tab="posts" data-i18n="postsPage">Страница постов</button>
-        <button class="tab" type="button" data-tab="export" data-i18n="export">Экспорт</button>
-      </nav>
-
-      <section class="panel">
-        <div class="filters">
-          <div class="field">
-            <label for="searchText" data-i18n="search">Поиск</label>
-            <input id="searchText" type="search" placeholder="Текст, post_id, comment_id" data-i18n-placeholder="searchPlaceholder">
-          </div>
-          <div class="field">
-            <label for="filterUserId">User ID</label>
-            <input id="filterUserId" type="search" placeholder="1602904837">
-          </div>
-          <div class="field">
-            <label for="filterUsername">Username</label>
-            <input id="filterUsername" type="search" placeholder="username">
-          </div>
-          <div class="field">
-            <label for="filterDateFrom" data-i18n="dateFrom">Дата от</label>
-            <input id="filterDateFrom" type="date">
-          </div>
-          <div class="field">
-            <label for="filterDateTo" data-i18n="dateTo">Дата до</label>
-            <input id="filterDateTo" type="date">
-          </div>
-          <div class="field">
-            <label for="filterEmoji" data-i18n="emoji">Эмодзи</label>
-            <select id="filterEmoji">
-              <option value="" data-i18n="all">Все</option>
-            </select>
-          </div>
-          <div class="checks">
-            <label><input id="filterMedia" type="checkbox"> <span data-i18n="onlyMedia">Только с медиа</span></label>
-            <label><input id="filterReplies" type="checkbox"> <span data-i18n="onlyReplies">Только ответы</span></label>
-          </div>
-        </div>
-      </section>
-
-      <section id="dashboardView" class="view active">
-        <section class="summary">
-          <div class="metric">
-            <span data-i18n="file">Файл</span>
-            <strong id="metricFile">-</strong>
-          </div>
-          <div class="metric">
-            <span data-i18n="postsCount">Постов</span>
-            <strong id="metricPosts">0</strong>
-          </div>
-          <div class="metric">
-            <span data-i18n="commentsCount">Комментариев</span>
-            <strong id="metricComments">0</strong>
-          </div>
-          <div class="metric">
-            <span data-i18n="uniqueUsers">Уникальных пользователей</span>
-            <strong id="metricUsers">0</strong>
-          </div>
-          <div class="metric">
-            <span data-i18n="reactionsCount">Реакций</span>
-            <strong id="metricReactions">0</strong>
-          </div>
-        </section>
-
-        <section class="charts">
-          <div class="panel chart">
-            <div class="panel-head">
-              <h2 data-i18n="commentsByDay">Комментарии по дням</h2>
-              <div id="daysStatus" class="status">Нет данных</div>
-            </div>
-            <div id="commentsByDayChart" class="chart-body"></div>
-          </div>
-          <div class="panel chart">
-            <div class="panel-head">
-              <h2 data-i18n="topUsers">Топ пользователей</h2>
-              <div id="usersStatus" class="status">Нет данных</div>
-            </div>
-            <div id="topUsersChart" class="chart-body"></div>
-          </div>
-          <div class="panel chart">
-            <div class="panel-head">
-              <h2 data-i18n="topEmoji">Топ эмодзи</h2>
-              <div id="emojiStatus" class="status">Нет данных</div>
-            </div>
-            <div id="topEmojiChart" class="chart-body"></div>
-          </div>
-          <div class="panel chart">
-            <div class="panel-head">
-              <h2 data-i18n="topPosts">Самые обсуждаемые посты</h2>
-              <div id="postsStatus" class="status">Нет данных</div>
-            </div>
-            <div id="topPostsChart" class="chart-body"></div>
-          </div>
-        </section>
-      </section>
-
-      <section id="postsView" class="view">
-        <section class="panel">
-          <div class="panel-head">
-            <h2 data-i18n="channelPosts">Посты канала</h2>
-            <div id="tableStatus" class="status">Выберите JSON-файл</div>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Post</th>
-                  <th data-i18n="date">Дата</th>
-                  <th data-i18n="views">Просмотры</th>
-                  <th data-i18n="comments">Комментарии</th>
-                  <th data-i18n="reactions">Реакции</th>
-                  <th data-i18n="media">Медиа</th>
-                </tr>
-              </thead>
-              <tbody id="postsBody">
-                <tr><td colspan="6" class="empty">Нет загруженных данных</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-      </section>
-
-      <section id="exportView" class="view">
-        <section class="panel">
-          <div class="panel-head">
-            <h2 data-i18n="exportRun">Запуск экспорта</h2>
-            <div id="exportStatus" class="status">Готово</div>
-          </div>
-          <div class="export-grid">
-            <div class="field">
-              <label for="exportChannel" data-i18n="channel">Каналы</label>
-              <input id="exportChannel" type="text" placeholder="channel, another_channel или https://t.me/channel" data-i18n-placeholder="channelPlaceholder">
-            </div>
-            <div class="field">
-              <label for="configTelegramSession">TELEGRAM_SESSION</label>
-              <input id="configTelegramSession" type="text" placeholder="sessions/session">
-            </div>
-            <div class="field">
-              <label for="configApiId">API ID</label>
-              <input id="configApiId" type="text" inputmode="numeric" placeholder="123456">
-            </div>
-            <div class="field">
-              <label for="configApiHash">API Hash</label>
-              <input id="configApiHash" type="password" placeholder="your_api_hash">
-            </div>
-            <div class="field">
-              <label for="exportFormat" data-i18n="format">Формат</label>
-              <select id="exportFormat">
-                <option value="json">JSON</option>
-                <option value="csv">CSV</option>
-                <option value="postgresql">PostgreSQL</option>
-                <option value="parquet">Parquet</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="configOutputFile">OUTPUT_FILE</label>
-              <input id="configOutputFile" type="text" placeholder="data/raw/export.json">
-            </div>
-            <div class="field">
-              <label for="configPostLimit">POST_LIMIT</label>
-              <input id="configPostLimit" type="number" min="1" step="1" placeholder="500">
-            </div>
-            <div class="field">
-              <label for="configIncrementalLookbackPosts">INCREMENTAL_LOOKBACK_POSTS</label>
-              <input id="configIncrementalLookbackPosts" type="number" min="0" step="1" placeholder="50">
-            </div>
-            <div class="field">
-              <label for="configPostsPauseSeconds" data-i18n="postsPauseSeconds">Пауза, секунд</label>
-              <input id="configPostsPauseSeconds" type="number" min="0" step="1" placeholder="30">
-            </div>
-            <div class="field">
-              <label for="configPostsPauseAfterPosts" data-i18n="postsPauseAfterPosts">Пауза каждые N постов</label>
-              <input id="configPostsPauseAfterPosts" type="number" min="0" step="1" placeholder="500">
-            </div>
-            <div class="field">
-              <label for="configPostgresHost">Postgres host</label>
-              <input id="configPostgresHost" type="text" placeholder="host.docker.internal">
-            </div>
-            <div class="field">
-              <label for="configPostgresPort">Postgres port</label>
-              <input id="configPostgresPort" type="number" min="1" step="1" placeholder="5432">
-            </div>
-            <div class="field">
-              <label for="configPostgresDb">Postgres DB</label>
-              <input id="configPostgresDb" type="text" placeholder="telegram_parser">
-            </div>
-            <div class="field">
-              <label for="configPostgresUser">Postgres user</label>
-              <input id="configPostgresUser" type="text" placeholder="postgres">
-            </div>
-            <div class="field">
-              <label for="configPostgresPassword">Postgres password</label>
-              <input id="configPostgresPassword" type="password" placeholder="password">
-            </div>
-            <div class="field">
-              <label for="configPostgresTable">Postgres table</label>
-              <input id="configPostgresTable" type="text" placeholder="telegram_comments_export">
-            </div>
-            <div class="field">
-              <label for="configLlmEndpoint">LLM endpoint</label>
-              <input id="configLlmEndpoint" type="text" placeholder="http://localhost:1234/v1/chat/completions">
-            </div>
-            <div class="field">
-              <label for="configLlmModel">LLM model</label>
-              <input id="configLlmModel" type="text" placeholder="local-model">
-            </div>
-            <div class="checks">
-              <label><input id="exportMedia" type="checkbox"> <span data-i18n="downloadMedia">Скачать медиа</span></label>
-              <label><input id="exportAnonymize" type="checkbox"> <span data-i18n="anonymization">Анонимизация</span></label>
-              <label><input id="exportIncremental" type="checkbox" checked> <span data-i18n="incremental">Инкрементально</span></label>
-            </div>
-            <button id="saveConfig" class="button" type="button" data-i18n="saveEnv">Сохранить .env</button>
-            <button id="startExport" class="button" type="button" data-i18n="startExport">Запустить экспорт</button>
-          </div>
-          <pre id="exportProgress" class="progress-log">Экспорт ещё не запускался.</pre>
-        </section>
-      </section>
-    </main>
-    <footer class="footer">
-      <label for="languageSelect" data-i18n="language">Язык</label>
-      <select id="languageSelect">
-        <option value="ru">Русский</option>
-        <option value="en">English</option>
-        <option value="zh">中文</option>
-      </select>
-    </footer>
-  </div>
-
-  <div id="drawerBackdrop" class="drawer-backdrop"></div>
-  <aside id="userDrawer" class="drawer" aria-label="Пользователь">
-    <div class="drawer-head">
-      <div>
-        <h2 id="drawerUserName">User</h2>
-        <div id="drawerUserMeta" class="status"></div>
-      </div>
-      <button id="closeDrawer" class="button" type="button" data-i18n="close">Закрыть</button>
-    </div>
-    <div id="drawerBody" class="drawer-body"></div>
-  </aside>
-
-  <script>
-    const state = {
+﻿const state = {
       fileName: '',
       rawPosts: [],
       posts: [],
@@ -1032,13 +8,19 @@
       users: new Map(),
       expandedPostId: null,
       activeTab: 'dashboard',
-      language: 'ru'
+      language: 'ru',
+      localExports: [],
+      schedulerEnabled: false
     };
 
     const el = {
       appVersion: document.getElementById('appVersion'),
       fileInput: document.getElementById('jsonFile'),
       selectedFileName: document.getElementById('selectedFileName'),
+      localExportSelect: document.getElementById('localExportSelect'),
+      localExportSort: document.getElementById('localExportSort'),
+      openLocalExport: document.getElementById('openLocalExport'),
+      localExportStatus: document.getElementById('localExportStatus'),
       themeToggle: document.getElementById('themeToggle'),
       languageSelect: document.getElementById('languageSelect'),
       tabs: document.querySelectorAll('.tab'),
@@ -1095,6 +77,11 @@
       exportMedia: document.getElementById('exportMedia'),
       exportAnonymize: document.getElementById('exportAnonymize'),
       exportIncremental: document.getElementById('exportIncremental'),
+      schedulerMode: document.getElementById('schedulerMode'),
+      schedulerInterval: document.getElementById('schedulerInterval'),
+      startScheduler: document.getElementById('startScheduler'),
+      stopScheduler: document.getElementById('stopScheduler'),
+      schedulerStatus: document.getElementById('schedulerStatus'),
       saveConfig: document.getElementById('saveConfig'),
       startExport: document.getElementById('startExport'),
       exportStatus: document.getElementById('exportStatus'),
@@ -1107,6 +94,14 @@
         uploadJson: 'Загрузить JSON-файл',
         chooseFile: 'Выбор файла',
         noFileSelected: 'Файл не выбран',
+        loadingExports: 'Загрузка экспортов...',
+        noLocalExports: 'В data/raw нет JSON-экспортов',
+        openLocalExport: 'Открыть локальный экспорт',
+        sortByDate: 'По дате',
+        sortByChannel: 'По каналу',
+        localExportsStaticMode: 'Экспорты из data/raw доступны при запуске через сервер.',
+        localExportsLoaded: 'Локальных экспортов',
+        localExportLoadFailed: 'Не удалось загрузить локальный экспорт',
         nightTheme: 'Ночная тема',
         lightTheme: 'Светлая тема',
         postsPage: 'Страница постов',
@@ -1143,8 +138,22 @@
         downloadMedia: 'Скачать медиа',
         anonymization: 'Анонимизация',
         incremental: 'Инкрементально',
+        schedulerMode: 'Scheduler mode',
+        schedulerInterval: 'Интервал, минут',
         saveEnv: 'Сохранить .env',
         startExport: 'Запустить экспорт',
+        startScheduler: 'Запустить scheduler',
+        stopScheduler: 'Остановить scheduler',
+        schedulerNotStarted: 'Scheduler не запущен',
+        schedulerStarting: 'Запуск scheduler...',
+        schedulerRunning: 'Scheduler активен',
+        schedulerStopped: 'Scheduler остановлен',
+        schedulerStartFailed: 'Не удалось запустить scheduler',
+        schedulerStopFailed: 'Не удалось остановить scheduler',
+        schedulerIntervalRequired: 'Интервал должен быть не меньше 1 минуты',
+        nextRun: 'Следующий запуск',
+        lastRun: 'Последний запуск',
+        skippedRuns: 'Пропущено запусков',
         exportNotStarted: 'Экспорт ещё не запускался.',
         close: 'Закрыть',
         language: 'Язык',
@@ -1191,6 +200,14 @@
         uploadJson: 'Upload JSON file',
         chooseFile: 'Choose file',
         noFileSelected: 'No file selected',
+        loadingExports: 'Loading exports...',
+        noLocalExports: 'No JSON exports in data/raw',
+        openLocalExport: 'Open local export',
+        sortByDate: 'By date',
+        sortByChannel: 'By channel',
+        localExportsStaticMode: 'Server mode loads exports from data/raw.',
+        localExportsLoaded: 'Local exports',
+        localExportLoadFailed: 'Could not load local export',
         nightTheme: 'Dark theme',
         lightTheme: 'Light theme',
         postsPage: 'Posts page',
@@ -1227,8 +244,22 @@
         downloadMedia: 'Download media',
         anonymization: 'Anonymization',
         incremental: 'Incremental',
+        schedulerMode: 'Scheduler mode',
+        schedulerInterval: 'Interval, minutes',
         saveEnv: 'Save .env',
         startExport: 'Start export',
+        startScheduler: 'Start scheduler',
+        stopScheduler: 'Stop scheduler',
+        schedulerNotStarted: 'Scheduler is not running',
+        schedulerStarting: 'Starting scheduler...',
+        schedulerRunning: 'Scheduler is active',
+        schedulerStopped: 'Scheduler stopped',
+        schedulerStartFailed: 'Could not start scheduler',
+        schedulerStopFailed: 'Could not stop scheduler',
+        schedulerIntervalRequired: 'Interval must be at least 1 minute',
+        nextRun: 'Next run',
+        lastRun: 'Last run',
+        skippedRuns: 'Skipped runs',
         exportNotStarted: 'Export has not started yet.',
         close: 'Close',
         language: 'Language',
@@ -1275,6 +306,14 @@
         uploadJson: '上传 JSON 文件',
         chooseFile: '选择文件',
         noFileSelected: '未选择文件',
+        loadingExports: '正在加载导出...',
+        noLocalExports: 'data/raw 中没有 JSON 导出',
+        openLocalExport: '打开本地导出',
+        sortByDate: '按日期',
+        sortByChannel: '按频道',
+        localExportsStaticMode: '服务器模式会从 data/raw 加载导出。',
+        localExportsLoaded: '本地导出',
+        localExportLoadFailed: '无法加载本地导出',
         nightTheme: '夜间主题',
         lightTheme: '浅色主题',
         postsPage: '帖子页面',
@@ -1311,8 +350,22 @@
         downloadMedia: '下载媒体',
         anonymization: '匿名化',
         incremental: '增量',
+        schedulerMode: 'Scheduler mode',
+        schedulerInterval: '间隔分钟',
         saveEnv: '保存 .env',
         startExport: '开始导出',
+        startScheduler: '启动 scheduler',
+        stopScheduler: '停止 scheduler',
+        schedulerNotStarted: 'Scheduler 未运行',
+        schedulerStarting: '正在启动 scheduler...',
+        schedulerRunning: 'Scheduler 运行中',
+        schedulerStopped: 'Scheduler 已停止',
+        schedulerStartFailed: '无法启动 scheduler',
+        schedulerStopFailed: '无法停止 scheduler',
+        schedulerIntervalRequired: '间隔必须至少为 1 分钟',
+        nextRun: '下次运行',
+        lastRun: '上次运行',
+        skippedRuns: '跳过运行',
         exportNotStarted: '导出尚未开始。',
         close: '关闭',
         language: '语言',
@@ -1359,6 +412,8 @@
     initTheme();
     initLanguage();
     el.fileInput.addEventListener('change', handleFile);
+    el.localExportSort.addEventListener('change', renderLocalExports);
+    el.openLocalExport.addEventListener('click', openSelectedLocalExport);
     el.themeToggle.addEventListener('click', toggleTheme);
     el.languageSelect.addEventListener('change', () => setLanguage(el.languageSelect.value, true));
     el.tabs.forEach((tab) => tab.addEventListener('click', () => setTab(tab.dataset.tab)));
@@ -1370,6 +425,16 @@
     el.drawerBackdrop.addEventListener('click', closeUserDrawer);
     el.saveConfig.addEventListener('click', saveConfig);
     el.startExport.addEventListener('click', startExport);
+    el.startScheduler.addEventListener('click', startScheduler);
+    el.stopScheduler.addEventListener('click', stopScheduler);
+    el.schedulerMode.addEventListener('change', () => {
+      if (!el.schedulerMode.checked && state.schedulerEnabled) {
+        stopScheduler();
+        return;
+      }
+
+      updateSchedulerControls();
+    });
 
     async function handleFile(event) {
       const file = event.target.files[0];
@@ -1382,22 +447,118 @@
       try {
         const text = await file.text();
         const data = JSON.parse(text);
+        loadExportData(file.name, data);
+      } catch (error) {
+        showLoadError(error);
+      }
+    }
 
-        if (!Array.isArray(data)) {
-          throw new Error(t('jsonMustBeArray'));
+    function loadExportData(fileName, data) {
+      if (!Array.isArray(data)) {
+        throw new Error(t('jsonMustBeArray'));
+      }
+
+      state.fileName = fileName;
+      el.selectedFileName.textContent = fileName;
+      el.tableStatus.classList.remove('error');
+      parseExport(data);
+      populateEmojiFilter();
+      applyFilters();
+    }
+
+    function showLoadError(error) {
+      state.fileName = '';
+      el.selectedFileName.textContent = t('noFileSelected');
+      resetState();
+      el.tableStatus.textContent = `${t('error')}: ${error.message}`;
+      el.tableStatus.classList.add('error');
+    }
+
+    async function loadLocalExports() {
+      try {
+        const sortMode = encodeURIComponent(el.localExportSort.value || 'date');
+        const response = await fetch(`/api/exports?sort=${sortMode}`, { cache: 'no-store' });
+
+        if (!response.ok) {
+          throw new Error(t('localExportLoadFailed'));
         }
 
-        state.fileName = file.name;
-        el.selectedFileName.textContent = file.name;
-        parseExport(data);
-        populateEmojiFilter();
-        applyFilters();
+        state.localExports = await response.json();
+        renderLocalExports();
+      } catch (_error) {
+        state.localExports = [];
+        renderLocalExports();
+        el.localExportStatus.textContent = t('localExportsStaticMode');
+      }
+    }
+
+    function renderLocalExports() {
+      const exports = [...state.localExports];
+      const sortMode = el.localExportSort.value;
+
+      exports.sort((a, b) => {
+        if (sortMode === 'channel') {
+          const channelCompare = String(a.channel || '').localeCompare(String(b.channel || ''), undefined, { sensitivity: 'base' });
+
+          if (channelCompare !== 0) {
+            return channelCompare;
+          }
+        }
+
+        return String(b.modified_at || '').localeCompare(String(a.modified_at || ''));
+      });
+
+      if (!exports.length) {
+        el.localExportSelect.innerHTML = `<option value="">${escapeHtml(t('noLocalExports'))}</option>`;
+        el.openLocalExport.disabled = true;
+        el.localExportStatus.textContent = t('noLocalExports');
+        return;
+      }
+
+      el.localExportSelect.innerHTML = exports.map((item) => {
+        const label = `${item.channel || '-'} - ${item.file} - ${formatFileSize(item.size_bytes)}`;
+        return `<option value="${escapeAttribute(item.file)}">${escapeHtml(label)}</option>`;
+      }).join('');
+      el.openLocalExport.disabled = false;
+      el.localExportStatus.textContent = `${t('localExportsLoaded')}: ${formatNumber(exports.length)}`;
+    }
+
+    async function openSelectedLocalExport() {
+      const fileName = el.localExportSelect.value;
+
+      if (!fileName) {
+        return;
+      }
+
+      el.openLocalExport.disabled = true;
+      el.localExportStatus.textContent = t('loadingExports');
+
+      try {
+        const summaryResponse = await fetch(`/api/export/${encodeURIComponent(fileName)}/summary`, { cache: 'no-store' });
+        const summary = await summaryResponse.json();
+
+        if (!summaryResponse.ok || summary.ok === false) {
+          throw new Error(summary.error || t('localExportLoadFailed'));
+        }
+
+        const response = await fetch(`/data/raw/${encodeURIComponent(fileName)}`, { cache: 'no-store' });
+
+        if (!response.ok) {
+          throw new Error(t('localExportLoadFailed'));
+        }
+
+        const data = await response.json();
+        loadExportData(fileName, data);
+        el.localExportStatus.textContent = [
+          summary.channel,
+          `${formatNumber(summary.posts_count)} ${t('posts')}`,
+          `${formatNumber(summary.comments_count)} ${t('comments')}`
+        ].filter(Boolean).join(' - ');
       } catch (error) {
-        state.fileName = '';
-        el.selectedFileName.textContent = t('noFileSelected');
-        resetState();
-        el.tableStatus.textContent = `${t('error')}: ${error.message}`;
-        el.tableStatus.classList.add('error');
+        el.localExportStatus.textContent = `${t('error')}: ${error.message}`;
+        showLoadError(error);
+      } finally {
+        el.openLocalExport.disabled = !state.localExports.length;
       }
     }
 
@@ -1473,6 +634,8 @@
 
       renderAll();
       populateEmojiFilter();
+      renderLocalExports();
+      updateSchedulerControls();
     }
 
     function parseExport(rawPosts) {
@@ -1964,7 +1127,7 @@
           el.appVersion.textContent = `v${data.version}`;
         }
       } catch (_error) {
-        el.appVersion.textContent = 'v2.0.0';
+        el.appVersion.textContent = 'v2.1.0';
       }
     }
 
@@ -2015,8 +1178,8 @@
       }
     }
 
-    async function startExport() {
-      const payload = {
+    function buildExportPayload() {
+      return {
         channel: el.exportChannel.value.trim(),
         format: el.exportFormat.value,
         download_media: el.exportMedia.checked,
@@ -2024,6 +1187,10 @@
         incremental: el.exportIncremental.checked,
         config: collectConfigForm()
       };
+    }
+
+    async function startExport() {
+      const payload = buildExportPayload();
 
       if (!payload.channel) {
         el.exportStatus.textContent = t('channelRequired');
@@ -2054,6 +1221,132 @@
         el.exportStatus.textContent = `${t('error')}: ${error.message}`;
         el.startExport.disabled = false;
       }
+    }
+
+    async function startScheduler() {
+      const payload = {
+        ...buildExportPayload(),
+        interval_minutes: Number(el.schedulerInterval.value)
+      };
+
+      if (!payload.channel) {
+        el.schedulerStatus.textContent = t('channelRequired');
+        return;
+      }
+
+      if (!payload.interval_minutes || payload.interval_minutes < 1) {
+        el.schedulerStatus.textContent = t('schedulerIntervalRequired');
+        return;
+      }
+
+      updateSchedulerControls();
+      el.schedulerStatus.textContent = t('schedulerStarting');
+
+      try {
+        const response = await fetch('/api/scheduler/start', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+          throw new Error(data.error || t('schedulerStartFailed'));
+        }
+
+        renderSchedulerStatus(data.scheduler || {});
+        pollExportStatus();
+        pollSchedulerStatus();
+      } catch (error) {
+        el.schedulerStatus.textContent = `${t('error')}: ${error.message}`;
+        el.schedulerMode.checked = false;
+        updateSchedulerControls();
+      }
+    }
+
+    async function stopScheduler() {
+      el.stopScheduler.disabled = true;
+
+      try {
+        const response = await fetch('/api/scheduler/stop', {
+          method: 'POST'
+        });
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+          throw new Error(data.error || t('schedulerStopFailed'));
+        }
+
+        renderSchedulerStatus(data.scheduler || {});
+      } catch (error) {
+        el.schedulerStatus.textContent = `${t('error')}: ${error.message}`;
+      } finally {
+        updateSchedulerControls();
+      }
+    }
+
+    async function pollSchedulerStatus() {
+      try {
+        const response = await fetch('/api/scheduler/status', { cache: 'no-store' });
+
+        if (!response.ok) {
+          return;
+        }
+
+        const data = await response.json();
+        renderSchedulerStatus(data);
+
+        if (data.enabled) {
+          window.setTimeout(pollSchedulerStatus, 5000);
+        }
+      } catch (_error) {
+        el.schedulerStatus.textContent = t('schedulerNotStarted');
+      }
+    }
+
+    function renderSchedulerStatus(data) {
+      const enabled = Boolean(data.enabled);
+      const parts = [];
+
+      state.schedulerEnabled = enabled;
+      el.schedulerMode.checked = enabled;
+
+      if (!enabled) {
+        el.schedulerStatus.textContent = t('schedulerNotStarted');
+        updateSchedulerControls();
+        return;
+      }
+
+      if (data.interval_minutes) {
+        el.schedulerInterval.value = data.interval_minutes;
+      }
+
+      parts.push(`${t('schedulerRunning')}: ${data.channels || '-'}`);
+      parts.push(`${t('nextRun')}: ${formatDateTimeValue(data.next_run_at)}`);
+
+      if (data.last_run_at) {
+        parts.push(`${t('lastRun')}: ${formatDateTimeValue(data.last_run_at)}`);
+      }
+
+      if (data.runs_skipped) {
+        parts.push(`${t('skippedRuns')}: ${formatNumber(data.runs_skipped)}`);
+      }
+
+      if (data.last_error) {
+        parts.push(`${t('error')}: ${data.last_error}`);
+      }
+
+      el.schedulerStatus.textContent = parts.join(' | ');
+      updateSchedulerControls();
+    }
+
+    function updateSchedulerControls() {
+      const enabled = state.schedulerEnabled;
+      el.schedulerInterval.disabled = enabled;
+      el.startScheduler.disabled = enabled;
+      el.stopScheduler.disabled = !enabled;
     }
 
     async function pollExportStatus() {
@@ -2088,6 +1381,7 @@
         el.exportStatus.textContent = t('ready');
       } else if (data.returncode === 0) {
         el.exportStatus.textContent = t('exportDone');
+        loadLocalExports();
       } else {
         el.exportStatus.textContent = `${t('exportFailed')} ${data.returncode}`;
       }
@@ -2362,6 +1656,26 @@
       }).format(date);
     }
 
+    function formatDateTimeValue(value) {
+      if (!value) {
+        return '-';
+      }
+
+      const date = new Date(Number(value) * 1000);
+
+      if (Number.isNaN(date.getTime())) {
+        return '-';
+      }
+
+      return new Intl.DateTimeFormat('ru-RU', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      }).format(date);
+    }
+
     function getTimestamp(value) {
       const date = new Date(value);
       return Number.isNaN(date.getTime()) ? 0 : date.getTime();
@@ -2369,6 +1683,20 @@
 
     function formatNumber(value) {
       return new Intl.NumberFormat('ru-RU').format(Number(value) || 0);
+    }
+
+    function formatFileSize(bytes) {
+      const value = Number(bytes) || 0;
+
+      if (value < 1024) {
+        return `${value} B`;
+      }
+
+      if (value < 1024 * 1024) {
+        return `${(value / 1024).toFixed(1)} KB`;
+      }
+
+      return `${(value / 1024 / 1024).toFixed(1)} MB`;
     }
 
     function resetState() {
@@ -2396,9 +1724,9 @@
     }
 
     renderAll();
+    updateSchedulerControls();
     loadAppVersion();
     loadServerConfig();
+    loadLocalExports();
     pollExportStatus();
-  </script>
-</body>
-</html>
+    pollSchedulerStatus();

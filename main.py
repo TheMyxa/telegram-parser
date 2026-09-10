@@ -118,18 +118,42 @@ def run_dashboard(_args):
 def run_config_check(_args):
     import config
 
-    print("Config OK")
-    print(f"CHANNEL={config.CHANNEL}")
-    print(f"CHANNELS={', '.join(config.CHANNELS)}")
-    print(f"TELEGRAM_SESSION={config.TELEGRAM_SESSION}")
-    print(f"POST_LIMIT={config.POST_LIMIT}")
-    print(f"INCREMENTAL_LOOKBACK_POSTS={config.INCREMENTAL_LOOKBACK_POSTS}")
-    print(f"OUTPUT_FILE={config.OUTPUT_FILE}")
-    print(f"LLM_ENDPOINT={config.LLM_ENDPOINT}")
-    print(f"LLM_MODEL={config.LLM_MODEL}")
-    print(f"POSTGRES_HOST={config.POSTGRES_HOST}")
-    print(f"POSTGRES_DB={config.POSTGRES_DB}")
-    print(f"POSTGRES_TABLE={config.POSTGRES_TABLE}")
+    ok = True
+
+    try:
+        export_config = config.load_export_config()
+        print("Export config OK")
+        print(f"CHANNEL={export_config.channel}")
+        print(f"CHANNELS={', '.join(export_config.channels)}")
+        print(f"TELEGRAM_SESSION={export_config.telegram_session}")
+        print(f"POST_LIMIT={export_config.post_limit}")
+        print(f"INCREMENTAL_LOOKBACK_POSTS={export_config.incremental_lookback_posts}")
+        print(f"OUTPUT_FILE={export_config.output_file}")
+    except Exception as e:
+        ok = False
+        print(f"Export config error: {e}", file=sys.stderr)
+
+    try:
+        llm_config = config.load_llm_config()
+        print("LLM config OK")
+        print(f"LLM_ENDPOINT={llm_config.endpoint}")
+        print(f"LLM_MODEL={llm_config.model}")
+    except Exception as e:
+        ok = False
+        print(f"LLM config error: {e}", file=sys.stderr)
+
+    try:
+        postgres_config = config.load_postgres_config()
+        print("PostgreSQL config OK")
+        print(f"POSTGRES_HOST={postgres_config.host}")
+        print(f"POSTGRES_DB={postgres_config.db}")
+        print(f"POSTGRES_TABLE={postgres_config.table}")
+    except Exception as e:
+        ok = False
+        print(f"PostgreSQL config error: {e}", file=sys.stderr)
+
+    if not ok:
+        sys.exit(1)
 
 
 def run_mcp(_args):

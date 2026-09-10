@@ -1,5 +1,36 @@
 import os
+from dataclasses import dataclass
 from pathlib import Path
+
+
+@dataclass(frozen=True)
+class ExportConfig:
+    api_id: int
+    api_hash: str
+    channel: str
+    channels: list[str]
+    telegram_session: str
+    output_file: str
+    post_limit: int
+    incremental_lookback_posts: int
+    posts_pause_seconds: int
+    posts_pause_after_posts: int
+
+
+@dataclass(frozen=True)
+class LlmConfig:
+    endpoint: str
+    model: str
+
+
+@dataclass(frozen=True)
+class PostgresConfig:
+    host: str
+    port: int
+    db: str
+    user: str
+    password: str
+    table: str
 
 
 def load_dotenv(path=".env"):
@@ -43,6 +74,16 @@ def get_required_int(name):
     return int(get_required(name))
 
 
+def get_first_int(names, default):
+    for name in names:
+        value = os.getenv(name)
+
+        if value is not None and value != "":
+            return int(value)
+
+    return default
+
+
 def parse_list(value):
     return [
         item.strip()
@@ -51,30 +92,46 @@ def parse_list(value):
     ]
 
 
+def load_export_config():
+    channel = get_required("CHANNEL")
+    channels = parse_list(channel)
+
+    if not channels:
+        raise RuntimeError("Missing required config value: CHANNEL")
+
+    return ExportConfig(
+        api_id=get_required_int("API_ID"),
+        api_hash=get_required("API_HASH"),
+        channel=channel,
+        channels=channels,
+        telegram_session=os.getenv("TELEGRAM_SESSION", "sessions/session"),
+        output_file=os.getenv("OUTPUT_FILE", "data/raw/export.json"),
+        post_limit=get_int("POST_LIMIT", 500),
+        incremental_lookback_posts=get_int("INCREMENTAL_LOOKBACK_POSTS", 50),
+        posts_pause_seconds=get_first_int(
+            ("POSTS_PAUSE_SECONDS", "PAUSE_AFTER_500_POSTS_SECONDS", "PAUSE_AFTER_1000_POSTS_SECONDS"),
+            30,
+        ),
+        posts_pause_after_posts=get_int("POSTS_PAUSE_AFTER_POSTS", 500),
+    )
+
+
+def load_llm_config():
+    return LlmConfig(
+        endpoint=get_required("LLM_ENDPOINT"),
+        model=get_required("LLM_MODEL"),
+    )
+
+
+def load_postgres_config():
+    return PostgresConfig(
+        host=os.getenv("POSTGRES_HOST", "localhost"),
+        port=get_int("POSTGRES_PORT", 5432),
+        db=os.getenv("POSTGRES_DB", "telegram_parser"),
+        user=os.getenv("POSTGRES_USER", "postgres"),
+        password=os.getenv("POSTGRES_PASSWORD", ""),
+        table=os.getenv("POSTGRES_TABLE", "telegram_comments_export"),
+    )
+
+
 load_dotenv()
-
-API_ID = get_required_int("API_ID")
-API_HASH = get_required("API_HASH")
-
-CHANNEL = get_required("CHANNEL")
-CHANNELS = parse_list(CHANNEL)
-TELEGRAM_SESSION = os.getenv("TELEGRAM_SESSION", "sessions/session")
-OUTPUT_FILE = os.getenv("OUTPUT_FILE", "data/raw/export.json")
-
-POST_LIMIT = get_int("POST_LIMIT", 500)
-INCREMENTAL_LOOKBACK_POSTS = get_int("INCREMENTAL_LOOKBACK_POSTS", 50)
-POSTS_PAUSE_SECONDS = get_int(
-    "POSTS_PAUSE_SECONDS",
-    get_int("PAUSE_AFTER_500_POSTS_SECONDS", get_int("PAUSE_AFTER_1000_POSTS_SECONDS", 30)),
-)
-POSTS_PAUSE_AFTER_POSTS = get_int("POSTS_PAUSE_AFTER_POSTS", 500)
-
-POSTGRES_HOST = os.getenv("POSTGRES_HOST", "localhost")
-POSTGRES_PORT = get_int("POSTGRES_PORT", 5432)
-POSTGRES_DB = os.getenv("POSTGRES_DB", "telegram_parser")
-POSTGRES_USER = os.getenv("POSTGRES_USER", "postgres")
-POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "")
-POSTGRES_TABLE = os.getenv("POSTGRES_TABLE", "telegram_comments_export")
-
-LLM_ENDPOINT = get_required("LLM_ENDPOINT")
-LLM_MODEL = get_required("LLM_MODEL")

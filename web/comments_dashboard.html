@@ -1,0 +1,295 @@
+﻿<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TG Comments Dashboard</title>
+  <link rel="stylesheet" href="/web/css/dashboard.css">
+</head>
+<body>
+  <div class="page">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-title">
+          <h1>TG Comments Dashboard</h1>
+          <span id="appVersion" class="app-version">v...</span>
+        </div>
+        <div data-i18n="heroSubtitle">Загрузите JSON-экспорт и изучайте посты, комментарии, реакции и активность пользователей.</div>
+      </div>
+      <div class="file-box">
+        <label for="jsonFile" data-i18n="uploadJson">Загрузить JSON-файл</label>
+        <div class="file-actions">
+          <div class="file-picker">
+            <input id="jsonFile" class="file-input-native" type="file" accept=".json,application/json">
+            <label class="file-button" for="jsonFile" data-i18n="chooseFile">Выбор файла</label>
+            <span id="selectedFileName" class="file-name" data-i18n="noFileSelected">Файл не выбран</span>
+          </div>
+          <button id="themeToggle" class="theme-toggle" type="button" aria-pressed="false">Ночная тема</button>
+        </div>
+        <div class="local-export-actions">
+          <select id="localExportSelect" aria-label="Локальные экспорты">
+            <option value="" data-i18n="loadingExports">Загрузка экспортов...</option>
+          </select>
+          <select id="localExportSort" aria-label="Сортировка локальных экспортов">
+            <option value="date" data-i18n="sortByDate">По дате</option>
+            <option value="channel" data-i18n="sortByChannel">По каналу</option>
+          </select>
+          <button id="openLocalExport" class="local-export-button" type="button" data-i18n="openLocalExport">Открыть локальный экспорт</button>
+        </div>
+        <div id="localExportStatus" class="local-export-status" data-i18n="localExportsStaticMode">Экспорты из data/raw доступны при запуске через сервер.</div>
+      </div>
+    </header>
+
+    <main>
+      <nav class="tabs" aria-label="Разделы">
+        <button class="tab active" type="button" data-tab="dashboard">Dashboard</button>
+        <button class="tab" type="button" data-tab="posts" data-i18n="postsPage">Страница постов</button>
+        <button class="tab" type="button" data-tab="export" data-i18n="export">Экспорт</button>
+      </nav>
+
+      <section class="panel">
+        <div class="filters">
+          <div class="field">
+            <label for="searchText" data-i18n="search">Поиск</label>
+            <input id="searchText" type="search" placeholder="Текст, post_id, comment_id" data-i18n-placeholder="searchPlaceholder">
+          </div>
+          <div class="field">
+            <label for="filterUserId">User ID</label>
+            <input id="filterUserId" type="search" placeholder="1602904837">
+          </div>
+          <div class="field">
+            <label for="filterUsername">Username</label>
+            <input id="filterUsername" type="search" placeholder="username">
+          </div>
+          <div class="field">
+            <label for="filterDateFrom" data-i18n="dateFrom">Дата от</label>
+            <input id="filterDateFrom" type="date">
+          </div>
+          <div class="field">
+            <label for="filterDateTo" data-i18n="dateTo">Дата до</label>
+            <input id="filterDateTo" type="date">
+          </div>
+          <div class="field">
+            <label for="filterEmoji" data-i18n="emoji">Эмодзи</label>
+            <select id="filterEmoji">
+              <option value="" data-i18n="all">Все</option>
+            </select>
+          </div>
+          <div class="checks">
+            <label><input id="filterMedia" type="checkbox"> <span data-i18n="onlyMedia">Только с медиа</span></label>
+            <label><input id="filterReplies" type="checkbox"> <span data-i18n="onlyReplies">Только ответы</span></label>
+          </div>
+        </div>
+      </section>
+
+      <section id="dashboardView" class="view active">
+        <section class="summary">
+          <div class="metric">
+            <span data-i18n="file">Файл</span>
+            <strong id="metricFile">-</strong>
+          </div>
+          <div class="metric">
+            <span data-i18n="postsCount">Постов</span>
+            <strong id="metricPosts">0</strong>
+          </div>
+          <div class="metric">
+            <span data-i18n="commentsCount">Комментариев</span>
+            <strong id="metricComments">0</strong>
+          </div>
+          <div class="metric">
+            <span data-i18n="uniqueUsers">Уникальных пользователей</span>
+            <strong id="metricUsers">0</strong>
+          </div>
+          <div class="metric">
+            <span data-i18n="reactionsCount">Реакций</span>
+            <strong id="metricReactions">0</strong>
+          </div>
+        </section>
+
+        <section class="charts">
+          <div class="panel chart">
+            <div class="panel-head">
+              <h2 data-i18n="commentsByDay">Комментарии по дням</h2>
+              <div id="daysStatus" class="status">Нет данных</div>
+            </div>
+            <div id="commentsByDayChart" class="chart-body"></div>
+          </div>
+          <div class="panel chart">
+            <div class="panel-head">
+              <h2 data-i18n="topUsers">Топ пользователей</h2>
+              <div id="usersStatus" class="status">Нет данных</div>
+            </div>
+            <div id="topUsersChart" class="chart-body"></div>
+          </div>
+          <div class="panel chart">
+            <div class="panel-head">
+              <h2 data-i18n="topEmoji">Топ эмодзи</h2>
+              <div id="emojiStatus" class="status">Нет данных</div>
+            </div>
+            <div id="topEmojiChart" class="chart-body"></div>
+          </div>
+          <div class="panel chart">
+            <div class="panel-head">
+              <h2 data-i18n="topPosts">Самые обсуждаемые посты</h2>
+              <div id="postsStatus" class="status">Нет данных</div>
+            </div>
+            <div id="topPostsChart" class="chart-body"></div>
+          </div>
+        </section>
+      </section>
+
+      <section id="postsView" class="view">
+        <section class="panel">
+          <div class="panel-head">
+            <h2 data-i18n="channelPosts">Посты канала</h2>
+            <div id="tableStatus" class="status">Выберите JSON-файл</div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Post</th>
+                  <th data-i18n="date">Дата</th>
+                  <th data-i18n="views">Просмотры</th>
+                  <th data-i18n="comments">Комментарии</th>
+                  <th data-i18n="reactions">Реакции</th>
+                  <th data-i18n="media">Медиа</th>
+                </tr>
+              </thead>
+              <tbody id="postsBody">
+                <tr><td colspan="6" class="empty">Нет загруженных данных</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section id="exportView" class="view">
+        <section class="panel">
+          <div class="panel-head">
+            <h2 data-i18n="exportRun">Запуск экспорта</h2>
+            <div id="exportStatus" class="status">Готово</div>
+          </div>
+          <div class="export-grid">
+            <div class="field">
+              <label for="exportChannel" data-i18n="channel">Каналы</label>
+              <input id="exportChannel" type="text" placeholder="channel, another_channel или https://t.me/channel" data-i18n-placeholder="channelPlaceholder">
+            </div>
+            <div class="field">
+              <label for="configTelegramSession">TELEGRAM_SESSION</label>
+              <input id="configTelegramSession" type="text" placeholder="sessions/session">
+            </div>
+            <div class="field">
+              <label for="configApiId">API ID</label>
+              <input id="configApiId" type="text" inputmode="numeric" placeholder="123456">
+            </div>
+            <div class="field">
+              <label for="configApiHash">API Hash</label>
+              <input id="configApiHash" type="password" placeholder="your_api_hash">
+            </div>
+            <div class="field">
+              <label for="exportFormat" data-i18n="format">Формат</label>
+              <select id="exportFormat">
+                <option value="json">JSON</option>
+                <option value="csv">CSV</option>
+                <option value="postgresql">PostgreSQL</option>
+                <option value="parquet">Parquet</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="configOutputFile">OUTPUT_FILE</label>
+              <input id="configOutputFile" type="text" placeholder="data/raw/export.json">
+            </div>
+            <div class="field">
+              <label for="configPostLimit">POST_LIMIT</label>
+              <input id="configPostLimit" type="number" min="1" step="1" placeholder="500">
+            </div>
+            <div class="field">
+              <label for="configIncrementalLookbackPosts">INCREMENTAL_LOOKBACK_POSTS</label>
+              <input id="configIncrementalLookbackPosts" type="number" min="0" step="1" placeholder="50">
+            </div>
+            <div class="field">
+              <label for="configPostsPauseSeconds" data-i18n="postsPauseSeconds">Пауза, секунд</label>
+              <input id="configPostsPauseSeconds" type="number" min="0" step="1" placeholder="30">
+            </div>
+            <div class="field">
+              <label for="configPostsPauseAfterPosts" data-i18n="postsPauseAfterPosts">Пауза каждые N постов</label>
+              <input id="configPostsPauseAfterPosts" type="number" min="0" step="1" placeholder="500">
+            </div>
+            <div class="field">
+              <label for="configPostgresHost">Postgres host</label>
+              <input id="configPostgresHost" type="text" placeholder="host.docker.internal">
+            </div>
+            <div class="field">
+              <label for="configPostgresPort">Postgres port</label>
+              <input id="configPostgresPort" type="number" min="1" step="1" placeholder="5432">
+            </div>
+            <div class="field">
+              <label for="configPostgresDb">Postgres DB</label>
+              <input id="configPostgresDb" type="text" placeholder="telegram_parser">
+            </div>
+            <div class="field">
+              <label for="configPostgresUser">Postgres user</label>
+              <input id="configPostgresUser" type="text" placeholder="postgres">
+            </div>
+            <div class="field">
+              <label for="configPostgresPassword">Postgres password</label>
+              <input id="configPostgresPassword" type="password" placeholder="password">
+            </div>
+            <div class="field">
+              <label for="configPostgresTable">Postgres table</label>
+              <input id="configPostgresTable" type="text" placeholder="telegram_comments_export">
+            </div>
+            <div class="field">
+              <label for="configLlmEndpoint">LLM endpoint</label>
+              <input id="configLlmEndpoint" type="text" placeholder="http://localhost:1234/v1/chat/completions">
+            </div>
+            <div class="field">
+              <label for="configLlmModel">LLM model</label>
+              <input id="configLlmModel" type="text" placeholder="local-model">
+            </div>
+            <div class="checks">
+              <label><input id="exportMedia" type="checkbox"> <span data-i18n="downloadMedia">Скачать медиа</span></label>
+              <label><input id="exportAnonymize" type="checkbox"> <span data-i18n="anonymization">Анонимизация</span></label>
+              <label><input id="exportIncremental" type="checkbox" checked> <span data-i18n="incremental">Инкрементально</span></label>
+              <label><input id="schedulerMode" type="checkbox"> <span data-i18n="schedulerMode">Scheduler mode</span></label>
+            </div>
+            <div class="field">
+              <label for="schedulerInterval" data-i18n="schedulerInterval">Интервал, минут</label>
+              <input id="schedulerInterval" type="number" min="1" step="1" value="60">
+            </div>
+            <button id="saveConfig" class="button" type="button" data-i18n="saveEnv">Сохранить .env</button>
+            <button id="startExport" class="button" type="button" data-i18n="startExport">Запустить экспорт</button>
+            <button id="startScheduler" class="button" type="button" data-i18n="startScheduler">Запустить scheduler</button>
+            <button id="stopScheduler" class="button" type="button" data-i18n="stopScheduler">Остановить scheduler</button>
+          </div>
+          <div id="schedulerStatus" class="scheduler-status">Scheduler не запущен</div>
+          <pre id="exportProgress" class="progress-log">Экспорт ещё не запускался.</pre>
+        </section>
+      </section>
+    </main>
+    <footer class="footer">
+      <label for="languageSelect" data-i18n="language">Язык</label>
+      <select id="languageSelect">
+        <option value="ru">Русский</option>
+        <option value="en">English</option>
+        <option value="zh">中文</option>
+      </select>
+    </footer>
+  </div>
+
+  <div id="drawerBackdrop" class="drawer-backdrop"></div>
+  <aside id="userDrawer" class="drawer" aria-label="Пользователь">
+    <div class="drawer-head">
+      <div>
+        <h2 id="drawerUserName">User</h2>
+        <div id="drawerUserMeta" class="status"></div>
+      </div>
+      <button id="closeDrawer" class="button" type="button" data-i18n="close">Закрыть</button>
+    </div>
+    <div id="drawerBody" class="drawer-body"></div>
+  </aside>
+
+  <script src="/web/js/dashboard.js" defer></script>
+</body>
+</html>

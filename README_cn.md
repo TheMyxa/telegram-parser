@@ -4,6 +4,8 @@
 
 TG 是一个本地优先的 Telegram 评论导出和分析工具。它可以导出频道帖子、讨论区评论、反应、链接、可选媒体文件，并支持增量更新已有 dataset。
 
+当前版本：`2.1.0`。
+
 ## 功能
 
 - 使用 Telethon 导出 Telegram 频道帖子和评论。
@@ -12,7 +14,8 @@ TG 是一个本地优先的 Telegram 评论导出和分析工具。它可以导�
 - 真正的增量导出：导出新帖子，同时回看一部分旧帖子，刷新评论、反应和计数器。
 - 可选下载媒体到 `data/content/<dataset_name>/`。
 - 可选匿名化 `user_id`、`username`、`first_name`、`last_name`。
-- Web UI 运行在 `9595` 端口，包含 dashboard、帖子列表、评论树、过滤器、用户详情和导出启动页。
+- Web UI 运行在 `9595` 端口，包含 dashboard、帖子列表、评论树、过滤器、用户详情、导出启动页和 Scheduler mode。
+- 可直接从 dashboard 打开 `data/raw` 中的本地 JSON 导出，并按日期或频道排序。
 - 支持对导出的 JSON 文件进行 LLM 分析，内置中文、英文、俄文 prompt 文件。
 - MCP 服务器，用于让 AI 客户端通过标准工具接口读取本地导出和启动分析。
 - Docker Compose 本地启动。
@@ -71,6 +74,8 @@ LLM_MODEL=local-model
 - `POSTS_PAUSE_SECONDS`：暂停秒数。
 - `POSTS_PAUSE_AFTER_POSTS`：每处理 N 个帖子后暂停。
 - `LLM_ENDPOINT`、`LLM_MODEL`：用于 `analyze` 命令。
+
+配置会按命令验证：`export` 需要 Telegram 配置，`analyze` 需要 LLM 配置，PostgreSQL 配置只在 `postgresql` 导出时加载。
 
 ## CLI
 
@@ -144,6 +149,21 @@ python main.py mcp
 - `list_exports`、`get_export_summary`、`get_post`、`search_comments`：读取和搜索 `data/raw` 中的 JSON 导出。
 - `list_analysis_files`、`read_analysis`、`run_analysis`：处理 LLM 分析文件。
 - `start_export`、`get_export_process_status`：启动和监控 Telegram 导出。`start_export` 需要 `confirm=true`。
+
+## Dashboard 本地导出
+
+Dashboard 可以直接打开 `data/raw` 中的本地 JSON 导出，无需手动上传文件。
+
+Scheduler mode 可以每 N 分钟自动更新选中的频道。第一次导出会立即开始；如果到达下一次间隔时上一次导出仍在运行，本次运行会被跳过。
+
+API:
+
+- `GET /api/version`：返回当前应用版本。
+- `GET /api/exports?sort=date|channel`：列出 `data/raw` 中的 JSON 导出。
+- `GET /api/export/<file>/summary`：返回一个 JSON 导出的计数和元数据。
+- `GET /api/scheduler/status`：返回当前 scheduler 状态。
+- `POST /api/scheduler/start`：使用 `channel`、`interval_minutes`、格式和导出标志启动定时导出。
+- `POST /api/scheduler/stop`：停止 scheduler。
 
 ## Demo JSON
 

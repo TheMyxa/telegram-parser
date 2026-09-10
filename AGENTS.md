@@ -4,7 +4,7 @@ This file is guidance for coding agents working in this repository.
 
 ## Project Summary
 
-TG is a local-first Telegram comments exporter, analytics dashboard, LLM analyzer, and MCP server.
+TG is a local-first Telegram comments exporter, analytics dashboard, scheduled export runner, LLM analyzer, and MCP server.
 
 Core capabilities:
 
@@ -13,16 +13,25 @@ Core capabilities:
 - Save exports as JSON, CSV, Parquet, or PostgreSQL rows.
 - Support incremental exports with saved state and a configurable old-post lookback window.
 - Run a local Web UI on port `9595`.
+- Start one-off or scheduled exports from the Web UI; the scheduler runs immediately once, then repeats every configured interval.
 - Analyze exported JSON files through an LLM endpoint using prompt files.
 - Expose local export/analysis tools through an MCP server over stdio.
 
 ## Important Files
 
 - `main.py` - unified CLI entrypoint: `export`, `analyze`, `dashboard`, `config-check`, `mcp`.
-- `export_comments.py` - Telethon export logic, multi-channel export, incremental merge, retry/error handling.
-- `comments_dashboard.html` - single-file Web UI.
-- `web_server.py` - HTTP server, dashboard API, export runner, `.env` editor.
-- `llm_analyzer.py` - LLM analysis for exported JSON files.
+- `export_comments.py` - compatibility entrypoint for Telegram export.
+- `exporters/telegram_exporter.py` - Telethon export logic, multi-channel export, incremental merge, retry/error handling.
+- `web/comments_dashboard.html` - Web UI markup.
+- `web/css/dashboard.css` - Web UI styles.
+- `web/js/dashboard.js` - Web UI behavior.
+- `web_server.py` - compatibility entrypoint for dashboard server.
+- `api/web_server.py` - HTTP server, dashboard API, export runner, scheduler, `.env` editor.
+- `llm_analyzer.py` - compatibility entrypoint for LLM analysis.
+- `llm/analyzer.py` - LLM analysis for exported JSON files.
+- `telegram/messages.py` - Telegram link, reaction, user, and anonymization helpers.
+- `storage/json_files.py` - JSON dataset loading, backups, and atomic writes.
+- `analytics/export_summary.py` - export summary metrics.
 - `mcp_server.py` - MCP server tools for config, exports, search, analysis, and controlled export starts.
 - `config.py` - `.env` loader and runtime configuration.
 - `version.py` - application version.
@@ -120,13 +129,13 @@ docker compose build dashboard
 If Python is available:
 
 ```powershell
-python -m py_compile main.py export_comments.py web_server.py llm_analyzer.py mcp_server.py config.py version.py
+python -m py_compile main.py export_comments.py web_server.py llm_analyzer.py mcp_server.py config.py version.py exporters/telegram_exporter.py api/web_server.py llm/analyzer.py telegram/messages.py storage/json_files.py analytics/export_summary.py
 ```
 
 If local Python is broken, use Docker:
 
 ```powershell
-docker compose run --rm --entrypoint python cli -m py_compile main.py export_comments.py web_server.py llm_analyzer.py mcp_server.py config.py version.py
+docker compose run --rm --entrypoint python cli -m py_compile main.py export_comments.py web_server.py llm_analyzer.py mcp_server.py config.py version.py exporters/telegram_exporter.py api/web_server.py llm/analyzer.py telegram/messages.py storage/json_files.py analytics/export_summary.py
 ```
 
 For JSON examples and prompts:
@@ -265,16 +274,31 @@ Current MCP tools include:
 
 ## Web UI Notes
 
-The dashboard is a single HTML file. API endpoints live in `web_server.py`.
+The dashboard lives in `web/` with separate HTML, CSS, and JS files. API endpoints live in `api/web_server.py`.
+
+The UI reads the visible version from `GET /api/version`, which uses `version.py`. Keep `version.py` as the single source of truth and update only fallback labels in frontend code when changing the app version.
 
 Current endpoints:
 
 - `GET /api/version`
 - `GET /api/config`
 - `POST /api/config`
+- `GET /api/exports`
+- `GET /api/export/<file>/summary`
 - `POST /api/export/start`
 - `GET /api/export/status`
+- `POST /api/scheduler/start`
+- `POST /api/scheduler/stop`
+- `GET /api/scheduler/status`
 - `GET /data/...`
+- `GET /web/...`
+
+Scheduler behavior:
+
+- `POST /api/scheduler/start` starts the first export immediately, then schedules future runs every `interval_minutes`.
+- If an export is already running when a scheduled run is due, the scheduled run is skipped and `runs_skipped` is incremented.
+- Scheduler state is in-memory inside the dashboard process; restarting the dashboard stops the scheduler.
+- Scheduler payload reuses the normal export payload fields plus `interval_minutes`.
 
 When adding UI controls, wire them through:
 

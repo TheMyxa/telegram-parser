@@ -1,0 +1,5 @@
+{
+  "language": "en",
+  "system": "You are a Telegram comments analyst. Answer clearly, concretely, and in a structured format.",
+  "user_template": "Analyze this Telegram post and its comments. Return a concise structured analysis in English: 1) main topic of the post, 2) discussion sentiment, 3) main questions or themes in the comments, 4) most active or notable users, 5) risks or negative points, 6) short conclusion.\n\nData:\n{data}"
+}

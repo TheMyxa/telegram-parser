@@ -4,6 +4,8 @@
 
 TG is a local-first Telegram comments exporter and analytics dashboard. It exports channel posts, discussion comments, reactions, links, optional media files, and can update existing datasets incrementally.
 
+Current version: `2.1.0`.
+
 ![Dashboard screenshot](docs/screenshots/dashboard.png)
 
 ## Features
@@ -14,7 +16,8 @@ TG is a local-first Telegram comments exporter and analytics dashboard. It expor
 - True incremental export: scan new posts and revisit older exported posts to refresh comments, reactions, and counters.
 - Optional media download into `data/content/<dataset_name>/`.
 - Optional anonymization of `user_id`, `username`, `first_name`, and `last_name`.
-- Web UI on port `9595` with dashboard, post view, comment tree, filters, user profiles, and export launch screen.
+- Web UI on port `9595` with dashboard, post view, comment tree, filters, user profiles, export launch screen, and Scheduler mode.
+- Open local JSON exports from `data/raw` directly in the dashboard, sorted by date or channel.
 - LLM analyzer for exported JSON files with Russian, English, and Chinese prompt files.
 - MCP server for local automation through AI clients.
 - Docker Compose setup for local use.
@@ -38,11 +41,20 @@ Use [examples/example.json](examples/example.json) to test the dashboard without
 ```text
 .
 ├── main.py                    # Unified CLI: export, analyze, dashboard, config-check, mcp
-├── export_comments.py         # Telegram exporter
-├── comments_dashboard.html    # Web dashboard
-├── web_server.py              # Local web server and export API
+├── export_comments.py         # Compatibility entrypoint for exporters.telegram_exporter
+├── web/
+│   ├── comments_dashboard.html # Web dashboard markup
+│   ├── css/                    # Dashboard styles
+│   └── js/                     # Dashboard scripts
+├── web_server.py              # Compatibility entrypoint for api.web_server
+├── api/                       # Local web server and dashboard API
+├── telegram/                  # Telegram message serialization helpers
+├── exporters/                 # Telegram export orchestration and output formats
+├── storage/                   # JSON file loading and atomic writes
+├── analytics/                 # Export summaries and dataset analytics helpers
+├── llm/                       # LLM analysis implementation
 ├── mcp_server.py              # MCP server for local exports and analysis
-├── llm_analyzer.py            # LLM analysis for exported JSON
+├── llm_analyzer.py            # Compatibility entrypoint for llm.analyzer
 ├── config.py                  # .env/config loader
 ├── docker-compose.yml         # Docker Compose services
 ├── anonymizer                 # Aliases for anonymized users
@@ -110,6 +122,8 @@ Important fields:
 - `POSTS_PAUSE_AFTER_POSTS`: pause after every N processed posts.
 - `OUTPUT_FILE`: base output directory is taken from this path, usually `data/raw/export.json`.
 - `LLM_ENDPOINT`, `LLM_MODEL`: used by `analyze`.
+
+Configuration is validated per command: `export` requires Telegram settings, `analyze` requires LLM settings, and PostgreSQL settings are loaded only for `postgresql` export.
 
 ## Docker Usage
 
@@ -266,6 +280,7 @@ docker compose up dashboard
 The dashboard can:
 
 - upload a JSON file;
+- open a local JSON export from `data/raw`;
 - show file name, posts, comments, unique users, reactions;
 - draw charts by day, top users, top emoji, discussed posts;
 - open a post and show comments as a tree;
@@ -273,6 +288,19 @@ The dashboard can:
 - open user details;
 - edit `.env` settings from the Export tab;
 - start exports from the browser and show progress.
+- enable Scheduler mode to update selected channels automatically every N minutes.
+- show the app version from `version.py` through `/api/version`.
+
+Dashboard API endpoints:
+
+- `GET /api/version`: return the current app version.
+- `GET /api/exports?sort=date|channel`: list JSON exports from `data/raw`.
+- `GET /api/export/<file>/summary`: return counts and metadata for one JSON export.
+- `GET /api/scheduler/status`: return current scheduler state.
+- `POST /api/scheduler/start`: start scheduled exports with `channel`, `interval_minutes`, format, and export flags.
+- `POST /api/scheduler/stop`: stop scheduled exports.
+
+Scheduler mode starts the first export immediately, then repeats every configured interval. If an export is still running when the next interval arrives, that run is skipped.
 
 ## Local Python Usage
 

@@ -1,4 +1,4 @@
-telethon
-psycopg2-binary
-pyarrow
-mcp
+telethon==1.44.0
+psycopg2-binary==2.9.12
+pyarrow==25.0.1
+mcp==1.30.0
