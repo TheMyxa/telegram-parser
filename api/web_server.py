@@ -1,14 +1,17 @@
 import json
 import os
+import re
 import subprocess
 import sys
 import threading
 import time
+import uuid
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
 from analytics.export_summary import extract_channel_from_export_name, summarize_export_posts
+from analytics.period_compare import compare_periods
 from version import APP_VERSION
 
 
@@ -18,6 +21,7 @@ ROOT = Path(__file__).resolve().parent.parent
 WEB_DIR = ROOT / "web"
 INDEX_FILE = WEB_DIR / "comments_dashboard.html"
 DATA_DIR = ROOT / "data"
+SCHEDULER_HISTORY_DIR = DATA_DIR / "scheduler"
 ENV_FILE = ROOT / ".env"
 CONFIG_KEYS = [
     "API_ID",
@@ -58,6 +62,8 @@ EXPORT_JOB = {
     "failed_channels": [],
     "last_error": None,
     "summary": None,
+    "scheduler_run_id": None,
+    "channel_summaries": [],
 }
 EXPORT_LOCK = threading.Lock()
 SCHEDULER = {
@@ -77,6 +83,19 @@ SCHEDULER = {
     "lines": [],
 }
 SCHEDULER_LOCK = threading.Lock()
+WATCH_JOB = {
+    "running": False,
+    "returncode": None,
+    "started_at": None,
+    "finished_at": None,
+    "command": [],
+    "process": None,
+    "channels": "",
+    "lines": [],
+    "updates": [],
+    "last_error": None,
+}
+WATCH_LOCK = threading.Lock()
 
 
 class DashboardHandler(SimpleHTTPRequestHandler):
@@ -118,12 +137,45 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 self.send_json({"ok": False, "error": str(e)}, status=404)
             return
 
+        if path.startswith("/api/export/") and path.endswith("/compare"):
+            file_name = path.removeprefix("/api/export/").removesuffix("/compare")
+            query = parse_qs(parsed.query)
+            from_date = (query.get("from") or [""])[0]
+            to_date = (query.get("to") or [""])[0]
+
+            try:
+                self.send_json(get_export_period_compare(unquote(file_name), from_date, to_date))
+            except (FileNotFoundError, ValueError, OSError, json.JSONDecodeError) as e:
+                self.send_json({"ok": False, "error": str(e)}, status=400)
+            return
+
         if path == "/api/export/status":
             self.send_json(get_export_status())
             return
 
         if path == "/api/scheduler/status":
             self.send_json(get_scheduler_status())
+            return
+
+        if path == "/api/scheduler/history":
+            query = parse_qs(parsed.query)
+            try:
+                limit = int((query.get("limit") or ["50"])[0])
+            except ValueError:
+                limit = 50
+            self.send_json({"ok": True, "runs": list_scheduler_runs(max(1, min(limit, 200)))})
+            return
+
+        if path.startswith("/api/scheduler/history/"):
+            run_id = path.removeprefix("/api/scheduler/history/")
+            try:
+                self.send_json({"ok": True, "run": read_scheduler_run(run_id)})
+            except (FileNotFoundError, ValueError, OSError, json.JSONDecodeError) as e:
+                self.send_json({"ok": False, "error": str(e)}, status=404)
+            return
+
+        if path == "/api/watch/status":
+            self.send_json(get_watch_status())
             return
 
         self.send_error(404, "Not found")
@@ -146,6 +198,14 @@ class DashboardHandler(SimpleHTTPRequestHandler):
 
         if path == "/api/scheduler/stop":
             self.stop_scheduler()
+            return
+
+        if path == "/api/watch/start":
+            self.start_watch()
+            return
+
+        if path == "/api/watch/stop":
+            self.stop_watch()
             return
 
         self.send_error(404, "Not found")
@@ -217,6 +277,32 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         stop_scheduler_job()
         self.send_json({"ok": True, "scheduler": get_scheduler_status()})
 
+    def start_watch(self):
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            payload = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
+        except (ValueError, json.JSONDecodeError):
+            self.send_json({"ok": False, "error": "Invalid JSON payload"}, status=400)
+            return
+
+        try:
+            start_watch_job(payload)
+        except RuntimeError as e:
+            self.send_json({"ok": False, "error": str(e)}, status=409)
+            return
+        except ValueError as e:
+            self.send_json({"ok": False, "error": str(e)}, status=400)
+            return
+        except OSError as e:
+            self.send_json({"ok": False, "error": f"Cannot write .env: {e}"}, status=500)
+            return
+
+        self.send_json({"ok": True, "watch": get_watch_status()})
+
+    def stop_watch(self):
+        stop_watch_job()
+        self.send_json({"ok": True, "watch": get_watch_status()})
+
     def serve_data_file(self, request_path):
         relative = request_path.removeprefix("/data/")
         target = (DATA_DIR / relative).resolve()
@@ -275,7 +361,214 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         print(f"{self.client_address[0]} - {format % args}")
 
 
-def start_export_job(payload):
+def now_iso():
+    return time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime())
+
+
+def scheduler_history_path(run_id):
+    if not re.match(r"^[A-Za-z0-9_.-]+$", run_id or ""):
+        raise ValueError("Invalid scheduler run id")
+
+    return SCHEDULER_HISTORY_DIR / f"{run_id}.json"
+
+
+def write_scheduler_run(record):
+    SCHEDULER_HISTORY_DIR.mkdir(parents=True, exist_ok=True)
+    from storage.json_files import write_json_atomic
+
+    write_json_atomic(record, scheduler_history_path(record["id"]))
+
+
+def read_scheduler_run(run_id):
+    path = scheduler_history_path(run_id)
+
+    if not path.is_file():
+        raise FileNotFoundError(f"Scheduler run not found: {run_id}")
+
+    with path.open("r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def list_scheduler_runs(limit=50):
+    SCHEDULER_HISTORY_DIR.mkdir(parents=True, exist_ok=True)
+    items = []
+
+    for path in sorted(SCHEDULER_HISTORY_DIR.glob("*.json"), key=lambda item: item.stat().st_mtime, reverse=True):
+        try:
+            with path.open("r", encoding="utf-8") as f:
+                record = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            continue
+
+        items.append({
+            "id": record.get("id") or path.stem,
+            "status": record.get("status"),
+            "created_at": record.get("created_at"),
+            "scheduled_for": record.get("scheduled_for"),
+            "started_at": record.get("started_at"),
+            "finished_at": record.get("finished_at"),
+            "channels": record.get("channels"),
+            "format": record.get("format"),
+            "posts_processed": record.get("posts_processed"),
+            "channels_ok": record.get("channels_ok"),
+            "channels_failed": record.get("channels_failed"),
+            "error": record.get("error"),
+        })
+
+        if len(items) >= limit:
+            break
+
+    return items
+
+
+def reconcile_incomplete_scheduler_runs():
+    SCHEDULER_HISTORY_DIR.mkdir(parents=True, exist_ok=True)
+
+    for path in SCHEDULER_HISTORY_DIR.glob("*.json"):
+        try:
+            with path.open("r", encoding="utf-8") as f:
+                record = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            continue
+
+        if record.get("status") not in {"QUEUED", "RUNNING"}:
+            continue
+
+        record.update({
+            "status": "CANCELLED",
+            "finished_at": now_iso(),
+            "error": {
+                "type": "DashboardRestarted",
+                "message": "Dashboard process restarted before this scheduled run completed.",
+            },
+        })
+        write_scheduler_run(record)
+
+
+def create_scheduler_run(payload, status="QUEUED", reason=None):
+    run_id = f"scheduler_{time.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
+    record = {
+        "id": run_id,
+        "status": status,
+        "created_at": now_iso(),
+        "scheduled_for": now_iso(),
+        "started_at": None,
+        "finished_at": now_iso() if status in {"SKIPPED", "FAILED", "CANCELLED"} else None,
+        "channels": payload.get("channel"),
+        "format": payload.get("format"),
+        "flags": {
+            "download_media": bool(payload.get("download_media")),
+            "anonymize": bool(payload.get("anonymize")),
+            "incremental": bool(payload.get("incremental")),
+        },
+        "command": [],
+        "returncode": None,
+        "posts_processed": 0,
+        "channels_ok": 0,
+        "channels_failed": 0,
+        "completed_channels": [],
+        "failed_channels": [],
+        "summary": None,
+        "error": classify_scheduler_error(reason) if reason else None,
+        "lines": [],
+    }
+    write_scheduler_run(record)
+    return run_id
+
+
+def update_scheduler_run(run_id, **updates):
+    if not run_id:
+        return None
+
+    try:
+        record = read_scheduler_run(run_id)
+    except FileNotFoundError:
+        return None
+
+    record.update(updates)
+    write_scheduler_run(record)
+    return record
+
+
+def classify_scheduler_error(message):
+    if not message:
+        return None
+
+    text = str(message)
+    flood_wait = re.search(r"FloodWaitError: Telegram requested wait for (\d+) seconds", text)
+
+    if flood_wait:
+        return {
+            "type": "TelegramFloodWait",
+            "message": text,
+            "wait_seconds": int(flood_wait.group(1)),
+        }
+
+    if "Export is already running" in text:
+        return {
+            "type": "ExportAlreadyRunning",
+            "message": text,
+        }
+
+    if "Missing required config value" in text:
+        return {
+            "type": "ConfigurationError",
+            "message": text,
+        }
+
+    if "Failed to start export" in text:
+        return {
+            "type": "ProcessStartError",
+            "message": text,
+        }
+
+    return {
+        "type": "ExportError",
+        "message": text,
+    }
+
+
+def finish_scheduler_run_from_export(run_id, returncode, export_snapshot):
+    if not run_id:
+        return
+
+    summary = export_snapshot.get("summary") or {}
+    failed_channels = export_snapshot.get("failed_channels") or summary.get("failed_channels") or []
+    completed_channels = export_snapshot.get("completed_channels") or []
+    channel_summaries = export_snapshot.get("channel_summaries") or []
+    lines = export_snapshot.get("lines") or []
+    last_error = export_snapshot.get("last_error")
+    posts_processed = sum(int(item.get("posts_processed") or 0) for item in channel_summaries if isinstance(item, dict))
+
+    if returncode == 0 and not failed_channels:
+        status = "SUCCESS"
+    elif returncode == 0:
+        status = "PARTIAL"
+    elif returncode in {-15, -9, 130}:
+        status = "CANCELLED"
+    elif completed_channels and failed_channels:
+        status = "PARTIAL"
+    else:
+        status = "FAILED"
+
+    update_scheduler_run(
+        run_id,
+        status=status,
+        finished_at=now_iso(),
+        returncode=returncode,
+        posts_processed=posts_processed,
+        channels_ok=summary.get("channels_ok", len(completed_channels)),
+        channels_failed=summary.get("channels_failed", len(failed_channels)),
+        completed_channels=completed_channels,
+        failed_channels=failed_channels,
+        channel_summaries=channel_summaries,
+        summary=summary or None,
+        error=classify_scheduler_error(last_error) if last_error else None,
+        lines=lines[-120:],
+    )
+
+
+def start_export_job(payload, scheduler_run_id=None):
     if payload.get("config") is not None:
         save_config_values(payload["config"])
 
@@ -320,6 +613,8 @@ def start_export_job(payload):
             "failed_channels": [],
             "last_error": None,
             "summary": None,
+            "scheduler_run_id": scheduler_run_id,
+            "channel_summaries": [],
         })
 
     try:
@@ -340,7 +635,21 @@ def start_export_job(payload):
             EXPORT_JOB["finished_at"] = time.time()
             EXPORT_JOB["last_error"] = str(e)
             EXPORT_JOB["lines"].append(f"Failed to start export: {e}")
+        update_scheduler_run(
+            scheduler_run_id,
+            status="FAILED",
+            finished_at=now_iso(),
+            returncode=-1,
+            error=classify_scheduler_error(f"Failed to start export: {e}"),
+        )
         raise RuntimeError(f"Failed to start export: {e}") from e
+
+    update_scheduler_run(
+        scheduler_run_id,
+        status="RUNNING",
+        started_at=now_iso(),
+        command=command,
+    )
 
     thread = threading.Thread(target=watch_export_process, args=(process,), daemon=True)
     thread.start()
@@ -397,22 +706,34 @@ def scheduler_loop(stop_event):
             SCHEDULER["next_run_at"] = time.time()
 
         if get_export_status()["running"]:
+            run_id = create_scheduler_run(
+                payload,
+                status="SKIPPED",
+                reason="Export is already running when scheduled run is due.",
+            )
             with SCHEDULER_LOCK:
                 SCHEDULER["last_skip_at"] = time.time()
                 SCHEDULER["runs_skipped"] += 1
-            append_scheduler_line("Skipped run because export is already running.")
+            append_scheduler_line(f"Skipped run {run_id} because export is already running.")
         else:
+            run_id = create_scheduler_run(payload)
             try:
-                start_export_job(payload)
+                start_export_job(payload, scheduler_run_id=run_id)
                 with SCHEDULER_LOCK:
                     SCHEDULER["last_run_at"] = time.time()
                     SCHEDULER["runs_started"] += 1
                     SCHEDULER["last_error"] = None
-                append_scheduler_line(f"Started scheduled export for channel(s) {payload['channel']}.")
+                append_scheduler_line(f"Started scheduled export {run_id} for channel(s) {payload['channel']}.")
             except Exception as e:
                 with SCHEDULER_LOCK:
                     SCHEDULER["last_error"] = str(e)
-                append_scheduler_line(f"Scheduled export failed to start: {e}")
+                update_scheduler_run(
+                    run_id,
+                    status="FAILED",
+                    finished_at=now_iso(),
+                    error=classify_scheduler_error(e),
+                )
+                append_scheduler_line(f"Scheduled export {run_id} failed to start: {e}")
 
         with SCHEDULER_LOCK:
             SCHEDULER["next_run_at"] = time.time() + interval_seconds
@@ -487,6 +808,174 @@ def get_scheduler_status():
             "runs_skipped": SCHEDULER["runs_skipped"],
             "last_error": SCHEDULER["last_error"],
             "lines": list(SCHEDULER["lines"]),
+        }
+
+
+def normalize_watch_payload(payload):
+    if not isinstance(payload, dict):
+        raise ValueError("Watch payload must be an object")
+
+    channel = str(payload.get("channel") or os.getenv("CHANNEL", "")).strip()
+
+    if not parse_channel_list(channel):
+        raise ValueError("At least one channel is required")
+
+    try:
+        poll_interval = int(payload.get("poll_interval") or 30)
+        refresh_active_posts = int(payload.get("refresh_active_posts") or 20)
+    except (TypeError, ValueError) as e:
+        raise ValueError("Watch intervals must be integer values") from e
+
+    if poll_interval < 5:
+        raise ValueError("Watch poll interval must be at least 5 seconds")
+
+    if refresh_active_posts < 1:
+        raise ValueError("Watch active posts must be at least 1")
+
+    return {
+        "channel": channel,
+        "download_media": bool(payload.get("download_media")),
+        "anonymize": bool(payload.get("anonymize")),
+        "poll_interval": poll_interval,
+        "refresh_active_posts": refresh_active_posts,
+        "config": payload.get("config"),
+    }
+
+
+def start_watch_job(payload):
+    watch_payload = normalize_watch_payload(payload)
+
+    if watch_payload.get("config"):
+        save_config_values(watch_payload["config"])
+
+    command = [
+        sys.executable,
+        "main.py",
+        "watch",
+        "--poll-interval",
+        str(watch_payload["poll_interval"]),
+        "--refresh-active-posts",
+        str(watch_payload["refresh_active_posts"]),
+    ]
+
+    if watch_payload["download_media"]:
+        command.append("--download-media")
+
+    if watch_payload["anonymize"]:
+        command.append("--anonymize")
+
+    env = os.environ.copy()
+    env["CHANNEL"] = watch_payload["channel"]
+    env["PYTHONUNBUFFERED"] = "1"
+
+    with WATCH_LOCK:
+        if WATCH_JOB["running"]:
+            raise RuntimeError("Watch mode is already running")
+
+        WATCH_JOB.update({
+            "running": True,
+            "returncode": None,
+            "started_at": time.time(),
+            "finished_at": None,
+            "command": command,
+            "process": None,
+            "channels": watch_payload["channel"],
+            "lines": [f"Starting watch for channel(s) {watch_payload['channel']}: {' '.join(command)}"],
+            "updates": [],
+            "last_error": None,
+        })
+
+    try:
+        process = subprocess.Popen(
+            command,
+            cwd=str(ROOT),
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+    except OSError as e:
+        with WATCH_LOCK:
+            WATCH_JOB["running"] = False
+            WATCH_JOB["returncode"] = -1
+            WATCH_JOB["finished_at"] = time.time()
+            WATCH_JOB["last_error"] = str(e)
+            WATCH_JOB["lines"].append(f"Failed to start watch: {e}")
+        raise RuntimeError(f"Failed to start watch: {e}") from e
+
+    with WATCH_LOCK:
+        WATCH_JOB["process"] = process
+
+    thread = threading.Thread(target=watch_watch_process, args=(process,), daemon=True)
+    thread.start()
+
+
+def stop_watch_job():
+    with WATCH_LOCK:
+        process = WATCH_JOB.get("process")
+
+    if process and process.poll() is None:
+        process.terminate()
+
+    with WATCH_LOCK:
+        WATCH_JOB["running"] = False
+        WATCH_JOB["finished_at"] = time.time()
+        WATCH_JOB["lines"].append("Watch stop requested.")
+        WATCH_JOB["lines"] = WATCH_JOB["lines"][-500:]
+
+
+def watch_watch_process(process):
+    assert process.stdout is not None
+
+    for line in process.stdout:
+        append_watch_line(line.rstrip())
+
+    returncode = process.wait()
+
+    with WATCH_LOCK:
+        WATCH_JOB["running"] = False
+        WATCH_JOB["returncode"] = returncode
+        WATCH_JOB["finished_at"] = time.time()
+        WATCH_JOB["lines"].append(f"Watch finished with code {returncode}")
+
+
+def append_watch_line(line):
+    with WATCH_LOCK:
+        WATCH_JOB["lines"].append(line)
+        WATCH_JOB["lines"] = WATCH_JOB["lines"][-500:]
+
+        if line.startswith("WATCH_UPDATE "):
+            payload = parse_status_payload(line, "WATCH_UPDATE ")
+
+            if payload:
+                WATCH_JOB["updates"].append(payload)
+                WATCH_JOB["updates"] = WATCH_JOB["updates"][-120:]
+
+                if payload.get("error"):
+                    WATCH_JOB["last_error"] = payload["error"]
+
+
+def get_watch_status():
+    with WATCH_LOCK:
+        process = WATCH_JOB.get("process")
+
+        if process and WATCH_JOB["running"] and process.poll() is not None:
+            WATCH_JOB["running"] = False
+            WATCH_JOB["returncode"] = process.poll()
+            WATCH_JOB["finished_at"] = time.time()
+
+        return {
+            "running": WATCH_JOB["running"],
+            "returncode": WATCH_JOB["returncode"],
+            "started_at": WATCH_JOB["started_at"],
+            "finished_at": WATCH_JOB["finished_at"],
+            "command": WATCH_JOB["command"],
+            "channels": WATCH_JOB["channels"],
+            "lines": list(WATCH_JOB["lines"]),
+            "updates": list(WATCH_JOB["updates"]),
+            "last_error": WATCH_JOB["last_error"],
         }
 
 
@@ -566,6 +1055,17 @@ def get_export_summary(file_name):
         "url": f"/data/raw/{path.name}",
     })
     return summary
+
+
+def get_export_period_compare(file_name, from_date, to_date):
+    path, posts = load_export_posts(file_name)
+    result = compare_periods(posts, from_date, to_date)
+    result.update({
+        "ok": True,
+        "file": path.name,
+        "channel": extract_channel_from_export_name(path.name),
+    })
+    return result
 
 
 def parse_env_file(path=ENV_FILE):
@@ -679,6 +1179,21 @@ def watch_export_process(process):
         EXPORT_JOB["returncode"] = returncode
         EXPORT_JOB["finished_at"] = time.time()
         EXPORT_JOB["lines"].append(f"Export finished with code {returncode}")
+        export_snapshot = {
+            "lines": list(EXPORT_JOB["lines"]),
+            "completed_channels": list(EXPORT_JOB["completed_channels"]),
+            "failed_channels": list(EXPORT_JOB["failed_channels"]),
+            "last_error": EXPORT_JOB["last_error"],
+            "summary": EXPORT_JOB["summary"],
+            "scheduler_run_id": EXPORT_JOB["scheduler_run_id"],
+            "channel_summaries": list(EXPORT_JOB["channel_summaries"]),
+        }
+
+    finish_scheduler_run_from_export(
+        export_snapshot.get("scheduler_run_id"),
+        returncode,
+        export_snapshot,
+    )
 
 
 def append_export_line(line):
@@ -700,6 +1215,7 @@ def update_export_status_from_line(line):
             return
 
         channel = payload.get("channel")
+        EXPORT_JOB["channel_summaries"].append(payload)
 
         if payload.get("ok"):
             if channel and channel not in EXPORT_JOB["completed_channels"]:
@@ -748,6 +1264,7 @@ def get_export_status():
 
 
 def main():
+    reconcile_incomplete_scheduler_runs()
     server = ThreadingHTTPServer((HOST, PORT), DashboardHandler)
     print(f"Dashboard is running on http://localhost:{PORT}")
     server.serve_forever()

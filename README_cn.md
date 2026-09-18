@@ -14,9 +14,10 @@ TG 是一个本地优先的 Telegram 评论导出和分析工具。它可以导�
 - 真正的增量导出：导出新帖子，同时回看一部分旧帖子，刷新评论、反应和计数器。
 - 可选下载媒体到 `data/content/<dataset_name>/`。
 - 可选匿名化 `user_id`、`username`、`first_name`、`last_name`。
-- Web UI 运行在 `9595` 端口，包含 dashboard、帖子列表、评论树、过滤器、用户详情、导出启动页和 Scheduler mode。
+- Web UI 运行在 `9595` 端口，包含 dashboard、帖子列表、评论树、过滤器、用户详情、导出启动页、Scheduler mode 和 Watch mode。
 - 可直接从 dashboard 打开 `data/raw` 中的本地 JSON 导出，并按日期或频道排序。
 - 支持对导出的 JSON 文件进行 LLM 分析，内置中文、英文、俄文 prompt 文件。
+- 可通过 `tg compare` 对比两个周期的评论、用户和反应。
 - MCP 服务器，用于让 AI 客户端通过标准工具接口读取本地导出和启动分析。
 - Docker Compose 本地启动。
 
@@ -83,6 +84,8 @@ LLM_MODEL=local-model
 docker compose run --rm cli --help
 docker compose run --rm cli config-check
 docker compose run --rm cli export json --incremental
+docker compose run --rm cli watch --poll-interval 30 --refresh-active-posts 20
+docker compose run --rm cli compare --from 2026-07-01 --to 2026-08-01 --file durov_dataset.json
 docker compose run --rm cli export json --incremental --download-media
 docker compose run --rm cli analyze example.json --limit 5
 ```
@@ -156,14 +159,24 @@ Dashboard 可以直接打开 `data/raw` 中的本地 JSON 导出，无需手动�
 
 Scheduler mode 可以每 N 分钟自动更新选中的频道。第一次导出会立即开始；如果到达下一次间隔时上一次导出仍在运行，本次运行会被跳过。
 
+Watch mode 独立于 Scheduler。它是一个长期运行的进程，会保持 Telethon session，监听新帖子和 discussion 活动，并只更新 `data/raw/<channel>_dataset.json` 中发生变化的帖子。周期刷新用于补充计数器、反应、嵌套回复和可能漏掉的事件。
+
 API:
 
 - `GET /api/version`：返回当前应用版本。
 - `GET /api/exports?sort=date|channel`：列出 `data/raw` 中的 JSON 导出。
 - `GET /api/export/<file>/summary`：返回一个 JSON 导出的计数和元数据。
+- `GET /api/export/<file>/compare?from=YYYY-MM-DD&to=YYYY-MM-DD`：对比两个周期的评论、用户和反应。
 - `GET /api/scheduler/status`：返回当前 scheduler 状态。
+- `GET /api/scheduler/history?limit=50`：列出已保存的 scheduler 运行记录。
+- `GET /api/scheduler/history/<run_id>`：返回一个 scheduler 运行详情。
 - `POST /api/scheduler/start`：使用 `channel`、`interval_minutes`、格式和导出标志启动定时导出。
 - `POST /api/scheduler/stop`：停止 scheduler。
+- `GET /api/watch/status`：返回当前 Watch mode 状态。
+- `POST /api/watch/start`：使用 `channel`、`poll_interval`、`refresh_active_posts` 和导出标志启动 Watch mode。
+- `POST /api/watch/stop`：停止 Watch mode。
+
+Scheduler 历史会以独立 JSON 文件保存在 `data/scheduler/`。每次运行都有自己的状态：`QUEUED`、`RUNNING`、`SUCCESS`、`PARTIAL`、`FAILED`、`SKIPPED` 或 `CANCELLED`，并保存频道结果、结构化错误和最近日志。
 
 ## Demo JSON
 

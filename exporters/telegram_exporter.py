@@ -7,9 +7,10 @@ import re
 from datetime import datetime
 from pathlib import Path
 
-from telethon import TelegramClient
+from telethon import TelegramClient, events
 from telethon.errors import FloodWaitError, RPCError
 from telethon.tl.functions.messages import GetDiscussionMessageRequest
+from telethon.utils import get_peer_id
 
 from config import load_export_config, load_postgres_config
 from storage.json_files import backup_problem_file, load_json_dataset, write_json_atomic
@@ -117,6 +118,42 @@ def parse_args(argv=None):
     args = parser.parse_args(argv)
     args.export_format = args.format_flag or args.export_format or "json"
     return args
+
+
+def build_watch_parser():
+    parser = argparse.ArgumentParser(description="Watch Telegram channels and incrementally update JSON datasets.")
+    parser.add_argument(
+        "--download-media",
+        action="store_true",
+        help="Download post and comment media to data/content/<channel>_dataset/.",
+    )
+    parser.add_argument(
+        "--anonymize",
+        action="store_true",
+        help="Replace user_id, username, first_name and last_name with aliases from anonymizer file.",
+    )
+    parser.add_argument(
+        "--anonymizer-file",
+        default="anonymizer",
+        help="Text file with anonymized names, one alias per line. Default: anonymizer.",
+    )
+    parser.add_argument(
+        "--poll-interval",
+        type=int,
+        default=30,
+        help="Seconds between lightweight refresh passes for recent posts. Default: 30.",
+    )
+    parser.add_argument(
+        "--refresh-active-posts",
+        type=int,
+        default=20,
+        help="How many latest posts per channel to keep refreshing for new comments/reactions. Default: 20.",
+    )
+    return parser
+
+
+def parse_watch_args(argv=None):
+    return build_watch_parser().parse_args(argv)
 
 
 def build_export_target(channel, export_format):
@@ -605,6 +642,188 @@ async def fetch_posts_for_export(client, channel, incremental, last_post_id):
     )
 
 
+async def get_discussion_context(client, channel, post_id):
+    discussion = await run_with_retries(
+        f"Get discussion for post {post_id}",
+        lambda: client(
+            GetDiscussionMessageRequest(
+                peer=channel,
+                msg_id=post_id,
+            )
+        ),
+    )
+
+    if not discussion.chats or not discussion.messages:
+        return None, None
+
+    return discussion.chats[0], discussion.messages[0].id
+
+
+async def build_post_export_data(client, channel, post, args, anonymizer, existing_post=None, content_dir=None):
+    existing_post = existing_post or {}
+    content_dir = content_dir or build_content_dir(build_incremental_export_target(channel, "json"))
+    post_errors = []
+    post_data = {
+        "post_id": post.id,
+        "post_date": str(post.date),
+        "post_text": post.text,
+        "post_views": post.views,
+        "post_forwards": post.forwards,
+        "post_link": build_post_link(channel, post.id),
+        "post_media": existing_media_path(existing_post.get("post_media")),
+        "post_reactions": extract_reactions(post),
+        "comments": [],
+    }
+    existing_comments = {
+        comment.get("comment_id"): comment
+        for comment in existing_post.get("comments", [])
+        if isinstance(comment, dict)
+    }
+
+    if args.download_media and not post_data["post_media"]:
+        try:
+            post_data["post_media"] = await download_message_media(
+                client,
+                post,
+                content_dir,
+                f"post_{post.id}_",
+            )
+        except Exception as e:
+            error_message = f"Post media download failed: {e}"
+            print(f"Post {post.id}: {error_message}")
+            post_data["post_media_error"] = error_message
+            post_errors.append(error_message)
+
+    await safe_sleep(1)
+
+    if post.replies:
+        try:
+            discussion_chat, root_message_id = await get_discussion_context(client, channel, post.id)
+            await safe_sleep(1)
+
+            if discussion_chat and root_message_id:
+                async for comment in client.iter_messages(
+                    discussion_chat,
+                    reply_to=root_message_id,
+                ):
+                    try:
+                        sender = await run_with_retries(
+                            f"Get sender for comment {comment.id}",
+                            lambda: comment.get_sender(),
+                        )
+                    except Exception as e:
+                        error_message = f"Comment sender fetch failed: {e}"
+                        print(f"Post {post.id}, comment {comment.id}: {error_message}")
+                        sender = None
+
+                    comment_data = {
+                        "comment_id": comment.id,
+                        "comment_date": str(comment.date),
+                        "comment_text": comment.text,
+                        "comment_link": build_message_link(discussion_chat, comment.id),
+                        "comment_media": existing_media_path(
+                            (existing_comments.get(comment.id) or {}).get("comment_media")
+                        ),
+                        "reply_to_msg_id": comment.reply_to_msg_id,
+                        "comment_reactions": extract_reactions(comment),
+                        "user": user_to_dict(sender, anonymizer),
+                    }
+
+                    if args.download_media and not comment_data["comment_media"]:
+                        try:
+                            comment_data["comment_media"] = await download_message_media(
+                                client,
+                                comment,
+                                content_dir,
+                                f"post_{post.id}_comment_{comment.id}_",
+                            )
+                        except Exception as e:
+                            error_message = f"Comment media download failed: {e}"
+                            print(f"Post {post.id}, comment {comment.id}: {error_message}")
+                            comment_data["comment_media_error"] = error_message
+
+                    post_data["comments"].append(comment_data)
+                    await safe_sleep(1)
+
+        except FloodWaitError:
+            raise
+        except Exception as e:
+            error_message = f"Error while processing post {post.id}: {e}"
+            print(error_message)
+            post_errors.append(error_message)
+    else:
+        print(f"Post {post.id} has no comments")
+
+    if post_errors:
+        post_data["export_errors"] = post_errors
+
+    return post_data
+
+
+def is_same_json_data(left, right):
+    return json.dumps(left, ensure_ascii=False, sort_keys=True) == json.dumps(
+        right,
+        ensure_ascii=False,
+        sort_keys=True,
+    )
+
+
+async def refresh_dataset_post(client, channel, post_id, args, anonymizer, reason="watch"):
+    dataset_path = get_incremental_dataset_path(channel)
+    export_target = build_incremental_export_target(channel, "json")
+    existing_data = load_json_dataset(dataset_path)
+    existing_posts = {
+        post.get("post_id"): post
+        for post in existing_data
+        if isinstance(post, dict)
+    }
+    existing_post = existing_posts.get(post_id) or {}
+    content_dir = build_content_dir(export_target)
+    post = await run_with_retries(
+        f"Get post {post_id} for channel {channel}",
+        lambda: client.get_messages(channel, ids=post_id),
+    )
+
+    if not post:
+        return {
+            "channel": str(channel),
+            "post_id": post_id,
+            "changed": False,
+            "reason": reason,
+            "skipped": "post_not_found",
+        }
+
+    new_post = await build_post_export_data(
+        client,
+        channel,
+        post,
+        args,
+        anonymizer,
+        existing_post,
+        content_dir,
+    )
+    merged_post = merge_post(existing_post, new_post) if existing_post else new_post
+
+    if existing_post and is_same_json_data(existing_post, merged_post):
+        return {
+            "channel": str(channel),
+            "post_id": post_id,
+            "changed": False,
+            "reason": reason,
+            "comments": len(merged_post.get("comments") or []),
+        }
+
+    save_incremental_export_data(merge_export_data(existing_data, [new_post]), export_target, channel)
+    return {
+        "channel": str(channel),
+        "post_id": post_id,
+        "changed": True,
+        "reason": reason,
+        "comments": len(merged_post.get("comments") or []),
+        "output": str(dataset_path.as_posix()),
+    }
+
+
 async def export_channel(client, channel, args, anonymizer):
     channel_errors = []
     incremental = getattr(args, "incremental", False)
@@ -664,131 +883,44 @@ async def export_channel(client, channel, args, anonymizer):
         posts = await fetch_posts_for_export(client, channel, incremental, last_post_id)
 
         for post in posts:
-            post_errors = []
             existing_post = existing_posts.get(post.id) or {}
-            post_media = existing_media_path(existing_post.get("post_media"))
-            post_data = {
-                "post_id": post.id,
-                "post_date": str(post.date),
-                "post_text": post.text,
-                "post_views": post.views,
-                "post_forwards": post.forwards,
-                "post_link": build_post_link(channel, post.id),
-                "post_media": post_media,
-                "post_reactions": extract_reactions(post),
-                "comments": [],
-            }
-            existing_comments = {
-                comment.get("comment_id"): comment
-                for comment in existing_post.get("comments", [])
-                if isinstance(comment, dict)
-            }
-
+            post_data = None
             print(f"Processing post {post.id}")
-            if args.download_media and not post_data["post_media"]:
-                try:
-                    post_data["post_media"] = await download_message_media(
-                        client,
-                        post,
-                        content_dir,
-                        f"post_{post.id}_",
-                    )
-                except Exception as e:
-                    error_message = f"Post media download failed: {e}"
-                    print(f"Post {post.id}: {error_message}")
-                    post_data["post_media_error"] = error_message
-                    post_errors.append(error_message)
-            await safe_sleep(1)
-
-            if not post.replies:
-                print(f"Post {post.id} has no comments")
-                if post_errors:
-                    post_data["export_errors"] = post_errors
-                export_data.append(post_data)
-                processed_posts += 1
-                await pause_after_processed_posts(processed_posts)
-                continue
 
             try:
-                discussion = await run_with_retries(
-                    f"Get discussion for post {post.id}",
-                    lambda: client(
-                        GetDiscussionMessageRequest(
-                            peer=channel,
-                            msg_id=post.id,
-                        )
-                    ),
+                post_data = await build_post_export_data(
+                    client,
+                    channel,
+                    post,
+                    args,
+                    anonymizer,
+                    existing_post,
+                    content_dir,
                 )
-
-                await safe_sleep(1)
-
-                if not discussion.chats or not discussion.messages:
-                    if post_errors:
-                        post_data["export_errors"] = post_errors
-                    export_data.append(post_data)
-                    processed_posts += 1
-                    await pause_after_processed_posts(processed_posts)
-                    continue
-
-                discussion_chat = discussion.chats[0]
-                root_message_id = discussion.messages[0].id
-
-                async for comment in client.iter_messages(
-                    discussion_chat,
-                    reply_to=root_message_id,
-                ):
-                    try:
-                        sender = await run_with_retries(
-                            f"Get sender for comment {comment.id}",
-                            lambda: comment.get_sender(),
-                        )
-                    except Exception as e:
-                        error_message = f"Comment sender fetch failed: {e}"
-                        print(f"Post {post.id}, comment {comment.id}: {error_message}")
-                        sender = None
-
-                    comment_data = {
-                        "comment_id": comment.id,
-                        "comment_date": str(comment.date),
-                        "comment_text": comment.text,
-                        "comment_link": build_message_link(discussion_chat, comment.id),
-                        "comment_media": existing_media_path(
-                            (existing_comments.get(comment.id) or {}).get("comment_media")
-                        ),
-                        "reply_to_msg_id": comment.reply_to_msg_id,
-                        "comment_reactions": extract_reactions(comment),
-                        "user": user_to_dict(sender, anonymizer),
-                    }
-
-                    if args.download_media and not comment_data["comment_media"]:
-                        try:
-                            comment_data["comment_media"] = await download_message_media(
-                                client,
-                                comment,
-                                content_dir,
-                                f"post_{post.id}_comment_{comment.id}_",
-                            )
-                        except Exception as e:
-                            error_message = f"Comment media download failed: {e}"
-                            print(f"Post {post.id}, comment {comment.id}: {error_message}")
-                            comment_data["comment_media_error"] = error_message
-
-                    post_data["comments"].append(comment_data)
-                    await safe_sleep(1)
-
             except FloodWaitError as e:
                 print(f"FloodWaitError: Telegram requested wait for {e.seconds} seconds")
-                save_current_export(post_data)
+                if post_data:
+                    save_current_export(post_data)
                 print(f"Partial export saved to {describe_export_target(export_target)}")
                 await asyncio.sleep(e.seconds)
+                continue
 
             except Exception as e:
                 error_message = f"Error while processing post {post.id}: {e}"
                 print(error_message)
-                post_errors.append(error_message)
+                post_data = {
+                    "post_id": post.id,
+                    "post_date": str(post.date),
+                    "post_text": post.text,
+                    "post_views": post.views,
+                    "post_forwards": post.forwards,
+                    "post_link": build_post_link(channel, post.id),
+                    "post_media": existing_media_path(existing_post.get("post_media")),
+                    "post_reactions": extract_reactions(post),
+                    "comments": existing_post.get("comments", []),
+                    "export_errors": [error_message],
+                }
 
-            if post_errors:
-                post_data["export_errors"] = post_errors
             export_data.append(post_data)
             processed_posts += 1
             await pause_after_processed_posts(processed_posts)
@@ -819,6 +951,172 @@ async def export_channel(client, channel, args, anonymizer):
         "errors": channel_errors,
         "output": describe_export_target(export_target),
     }
+
+
+async def remember_discussion_thread(client, channel, post_id, watch_state):
+    try:
+        post = await run_with_retries(
+            f"Get post {post_id} for discussion tracking",
+            lambda: client.get_messages(channel, ids=post_id),
+        )
+
+        if not post or not post.replies:
+            return
+
+        discussion_chat, root_message_id = await get_discussion_context(client, channel, post_id)
+
+        if not discussion_chat or not root_message_id:
+            return
+
+        discussion_chat_id = get_peer_id(discussion_chat)
+        watch_state["discussion_roots"][(discussion_chat_id, root_message_id)] = (channel, post_id)
+        watch_state["discussion_channels"].setdefault(discussion_chat_id, channel)
+    except Exception as e:
+        print(f"Watch discussion tracking failed for {channel}/{post_id}: {e}")
+
+
+async def refresh_watched_post(client, channel, post_id, args, anonymizer, watch_state, reason):
+    async with watch_state["locks"][channel]:
+        try:
+            result = await refresh_dataset_post(client, channel, post_id, args, anonymizer, reason)
+            print("WATCH_UPDATE", json.dumps(result, ensure_ascii=False))
+
+            if result.get("changed") or reason in {"startup", "new_post"}:
+                await remember_discussion_thread(client, channel, post_id, watch_state)
+
+            return result
+        except FloodWaitError as e:
+            print(f"Watch FloodWaitError for {channel}/{post_id}: waiting {e.seconds} seconds")
+            await asyncio.sleep(e.seconds)
+        except Exception as e:
+            payload = {
+                "channel": str(channel),
+                "post_id": post_id,
+                "changed": False,
+                "reason": reason,
+                "error": str(e),
+            }
+            print("WATCH_UPDATE", json.dumps(payload, ensure_ascii=False))
+
+    return None
+
+
+async def refresh_latest_watched_posts(client, channel, args, anonymizer, watch_state, reason):
+    limit = max(1, int(getattr(args, "refresh_active_posts", 20) or 20))
+    posts = await run_with_retries(
+        f"Get latest watched posts for channel {channel}",
+        lambda: client.get_messages(channel, limit=limit),
+    )
+
+    for post in posts:
+        if post:
+            await refresh_watched_post(client, channel, post.id, args, anonymizer, watch_state, reason)
+
+
+async def watch_channel_updates(client, args, anonymizer):
+    channel_entities = {}
+    watch_state = {
+        "discussion_roots": {},
+        "discussion_channels": {},
+        "locks": {},
+    }
+
+    for channel in CHANNELS:
+        entity = await run_with_retries(
+            f"Resolve channel {channel}",
+            lambda channel=channel: client.get_entity(channel),
+        )
+        channel_entities[get_peer_id(entity)] = channel
+        watch_state["locks"][channel] = asyncio.Lock()
+
+    @client.on(events.NewMessage(chats=list(channel_entities.keys())))
+    async def handle_channel_post(event):
+        channel = channel_entities.get(event.chat_id)
+
+        if not channel or not event.message:
+            return
+
+        await refresh_watched_post(
+            client,
+            channel,
+            event.message.id,
+            args,
+            anonymizer,
+            watch_state,
+            "new_post",
+        )
+
+    @client.on(events.NewMessage())
+    async def handle_discussion_message(event):
+        discussion_chat_id = event.chat_id
+
+        if discussion_chat_id not in watch_state["discussion_channels"]:
+            return
+
+        reply_to_msg_id = getattr(event.message, "reply_to_msg_id", None)
+        mapped = watch_state["discussion_roots"].get((discussion_chat_id, reply_to_msg_id))
+
+        if mapped:
+            channel, post_id = mapped
+            await refresh_watched_post(
+                client,
+                channel,
+                post_id,
+                args,
+                anonymizer,
+                watch_state,
+                "new_comment",
+            )
+            return
+
+        channel = watch_state["discussion_channels"][discussion_chat_id]
+        await refresh_latest_watched_posts(
+            client,
+            channel,
+            args,
+            anonymizer,
+            watch_state,
+            "discussion_activity",
+        )
+
+    print("Watch mode started.")
+    print("Channels:", ", ".join(CHANNELS))
+    print("Dataset mode: incremental JSON")
+    print("Poll interval seconds:", args.poll_interval)
+    print("Refresh active posts:", args.refresh_active_posts)
+
+    for channel in CHANNELS:
+        await refresh_latest_watched_posts(client, channel, args, anonymizer, watch_state, "startup")
+
+    while True:
+        await safe_sleep(max(5, int(args.poll_interval or 30)))
+
+        for channel in CHANNELS:
+            await refresh_latest_watched_posts(client, channel, args, anonymizer, watch_state, "poll")
+
+
+async def watch_main(args=None):
+    if args is None:
+        args = parse_watch_args()
+
+    export_config = load_export_config()
+    configure(export_config)
+
+    if not CHANNELS:
+        raise RuntimeError("Missing required config value: CHANNEL")
+
+    session_parent = Path(TELEGRAM_SESSION).parent
+    if str(session_parent) not in ("", "."):
+        session_parent.mkdir(parents=True, exist_ok=True)
+
+    anonymizer = UserAnonymizer(args.anonymizer_file) if args.anonymize else None
+    client = TelegramClient(TELEGRAM_SESSION, API_ID, API_HASH)
+    await client.start()
+
+    try:
+        await watch_channel_updates(client, args, anonymizer)
+    finally:
+        await client.disconnect()
 
 
 async def main(args=None):

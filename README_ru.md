@@ -14,9 +14,10 @@ TG - локальный инструмент для экспорта комме�
 - Настоящий инкрементальный экспорт: новые посты плюс повторная проверка старых постов на новые комментарии, реакции и счетчики.
 - Опциональная загрузка медиа в `data/content/<dataset_name>/`.
 - Опциональная анонимизация `user_id`, `username`, `first_name`, `last_name`.
-- Web UI на порту `9595`: dashboard, список постов, дерево комментариев, фильтры, профили пользователей, запуск экспорта и Scheduler mode.
+- Web UI на порту `9595`: dashboard, список постов, дерево комментариев, фильтры, профили пользователей, запуск экспорта, Scheduler mode и Watch mode.
 - Открытие локальных JSON-экспортов из `data/raw` прямо в dashboard с сортировкой по дате или каналу.
 - LLM-анализ экспортированных JSON-файлов с prompt-файлами на русском, английском и китайском языках.
+- Сравнение периодов по комментариям, пользователям и реакциям через `tg compare`.
 - MCP-сервер для локальной автоматизации и работы с экспортами через AI-клиенты.
 - Docker Compose для локального запуска.
 
@@ -83,6 +84,8 @@ LLM_MODEL=local-model
 docker compose run --rm cli --help
 docker compose run --rm cli config-check
 docker compose run --rm cli export json --incremental
+docker compose run --rm cli watch --poll-interval 30 --refresh-active-posts 20
+docker compose run --rm cli compare --from 2026-07-01 --to 2026-08-01 --file durov_dataset.json
 docker compose run --rm cli export json --incremental --download-media
 docker compose run --rm cli analyze example.json --limit 5
 ```
@@ -160,14 +163,24 @@ Dashboard также может открыть локальный JSON-эксп�
 
 Во вкладке экспорта есть Scheduler mode: выбранные каналы можно обновлять автоматически каждые N минут. Первый запуск выполняется сразу, затем повторяется по интервалу. Если предыдущий экспорт еще работает, очередной запуск пропускается.
 
+Watch mode работает отдельно от Scheduler: это долгоживущий процесс, который держит Telethon-сессию открытой, следит за новыми постами и активностью discussion-чата, а затем обновляет измененные посты в `data/raw/<channel>_dataset.json`. Периодический refresh нужен для счетчиков, реакций, вложенных ответов и пропущенных событий.
+
 API dashboard:
 
 - `GET /api/version`: текущая версия приложения.
 - `GET /api/exports?sort=date|channel`: список JSON-экспортов из `data/raw`.
 - `GET /api/export/<file>/summary`: счетчики и метаданные одного JSON-экспорта.
+- `GET /api/export/<file>/compare?from=YYYY-MM-DD&to=YYYY-MM-DD`: сравнение комментариев, пользователей и реакций между периодами.
 - `GET /api/scheduler/status`: текущее состояние scheduler.
+- `GET /api/scheduler/history?limit=50`: список сохраненных запусков scheduler.
+- `GET /api/scheduler/history/<run_id>`: подробная карточка одного запуска scheduler.
 - `POST /api/scheduler/start`: запуск scheduler с `channel`, `interval_minutes`, форматом и флагами экспорта.
 - `POST /api/scheduler/stop`: остановка scheduler.
+- `GET /api/watch/status`: текущее состояние Watch mode.
+- `POST /api/watch/start`: запуск Watch mode с `channel`, `poll_interval`, `refresh_active_posts` и флагами экспорта.
+- `POST /api/watch/stop`: остановка Watch mode.
+
+История Scheduler хранится отдельными JSON-файлами в `data/scheduler/`. Каждый запуск получает статус `QUEUED`, `RUNNING`, `SUCCESS`, `PARTIAL`, `FAILED`, `SKIPPED` или `CANCELLED`, результаты по каналам, структурированную ошибку и последние строки лога.
 
 ## Данные И Безопасность
 

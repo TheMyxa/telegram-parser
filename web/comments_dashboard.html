@@ -106,6 +106,25 @@
           </div>
         </section>
 
+        <section class="panel compare-panel">
+          <div class="panel-head">
+            <h2 data-i18n="periodCompare">Сравнение периодов</h2>
+            <div id="compareStatus" class="status">Выберите даты</div>
+          </div>
+          <div class="compare-controls">
+            <div class="field">
+              <label for="compareFrom" data-i18n="compareFrom">Период от</label>
+              <input id="compareFrom" type="date">
+            </div>
+            <div class="field">
+              <label for="compareTo" data-i18n="compareTo">Период до</label>
+              <input id="compareTo" type="date">
+            </div>
+            <button id="runCompare" class="button" type="button" data-i18n="runCompare">Сравнить</button>
+          </div>
+          <div id="compareResults" class="compare-results"></div>
+        </section>
+
         <section class="charts">
           <div class="panel chart">
             <div class="panel-head">
@@ -253,17 +272,37 @@
               <label><input id="exportAnonymize" type="checkbox"> <span data-i18n="anonymization">Анонимизация</span></label>
               <label><input id="exportIncremental" type="checkbox" checked> <span data-i18n="incremental">Инкрементально</span></label>
               <label><input id="schedulerMode" type="checkbox"> <span data-i18n="schedulerMode">Scheduler mode</span></label>
+              <label><input id="watchMode" type="checkbox"> <span data-i18n="watchMode">Watch mode</span></label>
             </div>
             <div class="field">
               <label for="schedulerInterval" data-i18n="schedulerInterval">Интервал, минут</label>
               <input id="schedulerInterval" type="number" min="1" step="1" value="60">
             </div>
+            <div class="field">
+              <label for="watchPollInterval" data-i18n="watchPollInterval">Watch poll, секунд</label>
+              <input id="watchPollInterval" type="number" min="5" step="1" value="30">
+            </div>
+            <div class="field">
+              <label for="watchActivePosts" data-i18n="watchActivePosts">Watch active posts</label>
+              <input id="watchActivePosts" type="number" min="1" step="1" value="20">
+            </div>
             <button id="saveConfig" class="button" type="button" data-i18n="saveEnv">Сохранить .env</button>
             <button id="startExport" class="button" type="button" data-i18n="startExport">Запустить экспорт</button>
             <button id="startScheduler" class="button" type="button" data-i18n="startScheduler">Запустить scheduler</button>
             <button id="stopScheduler" class="button" type="button" data-i18n="stopScheduler">Остановить scheduler</button>
+            <button id="startWatch" class="button" type="button" data-i18n="startWatch">Запустить watch</button>
+            <button id="stopWatch" class="button" type="button" data-i18n="stopWatch">Остановить watch</button>
           </div>
           <div id="schedulerStatus" class="scheduler-status">Scheduler не запущен</div>
+          <div class="scheduler-history">
+            <div class="scheduler-history-head">
+              <h3 data-i18n="schedulerHistory">История Scheduler</h3>
+              <button id="refreshSchedulerHistory" class="button" type="button" data-i18n="refreshHistory">Обновить</button>
+            </div>
+            <div id="schedulerHistoryList" class="scheduler-history-list"></div>
+            <pre id="schedulerRunDetails" class="scheduler-run-details"></pre>
+          </div>
+          <div id="watchStatus" class="scheduler-status">Watch не запущен</div>
           <pre id="exportProgress" class="progress-log">Экспорт ещё не запускался.</pre>
         </section>
       </section>

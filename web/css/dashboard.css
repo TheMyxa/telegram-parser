@@ -86,7 +86,7 @@
       color: var(--topbar-text);
       padding: 18px 24px;
       display: grid;
-      grid-template-columns: minmax(220px, 1fr) minmax(260px, 420px);
+      grid-template-columns: minmax(220px, 1fr) minmax(360px, 560px);
       gap: 18px;
       align-items: center;
     }
@@ -126,6 +126,7 @@
     .file-box {
       display: grid;
       gap: 8px;
+      min-width: 0;
       padding: 12px;
       border: 1px solid var(--topbar-line);
       border-radius: 8px;
@@ -138,16 +139,18 @@
 
     .file-actions {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-columns: minmax(0, 1fr) max-content;
       gap: 10px;
       align-items: center;
+      min-width: 0;
     }
 
     .local-export-actions {
       display: grid;
-      grid-template-columns: minmax(140px, 1fr) minmax(110px, 150px) auto;
+      grid-template-columns: minmax(160px, 1fr) minmax(110px, 150px);
       gap: 8px;
       align-items: center;
+      min-width: 0;
     }
 
     .file-picker {
@@ -184,9 +187,17 @@
       padding: 0 10px;
     }
 
+    .local-export-actions select option {
+      background: #ffffff;
+      color: #17202a;
+    }
+
     .theme-toggle,
     .local-export-button,
     .file-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       height: 38px;
       border: 1px solid var(--topbar-line);
       border-radius: 8px;
@@ -195,6 +206,11 @@
       font-weight: 700;
       padding: 0 12px;
       white-space: nowrap;
+    }
+
+    .local-export-button {
+      grid-column: 1 / -1;
+      width: 100%;
     }
 
     .theme-toggle:hover,
@@ -282,6 +298,57 @@
       display: grid;
       grid-template-columns: repeat(5, minmax(0, 1fr));
       gap: 12px;
+    }
+
+    .compare-panel {
+      display: grid;
+    }
+
+    .compare-controls {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(160px, 220px)) auto;
+      gap: 12px;
+      align-items: end;
+      padding: 16px;
+    }
+
+    .compare-results {
+      display: grid;
+      gap: 8px;
+      padding: 0 16px 16px;
+    }
+
+    .compare-row {
+      display: grid;
+      grid-template-columns: minmax(120px, 1fr) repeat(4, minmax(90px, 130px));
+      gap: 8px;
+      align-items: center;
+      min-height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 8px 10px;
+      background: var(--surface);
+    }
+
+    .compare-row.header {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      background: var(--table-head);
+    }
+
+    .compare-value {
+      font-variant-numeric: tabular-nums;
+      overflow-wrap: anywhere;
+    }
+
+    .compare-delta.positive {
+      color: var(--accent);
+    }
+
+    .compare-delta.negative {
+      color: var(--danger);
     }
 
     .metric {
@@ -381,6 +448,79 @@
       font-size: 13px;
       line-height: 1.45;
       overflow-wrap: anywhere;
+    }
+
+    .scheduler-history {
+      display: grid;
+      gap: 10px;
+      padding: 0 16px 16px;
+    }
+
+    .scheduler-history-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .scheduler-history-head h3 {
+      margin: 0;
+      font-size: 15px;
+    }
+
+    .scheduler-history-list {
+      display: grid;
+      gap: 6px;
+    }
+
+    .scheduler-run {
+      display: grid;
+      grid-template-columns: 96px minmax(0, 1fr) 140px 110px;
+      gap: 10px;
+      align-items: center;
+      width: 100%;
+      min-height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+      padding: 7px 10px;
+      text-align: left;
+    }
+
+    .scheduler-run:hover {
+      background: var(--control-hover);
+    }
+
+    .scheduler-run-status {
+      font-weight: 700;
+    }
+
+    .scheduler-run-meta {
+      color: var(--muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .scheduler-run-details {
+      display: none;
+      max-height: 280px;
+      overflow: auto;
+      margin: 0;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--detail-bg);
+      color: var(--text);
+      font-family: Consolas, Monaco, monospace;
+      font-size: 12px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+    }
+
+    .scheduler-run-details.open {
+      display: block;
     }
 
     .charts {
@@ -757,8 +897,17 @@
 
       .summary,
       .filters,
+      .compare-controls,
       .export-grid,
       .user-stats {
+        grid-template-columns: 1fr;
+      }
+
+      .compare-row {
+        grid-template-columns: 1fr;
+      }
+
+      .scheduler-run {
         grid-template-columns: 1fr;
       }
 

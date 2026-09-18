@@ -10,7 +10,9 @@
       activeTab: 'dashboard',
       language: 'ru',
       localExports: [],
-      schedulerEnabled: false
+      schedulerRuns: [],
+      schedulerEnabled: false,
+      watchEnabled: false
     };
 
     const el = {
@@ -40,6 +42,11 @@
       metricComments: document.getElementById('metricComments'),
       metricUsers: document.getElementById('metricUsers'),
       metricReactions: document.getElementById('metricReactions'),
+      compareFrom: document.getElementById('compareFrom'),
+      compareTo: document.getElementById('compareTo'),
+      runCompare: document.getElementById('runCompare'),
+      compareStatus: document.getElementById('compareStatus'),
+      compareResults: document.getElementById('compareResults'),
       commentsByDayChart: document.getElementById('commentsByDayChart'),
       topUsersChart: document.getElementById('topUsersChart'),
       topEmojiChart: document.getElementById('topEmojiChart'),
@@ -82,6 +89,15 @@
       startScheduler: document.getElementById('startScheduler'),
       stopScheduler: document.getElementById('stopScheduler'),
       schedulerStatus: document.getElementById('schedulerStatus'),
+      refreshSchedulerHistory: document.getElementById('refreshSchedulerHistory'),
+      schedulerHistoryList: document.getElementById('schedulerHistoryList'),
+      schedulerRunDetails: document.getElementById('schedulerRunDetails'),
+      watchMode: document.getElementById('watchMode'),
+      watchPollInterval: document.getElementById('watchPollInterval'),
+      watchActivePosts: document.getElementById('watchActivePosts'),
+      startWatch: document.getElementById('startWatch'),
+      stopWatch: document.getElementById('stopWatch'),
+      watchStatus: document.getElementById('watchStatus'),
       saveConfig: document.getElementById('saveConfig'),
       startExport: document.getElementById('startExport'),
       exportStatus: document.getElementById('exportStatus'),
@@ -119,6 +135,20 @@
         commentsCount: 'Комментариев',
         uniqueUsers: 'Уникальных пользователей',
         reactionsCount: 'Реакций',
+        periodCompare: 'Сравнение периодов',
+        compareFrom: 'Период от',
+        compareTo: 'Период до',
+        runCompare: 'Сравнить',
+        compareChooseDates: 'Выберите даты',
+        compareNoData: 'Нет данных для сравнения',
+        compareCurrent: 'Текущий',
+        comparePrevious: 'Предыдущий',
+        compareDelta: 'Разница',
+        comparePercent: '%',
+        compareInvalidPeriod: 'Дата "до" должна быть позже даты "от"',
+        compareComments: 'Comments',
+        compareUsers: 'Users',
+        compareReactions: 'Reactions',
         commentsByDay: 'Комментарии по дням',
         topUsers: 'Топ пользователей',
         topEmoji: 'Топ эмодзи',
@@ -140,16 +170,43 @@
         incremental: 'Инкрементально',
         schedulerMode: 'Scheduler mode',
         schedulerInterval: 'Интервал, минут',
+        schedulerHistory: 'История Scheduler',
+        refreshHistory: 'Обновить',
+        noSchedulerRuns: 'Запусков Scheduler пока нет',
+        loadingHistory: 'Загрузка истории...',
+        historyLoadFailed: 'Не удалось загрузить историю Scheduler',
+        runDetailsLoadFailed: 'Не удалось загрузить карточку запуска',
+        runQueued: 'В очереди',
+        runRunning: 'Выполняется',
+        runSuccess: 'Успешно',
+        runPartial: 'Частично',
+        runFailed: 'Ошибка',
+        runSkipped: 'Пропущен',
+        runCancelled: 'Отменен',
+        watchMode: 'Watch mode',
+        watchPollInterval: 'Watch poll, секунд',
+        watchActivePosts: 'Watch active posts',
         saveEnv: 'Сохранить .env',
         startExport: 'Запустить экспорт',
         startScheduler: 'Запустить scheduler',
         stopScheduler: 'Остановить scheduler',
+        startWatch: 'Запустить watch',
+        stopWatch: 'Остановить watch',
         schedulerNotStarted: 'Scheduler не запущен',
         schedulerStarting: 'Запуск scheduler...',
         schedulerRunning: 'Scheduler активен',
         schedulerStopped: 'Scheduler остановлен',
         schedulerStartFailed: 'Не удалось запустить scheduler',
         schedulerStopFailed: 'Не удалось остановить scheduler',
+        watchNotStarted: 'Watch не запущен',
+        watchStarting: 'Запуск watch...',
+        watchRunning: 'Watch активен',
+        watchStopped: 'Watch остановлен',
+        watchStartFailed: 'Не удалось запустить watch',
+        watchStopFailed: 'Не удалось остановить watch',
+        watchPollRequired: 'Watch poll должен быть не меньше 5 секунд',
+        watchActivePostsRequired: 'Watch active posts должен быть не меньше 1',
+        updatedPosts: 'Обновлений',
         schedulerIntervalRequired: 'Интервал должен быть не меньше 1 минуты',
         nextRun: 'Следующий запуск',
         lastRun: 'Последний запуск',
@@ -225,6 +282,20 @@
         commentsCount: 'Comments',
         uniqueUsers: 'Unique users',
         reactionsCount: 'Reactions',
+        periodCompare: 'Period comparison',
+        compareFrom: 'Period from',
+        compareTo: 'Period to',
+        runCompare: 'Compare',
+        compareChooseDates: 'Choose dates',
+        compareNoData: 'No data to compare',
+        compareCurrent: 'Current',
+        comparePrevious: 'Previous',
+        compareDelta: 'Delta',
+        comparePercent: '%',
+        compareInvalidPeriod: '"To" date must be later than "from" date',
+        compareComments: 'Comments',
+        compareUsers: 'Users',
+        compareReactions: 'Reactions',
         commentsByDay: 'Comments by day',
         topUsers: 'Top users',
         topEmoji: 'Top emoji',
@@ -246,16 +317,43 @@
         incremental: 'Incremental',
         schedulerMode: 'Scheduler mode',
         schedulerInterval: 'Interval, minutes',
+        schedulerHistory: 'Scheduler history',
+        refreshHistory: 'Refresh',
+        noSchedulerRuns: 'No Scheduler runs yet',
+        loadingHistory: 'Loading history...',
+        historyLoadFailed: 'Could not load Scheduler history',
+        runDetailsLoadFailed: 'Could not load run details',
+        runQueued: 'Queued',
+        runRunning: 'Running',
+        runSuccess: 'Success',
+        runPartial: 'Partial',
+        runFailed: 'Failed',
+        runSkipped: 'Skipped',
+        runCancelled: 'Cancelled',
+        watchMode: 'Watch mode',
+        watchPollInterval: 'Watch poll, seconds',
+        watchActivePosts: 'Watch active posts',
         saveEnv: 'Save .env',
         startExport: 'Start export',
         startScheduler: 'Start scheduler',
         stopScheduler: 'Stop scheduler',
+        startWatch: 'Start watch',
+        stopWatch: 'Stop watch',
         schedulerNotStarted: 'Scheduler is not running',
         schedulerStarting: 'Starting scheduler...',
         schedulerRunning: 'Scheduler is active',
         schedulerStopped: 'Scheduler stopped',
         schedulerStartFailed: 'Could not start scheduler',
         schedulerStopFailed: 'Could not stop scheduler',
+        watchNotStarted: 'Watch is not running',
+        watchStarting: 'Starting watch...',
+        watchRunning: 'Watch is active',
+        watchStopped: 'Watch stopped',
+        watchStartFailed: 'Could not start watch',
+        watchStopFailed: 'Could not stop watch',
+        watchPollRequired: 'Watch poll must be at least 5 seconds',
+        watchActivePostsRequired: 'Watch active posts must be at least 1',
+        updatedPosts: 'Updates',
         schedulerIntervalRequired: 'Interval must be at least 1 minute',
         nextRun: 'Next run',
         lastRun: 'Last run',
@@ -331,6 +429,20 @@
         commentsCount: '评论',
         uniqueUsers: '唯一用户',
         reactionsCount: '反应',
+        periodCompare: '周期对比',
+        compareFrom: '开始日期',
+        compareTo: '结束日期',
+        runCompare: '对比',
+        compareChooseDates: '请选择日期',
+        compareNoData: '没有可对比的数据',
+        compareCurrent: '当前',
+        comparePrevious: '上一周期',
+        compareDelta: '差值',
+        comparePercent: '%',
+        compareInvalidPeriod: '结束日期必须晚于开始日期',
+        compareComments: 'Comments',
+        compareUsers: 'Users',
+        compareReactions: 'Reactions',
         commentsByDay: '每日评论',
         topUsers: '热门用户',
         topEmoji: '热门表情',
@@ -352,16 +464,43 @@
         incremental: '增量',
         schedulerMode: 'Scheduler mode',
         schedulerInterval: '间隔分钟',
+        schedulerHistory: 'Scheduler 历史',
+        refreshHistory: '刷新',
+        noSchedulerRuns: '还没有 Scheduler 运行记录',
+        loadingHistory: '正在加载历史...',
+        historyLoadFailed: '无法加载 Scheduler 历史',
+        runDetailsLoadFailed: '无法加载运行详情',
+        runQueued: '排队中',
+        runRunning: '运行中',
+        runSuccess: '成功',
+        runPartial: '部分成功',
+        runFailed: '失败',
+        runSkipped: '已跳过',
+        runCancelled: '已取消',
+        watchMode: 'Watch mode',
+        watchPollInterval: 'Watch poll 秒',
+        watchActivePosts: 'Watch active posts',
         saveEnv: '保存 .env',
         startExport: '开始导出',
         startScheduler: '启动 scheduler',
         stopScheduler: '停止 scheduler',
+        startWatch: '启动 watch',
+        stopWatch: '停止 watch',
         schedulerNotStarted: 'Scheduler 未运行',
         schedulerStarting: '正在启动 scheduler...',
         schedulerRunning: 'Scheduler 运行中',
         schedulerStopped: 'Scheduler 已停止',
         schedulerStartFailed: '无法启动 scheduler',
         schedulerStopFailed: '无法停止 scheduler',
+        watchNotStarted: 'Watch 未运行',
+        watchStarting: '正在启动 watch...',
+        watchRunning: 'Watch 运行中',
+        watchStopped: 'Watch 已停止',
+        watchStartFailed: '无法启动 watch',
+        watchStopFailed: '无法停止 watch',
+        watchPollRequired: 'Watch poll 至少 5 秒',
+        watchActivePostsRequired: 'Watch active posts 至少为 1',
+        updatedPosts: '更新',
         schedulerIntervalRequired: '间隔必须至少为 1 分钟',
         nextRun: '下次运行',
         lastRun: '上次运行',
@@ -423,10 +562,15 @@
     el.postsBody.addEventListener('keydown', handlePostsKeydown);
     el.closeDrawer.addEventListener('click', closeUserDrawer);
     el.drawerBackdrop.addEventListener('click', closeUserDrawer);
+    el.runCompare.addEventListener('click', runPeriodCompare);
     el.saveConfig.addEventListener('click', saveConfig);
     el.startExport.addEventListener('click', startExport);
     el.startScheduler.addEventListener('click', startScheduler);
     el.stopScheduler.addEventListener('click', stopScheduler);
+    el.refreshSchedulerHistory.addEventListener('click', loadSchedulerHistory);
+    el.schedulerHistoryList.addEventListener('click', handleSchedulerHistoryClick);
+    el.startWatch.addEventListener('click', startWatch);
+    el.stopWatch.addEventListener('click', stopWatch);
     el.schedulerMode.addEventListener('change', () => {
       if (!el.schedulerMode.checked && state.schedulerEnabled) {
         stopScheduler();
@@ -434,6 +578,14 @@
       }
 
       updateSchedulerControls();
+    });
+    el.watchMode.addEventListener('change', () => {
+      if (!el.watchMode.checked && state.watchEnabled) {
+        stopWatch();
+        return;
+      }
+
+      updateWatchControls();
     });
 
     async function handleFile(event) {
@@ -636,6 +788,7 @@
       populateEmojiFilter();
       renderLocalExports();
       updateSchedulerControls();
+      updateWatchControls();
     }
 
     function parseExport(rawPosts) {
@@ -811,6 +964,134 @@
       el.metricComments.textContent = formatNumber(state.filteredComments.length);
       el.metricUsers.textContent = formatNumber(filteredUserIds.size);
       el.metricReactions.textContent = formatNumber(countReactions(state.filteredPosts, state.filteredComments));
+    }
+
+    function runPeriodCompare() {
+      const from = el.compareFrom.value;
+      const to = el.compareTo.value;
+
+      if (!from || !to) {
+        el.compareStatus.textContent = t('compareChooseDates');
+        return;
+      }
+
+      const result = comparePeriods(state.comments, from, to);
+
+      if (!result.ok) {
+        el.compareStatus.textContent = result.error;
+        return;
+      }
+
+      renderCompareResults(result);
+    }
+
+    function comparePeriods(comments, from, to) {
+      const currentStart = new Date(`${from}T00:00:00`);
+      const currentEnd = new Date(`${to}T00:00:00`);
+
+      if (!comments.length) {
+        return { ok: false, error: t('compareNoData') };
+      }
+
+      if (Number.isNaN(currentStart.getTime()) || Number.isNaN(currentEnd.getTime()) || currentEnd <= currentStart) {
+        return { ok: false, error: t('compareInvalidPeriod') };
+      }
+
+      const duration = currentEnd.getTime() - currentStart.getTime();
+      const previousStart = new Date(currentStart.getTime() - duration);
+      const previousEnd = currentStart;
+      const current = collectCompareMetrics(comments, currentStart, currentEnd);
+      const previous = collectCompareMetrics(comments, previousStart, previousEnd);
+
+      return {
+        ok: true,
+        currentPeriod: { from, to },
+        previousPeriod: {
+          from: formatInputDate(previousStart),
+          to: formatInputDate(previousEnd)
+        },
+        metrics: {
+          comments: buildCompareMetric(current.comments, previous.comments),
+          users: buildCompareMetric(current.users, previous.users),
+          reactions: buildCompareMetric(current.reactions, previous.reactions)
+        }
+      };
+    }
+
+    function collectCompareMetrics(comments, start, end) {
+      const users = new Set();
+      let reactions = 0;
+      let count = 0;
+
+      for (const comment of comments) {
+        const timestamp = getTimestamp(comment.date);
+
+        if (!timestamp || timestamp < start.getTime() || timestamp >= end.getTime()) {
+          continue;
+        }
+
+        count += 1;
+        reactions += sumReactions(comment.reactions);
+
+        if (comment.userId) {
+          users.add(comment.userId);
+        }
+      }
+
+      return {
+        comments: count,
+        users: users.size,
+        reactions
+      };
+    }
+
+    function buildCompareMetric(current, previous) {
+      const delta = current - previous;
+
+      return {
+        current,
+        previous,
+        delta,
+        percent: previous ? (delta / previous) * 100 : null
+      };
+    }
+
+    function renderCompareResults(result) {
+      const rows = [
+        ['compareComments', result.metrics.comments],
+        ['compareUsers', result.metrics.users],
+        ['compareReactions', result.metrics.reactions]
+      ];
+
+      el.compareStatus.textContent = `${result.currentPeriod.from} - ${result.currentPeriod.to} / ${result.previousPeriod.from} - ${result.previousPeriod.to}`;
+      el.compareResults.innerHTML = `
+        <div class="compare-row header">
+          <span>Metric</span>
+          <span>${escapeHtml(t('compareCurrent'))}</span>
+          <span>${escapeHtml(t('comparePrevious'))}</span>
+          <span>${escapeHtml(t('compareDelta'))}</span>
+          <span>${escapeHtml(t('comparePercent'))}</span>
+        </div>
+        ${rows.map(([labelKey, metric]) => renderCompareRow(t(labelKey), metric)).join('')}
+      `;
+    }
+
+    function renderCompareRow(label, metric) {
+      const deltaClass = metric.delta > 0 ? 'positive' : metric.delta < 0 ? 'negative' : '';
+      const delta = metric.delta > 0 ? `+${formatNumber(metric.delta)}` : formatNumber(metric.delta);
+      const percent = metric.percent === null
+        ? '-'
+        : `${metric.percent > 0 ? '+' : ''}${metric.percent.toFixed(1)}%`;
+
+      return `
+        <div class="compare-row">
+          <strong>${escapeHtml(label)}</strong>
+          <span class="compare-value">${formatNumber(metric.current)}</span>
+          <span class="compare-value">${formatNumber(metric.previous)}</span>
+          <span class="compare-value compare-delta ${deltaClass}">${escapeHtml(delta)}</span>
+          <span class="compare-value compare-delta ${deltaClass}">${escapeHtml(percent)}</span>
+        </div>
+      `;
     }
 
     function renderCharts() {
@@ -1127,7 +1408,7 @@
           el.appVersion.textContent = `v${data.version}`;
         }
       } catch (_error) {
-        el.appVersion.textContent = 'v2.1.0';
+        el.appVersion.textContent = 'v2.3.0';
       }
     }
 
@@ -1257,6 +1538,7 @@
         }
 
         renderSchedulerStatus(data.scheduler || {});
+        loadSchedulerHistory();
         pollExportStatus();
         pollSchedulerStatus();
       } catch (error) {
@@ -1297,6 +1579,7 @@
 
         const data = await response.json();
         renderSchedulerStatus(data);
+        loadSchedulerHistory();
 
         if (data.enabled) {
           window.setTimeout(pollSchedulerStatus, 5000);
@@ -1347,6 +1630,271 @@
       el.schedulerInterval.disabled = enabled;
       el.startScheduler.disabled = enabled;
       el.stopScheduler.disabled = !enabled;
+    }
+
+    async function loadSchedulerHistory() {
+      el.schedulerHistoryList.textContent = t('loadingHistory');
+
+      try {
+        const response = await fetch('/api/scheduler/history?limit=50', { cache: 'no-store' });
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+          throw new Error(data.error || t('historyLoadFailed'));
+        }
+
+        state.schedulerRuns = data.runs || [];
+        renderSchedulerHistory();
+      } catch (error) {
+        el.schedulerHistoryList.textContent = `${t('error')}: ${error.message}`;
+      }
+    }
+
+    function renderSchedulerHistory() {
+      if (!state.schedulerRuns.length) {
+        el.schedulerHistoryList.innerHTML = `<div class="empty">${escapeHtml(t('noSchedulerRuns'))}</div>`;
+        el.schedulerRunDetails.classList.remove('open');
+        el.schedulerRunDetails.textContent = '';
+        return;
+      }
+
+      el.schedulerHistoryList.innerHTML = state.schedulerRuns.map((run) => {
+        const status = formatRunStatus(run.status);
+        const finished = run.finished_at || run.started_at || run.created_at || '-';
+        const result = formatRunResult(run);
+
+        return `
+          <button class="scheduler-run" type="button" data-run-id="${escapeAttribute(run.id)}">
+            <span class="scheduler-run-status">${escapeHtml(status)}</span>
+            <span class="scheduler-run-meta">${escapeHtml(run.channels || '-')}</span>
+            <span class="scheduler-run-meta">${escapeHtml(finished)}</span>
+            <span class="scheduler-run-meta">${escapeHtml(result)}</span>
+          </button>
+        `;
+      }).join('');
+    }
+
+    async function handleSchedulerHistoryClick(event) {
+      const button = event.target.closest('[data-run-id]');
+
+      if (!button) {
+        return;
+      }
+
+      const runId = button.dataset.runId;
+      el.schedulerRunDetails.classList.add('open');
+      el.schedulerRunDetails.textContent = t('loadingHistory');
+
+      try {
+        const response = await fetch(`/api/scheduler/history/${encodeURIComponent(runId)}`, { cache: 'no-store' });
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+          throw new Error(data.error || t('runDetailsLoadFailed'));
+        }
+
+        el.schedulerRunDetails.textContent = formatSchedulerRunDetails(data.run || {});
+      } catch (error) {
+        el.schedulerRunDetails.textContent = `${t('error')}: ${error.message}`;
+      }
+    }
+
+    function formatRunStatus(status) {
+      const labels = {
+        QUEUED: t('runQueued'),
+        RUNNING: t('runRunning'),
+        SUCCESS: t('runSuccess'),
+        PARTIAL: t('runPartial'),
+        FAILED: t('runFailed'),
+        SKIPPED: t('runSkipped'),
+        CANCELLED: t('runCancelled')
+      };
+
+      return labels[status] || status || '-';
+    }
+
+    function formatRunResult(run) {
+      if (run.status === 'SKIPPED') {
+        return t('runSkipped');
+      }
+
+      const ok = Number(run.channels_ok) || 0;
+      const failed = Number(run.channels_failed) || 0;
+
+      if (ok || failed) {
+        return `${ok}/${ok + failed}`;
+      }
+
+      return run.error && run.error.type ? run.error.type : '-';
+    }
+
+    function formatSchedulerRunDetails(run) {
+      const error = run.error || {};
+      const lines = run.lines || [];
+      const details = [
+        `ID: ${run.id || '-'}`,
+        `Status: ${run.status || '-'}`,
+        `Channels: ${run.channels || '-'}`,
+        `Format: ${run.format || '-'}`,
+        `Created: ${run.created_at || '-'}`,
+        `Started: ${run.started_at || '-'}`,
+        `Finished: ${run.finished_at || '-'}`,
+        `Return code: ${run.returncode ?? '-'}`,
+        `Channels OK: ${run.channels_ok ?? 0}`,
+        `Channels failed: ${run.channels_failed ?? 0}`,
+        `Completed: ${(run.completed_channels || []).join(', ') || '-'}`,
+        `Failed: ${(run.failed_channels || []).join(', ') || '-'}`
+      ];
+
+      if (error.type || error.message) {
+        details.push('');
+        details.push(`Error type: ${error.type || '-'}`);
+
+        if (error.wait_seconds !== undefined && error.wait_seconds !== null) {
+          details.push(`Wait: ${error.wait_seconds} seconds`);
+        }
+
+        details.push(`Error message: ${error.message || '-'}`);
+      }
+
+      if (run.summary) {
+        details.push('');
+        details.push(`Summary: ${JSON.stringify(run.summary, null, 2)}`);
+      }
+
+      if (lines.length) {
+        details.push('');
+        details.push('Last log lines:');
+        details.push(lines.slice(-40).join('\n'));
+      }
+
+      return details.join('\n');
+    }
+
+    async function startWatch() {
+      const payload = {
+        ...buildExportPayload(),
+        poll_interval: Number(el.watchPollInterval.value),
+        refresh_active_posts: Number(el.watchActivePosts.value)
+      };
+
+      if (!payload.channel) {
+        el.watchStatus.textContent = t('channelRequired');
+        return;
+      }
+
+      if (!payload.poll_interval || payload.poll_interval < 5) {
+        el.watchStatus.textContent = t('watchPollRequired');
+        return;
+      }
+
+      if (!payload.refresh_active_posts || payload.refresh_active_posts < 1) {
+        el.watchStatus.textContent = t('watchActivePostsRequired');
+        return;
+      }
+
+      updateWatchControls();
+      el.watchStatus.textContent = t('watchStarting');
+
+      try {
+        const response = await fetch('/api/watch/start', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+          throw new Error(data.error || t('watchStartFailed'));
+        }
+
+        renderWatchStatus(data.watch || {});
+        pollWatchStatus();
+      } catch (error) {
+        el.watchStatus.textContent = `${t('error')}: ${error.message}`;
+        el.watchMode.checked = false;
+        updateWatchControls();
+      }
+    }
+
+    async function stopWatch() {
+      el.stopWatch.disabled = true;
+
+      try {
+        const response = await fetch('/api/watch/stop', {
+          method: 'POST'
+        });
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+          throw new Error(data.error || t('watchStopFailed'));
+        }
+
+        renderWatchStatus(data.watch || {});
+      } catch (error) {
+        el.watchStatus.textContent = `${t('error')}: ${error.message}`;
+      } finally {
+        updateWatchControls();
+      }
+    }
+
+    async function pollWatchStatus() {
+      try {
+        const response = await fetch('/api/watch/status', { cache: 'no-store' });
+
+        if (!response.ok) {
+          return;
+        }
+
+        const data = await response.json();
+        renderWatchStatus(data);
+
+        if (data.running) {
+          window.setTimeout(pollWatchStatus, 3000);
+        }
+      } catch (_error) {
+        el.watchStatus.textContent = t('watchNotStarted');
+      }
+    }
+
+    function renderWatchStatus(data) {
+      const running = Boolean(data.running);
+      const parts = [];
+
+      state.watchEnabled = running;
+      el.watchMode.checked = running;
+
+      if (!running) {
+        el.watchStatus.textContent = data.returncode === null || data.returncode === undefined
+          ? t('watchNotStarted')
+          : `${t('watchStopped')} (${data.returncode})`;
+        updateWatchControls();
+        return;
+      }
+
+      parts.push(`${t('watchRunning')}: ${data.channels || '-'}`);
+
+      if ((data.updates || []).length) {
+        const changedCount = data.updates.filter((item) => item.changed).length;
+        parts.push(`${t('updatedPosts')}: ${formatNumber(changedCount)}`);
+      }
+
+      if (data.last_error) {
+        parts.push(`${t('error')}: ${data.last_error}`);
+      }
+
+      el.watchStatus.textContent = parts.join(' | ');
+      updateWatchControls();
+    }
+
+    function updateWatchControls() {
+      const enabled = state.watchEnabled;
+      el.watchPollInterval.disabled = enabled;
+      el.watchActivePosts.disabled = enabled;
+      el.startWatch.disabled = enabled;
+      el.stopWatch.disabled = !enabled;
     }
 
     async function pollExportStatus() {
@@ -1636,6 +2184,14 @@
       return date.toISOString().slice(0, 10);
     }
 
+    function formatInputDate(date) {
+      if (!date || Number.isNaN(date.getTime())) {
+        return '';
+      }
+
+      return date.toISOString().slice(0, 10);
+    }
+
     function formatDate(value) {
       if (!value) {
         return '';
@@ -1707,6 +2263,8 @@
       state.filteredComments = [];
       state.users = new Map();
       state.expandedPostId = null;
+      el.compareStatus.textContent = t('compareChooseDates');
+      el.compareResults.innerHTML = '';
       renderAll();
     }
 
@@ -1725,8 +2283,11 @@
 
     renderAll();
     updateSchedulerControls();
+    updateWatchControls();
     loadAppVersion();
     loadServerConfig();
     loadLocalExports();
+    loadSchedulerHistory();
     pollExportStatus();
     pollSchedulerStatus();
+    pollWatchStatus();

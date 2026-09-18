@@ -11,5 +11,7 @@ data/content/*
 !data/content/.gitkeep
 data/state/*
 !data/state/.gitkeep
+data/scheduler/*
+!data/scheduler/.gitkeep
 __pycache__/
 *.pyc

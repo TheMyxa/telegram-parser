@@ -1,6 +1,8 @@
 import argparse
 import asyncio
+import json
 import sys
+from pathlib import Path
 
 
 EXPORT_FORMATS = ("json", "csv", "postgresql", "parquet")
@@ -72,12 +74,70 @@ def build_parser():
     )
     analyze_parser.set_defaults(handler=run_analyze)
 
+    compare_parser = subparsers.add_parser(
+        "compare",
+        help="Compare comments, users, and reactions between two periods.",
+        description="Compare comments, users, and reactions between a selected period and the previous period of the same length.",
+    )
+    compare_parser.add_argument(
+        "--from",
+        dest="from_date",
+        required=True,
+        help="Current period start date, for example 2026-07-01.",
+    )
+    compare_parser.add_argument(
+        "--to",
+        dest="to_date",
+        required=True,
+        help="Current period end date, for example 2026-08-01. The end date is exclusive.",
+    )
+    compare_parser.add_argument(
+        "--file",
+        default=None,
+        help="JSON file name from data/raw or direct path. Defaults to the newest JSON export in data/raw.",
+    )
+    compare_parser.set_defaults(handler=run_compare)
+
     dashboard_parser = subparsers.add_parser(
         "dashboard",
         help="Run web dashboard on port 9595.",
         description="Run web dashboard on port 9595.",
     )
     dashboard_parser.set_defaults(handler=run_dashboard)
+
+    watch_parser = subparsers.add_parser(
+        "watch",
+        help="Watch Telegram channels and update JSON datasets continuously.",
+        description="Watch Telegram channels and update JSON datasets continuously.",
+    )
+    watch_parser.add_argument(
+        "--download-media",
+        action="store_true",
+        help="Download post and comment media to data/content/<channel>_dataset/.",
+    )
+    watch_parser.add_argument(
+        "--anonymize",
+        action="store_true",
+        help="Replace user_id, username, first_name and last_name with aliases.",
+    )
+    watch_parser.add_argument(
+        "--anonymizer-file",
+        default="anonymizer",
+        help="Text file with anonymized names, one alias per line. Default: anonymizer.",
+    )
+    watch_parser.add_argument(
+        "--poll-interval",
+        type=int,
+        default=30,
+        help="Seconds between refresh passes for recent posts. Default: 30.",
+    )
+    watch_parser.add_argument(
+        "--refresh-active-posts",
+        type=int,
+        default=20,
+        help="How many latest posts per channel to refresh. Default: 20.",
+    )
+    watch_parser.set_defaults(handler=run_watch)
 
     config_parser = subparsers.add_parser(
         "config-check",
@@ -109,10 +169,47 @@ def run_analyze(args):
     llm_analyzer.main(args)
 
 
+def resolve_compare_file(value=None):
+    if value:
+        path = Path(value)
+
+        if path.exists():
+            return path
+
+        raw_path = Path("data/raw") / value
+
+        if raw_path.exists():
+            return raw_path
+
+        raise FileNotFoundError(f"Compare file not found: {value}")
+
+    candidates = sorted(Path("data/raw").glob("*.json"), key=lambda item: item.stat().st_mtime, reverse=True)
+
+    if not candidates:
+        raise FileNotFoundError("No JSON exports found in data/raw. Pass --file.")
+
+    return candidates[0]
+
+
+def run_compare(args):
+    from analytics.period_compare import compare_periods, load_posts
+
+    path = resolve_compare_file(args.file)
+    result = compare_periods(load_posts(path), args.from_date, args.to_date)
+    result["file"] = str(path)
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+
+
 def run_dashboard(_args):
     import web_server
 
     web_server.main()
+
+
+def run_watch(args):
+    from exporters import telegram_exporter
+
+    asyncio.run(telegram_exporter.watch_main(args))
 
 
 def run_config_check(_args):

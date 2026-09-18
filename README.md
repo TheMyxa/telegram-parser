@@ -4,7 +4,7 @@
 
 TG is a local-first Telegram comments exporter and analytics dashboard. It exports channel posts, discussion comments, reactions, links, optional media files, and can update existing datasets incrementally.
 
-Current version: `2.1.0`.
+Current version: `2.3.0`.
 
 ![Dashboard screenshot](docs/screenshots/dashboard.png)
 
@@ -16,9 +16,10 @@ Current version: `2.1.0`.
 - True incremental export: scan new posts and revisit older exported posts to refresh comments, reactions, and counters.
 - Optional media download into `data/content/<dataset_name>/`.
 - Optional anonymization of `user_id`, `username`, `first_name`, and `last_name`.
-- Web UI on port `9595` with dashboard, post view, comment tree, filters, user profiles, export launch screen, and Scheduler mode.
+- Web UI on port `9595` with dashboard, post view, comment tree, filters, user profiles, export launch screen, Scheduler mode, and Watch mode.
 - Open local JSON exports from `data/raw` directly in the dashboard, sorted by date or channel.
 - LLM analyzer for exported JSON files with Russian, English, and Chinese prompt files.
+- Period comparison for comments, users, and reactions with `tg compare`.
 - MCP server for local automation through AI clients.
 - Docker Compose setup for local use.
 
@@ -187,6 +188,14 @@ data/state/<channel>_state.json
 
 It scans posts newer than the saved `last_post_id` plus `INCREMENTAL_LOOKBACK_POSTS` already exported posts at or below that `last_post_id`. This refreshes counters, reactions, and comments on older posts that changed after a previous run. It merges posts by `post_id`, merges comments by `comment_id`, and keeps already downloaded media files.
 
+### Watch Mode
+
+```powershell
+docker compose run --rm cli watch --poll-interval 30 --refresh-active-posts 20
+```
+
+Watch mode is a long-running process that keeps the Telethon session open, watches selected channels for new posts, tracks discussion activity for recent posts, and updates changed posts in `data/raw/<channel>_dataset.json`. The poll interval refreshes recent posts for counters, reactions, nested replies, and missed events.
+
 ### Export With Media
 
 ```powershell
@@ -242,6 +251,16 @@ Pass a custom prompt file:
 docker compose run --rm cli analyze durov_dataset.json --prompt-file prompts/llm_en.json
 ```
 
+### Compare Periods
+
+Compare comments, unique users, and comment reactions for a selected period against the immediately previous period of the same length:
+
+```powershell
+docker compose run --rm cli compare --from 2026-07-01 --to 2026-08-01 --file durov_dataset.json
+```
+
+`--to` is exclusive. If `--file` is omitted, the newest JSON export from `data/raw` is used.
+
 Prompt files are JSON objects with `system` and `user_template` fields. `user_template` must include `{data}`.
 
 Analysis files are saved to:
@@ -289,6 +308,7 @@ The dashboard can:
 - edit `.env` settings from the Export tab;
 - start exports from the browser and show progress.
 - enable Scheduler mode to update selected channels automatically every N minutes.
+- enable Watch mode to keep watching channels and update changed JSON dataset posts continuously.
 - show the app version from `version.py` through `/api/version`.
 
 Dashboard API endpoints:
@@ -296,11 +316,21 @@ Dashboard API endpoints:
 - `GET /api/version`: return the current app version.
 - `GET /api/exports?sort=date|channel`: list JSON exports from `data/raw`.
 - `GET /api/export/<file>/summary`: return counts and metadata for one JSON export.
+- `GET /api/export/<file>/compare?from=YYYY-MM-DD&to=YYYY-MM-DD`: compare comments, users, and reactions between periods.
 - `GET /api/scheduler/status`: return current scheduler state.
+- `GET /api/scheduler/history?limit=50`: list persisted scheduled run records.
+- `GET /api/scheduler/history/<run_id>`: return one scheduled run detail card.
 - `POST /api/scheduler/start`: start scheduled exports with `channel`, `interval_minutes`, format, and export flags.
 - `POST /api/scheduler/stop`: stop scheduled exports.
+- `GET /api/watch/status`: return current Watch mode state.
+- `POST /api/watch/start`: start Watch mode with `channel`, `poll_interval`, `refresh_active_posts`, and export flags.
+- `POST /api/watch/stop`: stop Watch mode.
 
 Scheduler mode starts the first export immediately, then repeats every configured interval. If an export is still running when the next interval arrives, that run is skipped.
+
+Scheduler history is stored as JSON files in `data/scheduler/`. Each scheduled run has its own record with status `QUEUED`, `RUNNING`, `SUCCESS`, `PARTIAL`, `FAILED`, `SKIPPED`, or `CANCELLED`, plus channel results, structured error information, and recent log lines.
+
+Watch mode is separate from Scheduler mode. It stays running and updates changed posts as channel or discussion activity arrives, with a periodic refresh for counters and missed comment updates.
 
 ## Local Python Usage
 
@@ -316,6 +346,8 @@ Run commands:
 python main.py --help
 python main.py config-check
 python main.py export json --incremental
+python main.py watch --poll-interval 30 --refresh-active-posts 20
+python main.py compare --from 2026-07-01 --to 2026-08-01 --file durov_dataset.json
 python main.py dashboard
 python main.py mcp
 ```

@@ -19,7 +19,7 @@ Core capabilities:
 
 ## Important Files
 
-- `main.py` - unified CLI entrypoint: `export`, `analyze`, `dashboard`, `config-check`, `mcp`.
+- `main.py` - unified CLI entrypoint: `export`, `watch`, `compare`, `analyze`, `dashboard`, `config-check`, `mcp`.
 - `export_comments.py` - compatibility entrypoint for Telegram export.
 - `exporters/telegram_exporter.py` - Telethon export logic, multi-channel export, incremental merge, retry/error handling.
 - `web/comments_dashboard.html` - Web UI markup.
@@ -55,6 +55,7 @@ Ignored runtime paths:
 - `data/content/*`
 - `data/analysis/*`
 - `data/state/*`
+- `data/scheduler/*`
 
 Keep `.gitkeep` files in runtime folders so the directory structure exists after clone.
 
@@ -94,6 +95,7 @@ docker compose run --rm cli --help
 docker compose run --rm cli config-check
 docker compose run --rm cli export json --incremental
 docker compose run --rm cli export json --incremental --download-media
+docker compose run --rm cli compare --from 2026-07-01 --to 2026-08-01 --file example.json
 docker compose run --rm cli analyze example.json --limit 5
 docker compose run --rm cli analyze example.json --limit 5 --language en
 docker compose run --rm -i cli mcp
@@ -285,11 +287,14 @@ Current endpoints:
 - `POST /api/config`
 - `GET /api/exports`
 - `GET /api/export/<file>/summary`
+- `GET /api/export/<file>/compare`
 - `POST /api/export/start`
 - `GET /api/export/status`
 - `POST /api/scheduler/start`
 - `POST /api/scheduler/stop`
 - `GET /api/scheduler/status`
+- `GET /api/scheduler/history`
+- `GET /api/scheduler/history/<run_id>`
 - `GET /data/...`
 - `GET /web/...`
 
@@ -299,6 +304,7 @@ Scheduler behavior:
 - If an export is already running when a scheduled run is due, the scheduled run is skipped and `runs_skipped` is incremented.
 - Scheduler state is in-memory inside the dashboard process; restarting the dashboard stops the scheduler.
 - Scheduler payload reuses the normal export payload fields plus `interval_minutes`.
+- Scheduler run history is persisted as JSON files in `data/scheduler/`.
 
 When adding UI controls, wire them through:
 
