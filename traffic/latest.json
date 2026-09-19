@@ -1,28 +1,28 @@
 {
   "repository": "TheMyxa/telegram-parser",
-  "collected_at": "2026-09-18T11:33:07.240411+00:00",
+  "collected_at": "2026-09-19T11:16:28.136565+00:00",
   "period": "last_14_days",
   "views": {
-    "count": 379,
-    "uniques": 100
+    "count": 372,
+    "uniques": 116
   },
   "clones": {
-    "count": 172,
-    "uniques": 86
+    "count": 179,
+    "uniques": 91
   },
   "top_referrers": [
     {
       "referrer": "pr.social",
-      "count": 16,
-      "uniques": 14
+      "count": 11,
+      "uniques": 9
     }
   ],
   "popular_paths": [
     {
       "path": "/TheMyxa/telegram-parser",
       "title": "Overview",
-      "count": 235,
-      "uniques": 100
+      "count": 247,
+      "uniques": 116
     },
     {
       "path": "/TheMyxa/telegram-parser/tree/master",
@@ -33,31 +33,31 @@
     {
       "path": "/TheMyxa/telegram-parser/graphs/traffic",
       "title": "/graphs/traffic",
-      "count": 23,
+      "count": 21,
       "uniques": 1
     },
     {
       "path": "/TheMyxa/telegram-parser/pulse",
       "title": "/pulse",
-      "count": 19,
+      "count": 17,
       "uniques": 1
     },
     {
       "path": "/TheMyxa/telegram-parser/blob/star-history/assets/star-history-dark.svg",
       "title": "/blob/star-history/assets/star-history-dark.svg",
-      "count": 15,
+      "count": 13,
       "uniques": 1
     },
     {
       "path": "/TheMyxa/telegram-parser/tree/star-history/assets",
       "title": "/tree/star-history/assets",
-      "count": 14,
+      "count": 12,
       "uniques": 1
     },
     {
       "path": "/TheMyxa/telegram-parser/tree/star-history",
       "title": "/tree/star-history",
-      "count": 13,
+      "count": 11,
       "uniques": 1
     },
     {
@@ -73,9 +73,9 @@
       "uniques": 1
     },
     {
-      "path": "/TheMyxa/telegram-parser/releases",
-      "title": "/releases",
-      "count": 3,
+      "path": "/TheMyxa/telegram-parser/blob/master/version.py",
+      "title": "/blob/master/version.py",
+      "count": 2,
       "uniques": 1
     }
   ]
