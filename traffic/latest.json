@@ -1,70 +1,75 @@
 {
   "repository": "TheMyxa/telegram-parser",
-  "collected_at": "2026-09-19T11:16:28.136565+00:00",
+  "collected_at": "2026-09-20T11:39:25.653907+00:00",
   "period": "last_14_days",
   "views": {
-    "count": 372,
-    "uniques": 116
+    "count": 401,
+    "uniques": 141
   },
   "clones": {
-    "count": 179,
-    "uniques": 91
+    "count": 168,
+    "uniques": 88
   },
   "top_referrers": [
     {
       "referrer": "pr.social",
-      "count": 11,
-      "uniques": 9
+      "count": 5,
+      "uniques": 3
+    },
+    {
+      "referrer": "github.com",
+      "count": 5,
+      "uniques": 1
     }
   ],
   "popular_paths": [
     {
       "path": "/TheMyxa/telegram-parser",
       "title": "Overview",
-      "count": 247,
-      "uniques": 116
+      "count": 279,
+      "uniques": 141
     },
     {
       "path": "/TheMyxa/telegram-parser/tree/master",
       "title": "/tree/master",
-      "count": 26,
+      "count": 27,
       "uniques": 1
     },
     {
       "path": "/TheMyxa/telegram-parser/graphs/traffic",
       "title": "/graphs/traffic",
-      "count": 21,
+      "count": 19,
       "uniques": 1
     },
     {
       "path": "/TheMyxa/telegram-parser/pulse",
       "title": "/pulse",
-      "count": 17,
-      "uniques": 1
-    },
-    {
-      "path": "/TheMyxa/telegram-parser/blob/star-history/assets/star-history-dark.svg",
-      "title": "/blob/star-history/assets/star-history-dark.svg",
-      "count": 13,
-      "uniques": 1
-    },
-    {
-      "path": "/TheMyxa/telegram-parser/tree/star-history/assets",
-      "title": "/tree/star-history/assets",
-      "count": 12,
+      "count": 16,
       "uniques": 1
     },
     {
       "path": "/TheMyxa/telegram-parser/tree/star-history",
       "title": "/tree/star-history",
-      "count": 11,
+      "count": 15,
       "uniques": 1
     },
     {
-      "path": "/TheMyxa/telegram-parser/stargazers",
-      "title": "/stargazers",
-      "count": 5,
+      "path": "/TheMyxa/telegram-parser/blob/star-history/assets/star-history-dark.svg",
+      "title": "/blob/star-history/assets/star-history-dark.svg",
+      "count": 14,
       "uniques": 1
+    },
+    {
+      "path": "/TheMyxa/telegram-parser/tree/star-history/assets",
+      "title": "/tree/star-history/assets",
+      "count": 13,
+      "uniques": 1
+    },
+    {
+      "path": "/TheMyxa/telegram-parser/fork",
+      "title": "/fork",
+      "count": 3,
+      "uniques": 3
     },
     {
       "path": "/TheMyxa/telegram-parser/commits/master",
@@ -73,9 +78,9 @@
       "uniques": 1
     },
     {
-      "path": "/TheMyxa/telegram-parser/blob/master/version.py",
-      "title": "/blob/master/version.py",
-      "count": 2,
+      "path": "/TheMyxa/telegram-parser/stargazers",
+      "title": "/stargazers",
+      "count": 3,
       "uniques": 1
     }
   ]
