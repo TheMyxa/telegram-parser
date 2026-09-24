@@ -4,13 +4,14 @@ services:
   dashboard:
     build: .
     image: tg:latest
-    env_file:
-      - .env
+    environment:
+      TG_ENV_FILE: /workspace/.env
+      TG_BOOTSTRAP_ENV: "1"
     command: ["dashboard"]
     ports:
       - "9595:9595"
     volumes:
-      - ./.env:/app/.env
+      - .:/workspace
       - ./data:/app/data
       - ./sessions:/app/sessions
     restart: unless-stopped
@@ -18,12 +19,13 @@ services:
   cli:
     build: .
     image: tg:latest
-    env_file:
-      - .env
+    environment:
+      TG_ENV_FILE: /workspace/.env
+      TG_BOOTSTRAP_ENV: "1"
     profiles:
       - tools
     volumes:
-      - ./.env:/app/.env
+      - .:/workspace
       - ./data:/app/data
       - ./sessions:/app/sessions
     command: ["--help"]

@@ -4,7 +4,7 @@
 
 TG is a local-first Telegram comments exporter and analytics dashboard. It exports channel posts, discussion comments, reactions, links, optional media files, and can update existing datasets incrementally.
 
-Current version: `2.3.0`.
+Current version: `2.3.1`.
 
 ![Dashboard screenshot](docs/screenshots/dashboard.png)
 
@@ -82,7 +82,15 @@ Get Telegram API credentials at `https://my.telegram.org/apps`.
 
 ## Configuration
 
-Create `.env` from the example:
+Docker creates `.env` from `.env.example` on the first start, so new users can begin with one command:
+
+```powershell
+docker compose up --build
+```
+
+Then open `http://localhost:9595` and fill in Telegram settings in the Export tab.
+
+If you prefer to edit the file before starting, create `.env` manually:
 
 ```powershell
 Copy-Item .env.example .env
@@ -128,10 +136,10 @@ Configuration is validated per command: `export` requires Telegram settings, `an
 
 ## Docker Usage
 
-Start the web UI:
+Start the web UI with one command:
 
 ```powershell
-docker compose up --build dashboard
+docker compose up --build
 ```
 
 Open:
@@ -293,7 +301,7 @@ The MCP server exposes tools for local automation:
 ### Run Dashboard
 
 ```powershell
-docker compose up dashboard
+docker compose up
 ```
 
 The dashboard can:
@@ -413,7 +421,7 @@ Recommended practice:
 Start Docker Desktop and run again:
 
 ```powershell
-docker compose up --build dashboard
+docker compose up --build
 ```
 
 ### Missing API_ID Or API_HASH

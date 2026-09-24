@@ -24,7 +24,7 @@ TG 是一个本地优先的 Telegram 评论导出和分析工具。它可以导�
 ## 快速启动
 
 ```powershell
-docker compose up --build dashboard
+docker compose up --build
 ```
 
 打开：
@@ -35,7 +35,15 @@ http://localhost:9595
 
 ## 配置
 
-从示例创建 `.env`：
+Docker 会在首次启动时从 `.env.example` 创建 `.env`，所以新用户只需要一条命令：
+
+```powershell
+docker compose up --build
+```
+
+然后打开 `http://localhost:9595`，在 Export 页面填写 Telegram 配置。
+
+如果你想先手动编辑文件，也可以自己创建 `.env`：
 
 ```powershell
 Copy-Item .env.example .env

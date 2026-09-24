@@ -22,7 +22,8 @@ WEB_DIR = ROOT / "web"
 INDEX_FILE = WEB_DIR / "comments_dashboard.html"
 DATA_DIR = ROOT / "data"
 SCHEDULER_HISTORY_DIR = DATA_DIR / "scheduler"
-ENV_FILE = ROOT / ".env"
+ENV_FILE = Path(os.getenv("TG_ENV_FILE", str(ROOT / ".env")))
+ENV_EXAMPLE_FILE = ROOT / ".env.example"
 CONFIG_KEYS = [
     "API_ID",
     "API_HASH",
@@ -96,6 +97,17 @@ WATCH_JOB = {
     "last_error": None,
 }
 WATCH_LOCK = threading.Lock()
+
+
+def ensure_env_file():
+    if ENV_FILE.exists() or os.getenv("TG_BOOTSTRAP_ENV", "").lower() not in {"1", "true", "yes"}:
+        return
+
+    if not ENV_EXAMPLE_FILE.exists():
+        return
+
+    ENV_FILE.parent.mkdir(parents=True, exist_ok=True)
+    ENV_FILE.write_text(ENV_EXAMPLE_FILE.read_text(encoding="utf-8"), encoding="utf-8")
 
 
 class DashboardHandler(SimpleHTTPRequestHandler):
@@ -1264,6 +1276,7 @@ def get_export_status():
 
 
 def main():
+    ensure_env_file()
     reconcile_incomplete_scheduler_runs()
     server = ThreadingHTTPServer((HOST, PORT), DashboardHandler)
     print(f"Dashboard is running on http://localhost:{PORT}")

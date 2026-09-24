@@ -24,7 +24,7 @@ TG - локальный инструмент для экспорта комме�
 ## Быстрый Старт
 
 ```powershell
-docker compose up --build dashboard
+docker compose up --build
 ```
 
 Откройте:
@@ -35,7 +35,15 @@ http://localhost:9595
 
 ## Конфигурация
 
-Создайте `.env` из примера:
+Docker создает `.env` из `.env.example` при первом запуске, поэтому для старта достаточно одной команды:
+
+```powershell
+docker compose up --build
+```
+
+Затем откройте `http://localhost:9595` и заполните Telegram-настройки во вкладке экспорта.
+
+Если удобнее отредактировать файл до запуска, создайте `.env` вручную:
 
 ```powershell
 Copy-Item .env.example .env

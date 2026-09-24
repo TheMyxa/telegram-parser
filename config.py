@@ -3,6 +3,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
+ROOT = Path(__file__).resolve().parent
+DEFAULT_ENV_FILE = ROOT / ".env"
+DEFAULT_ENV_EXAMPLE_FILE = ROOT / ".env.example"
+
+
 @dataclass(frozen=True)
 class ExportConfig:
     api_id: int
@@ -33,8 +38,26 @@ class PostgresConfig:
     table: str
 
 
-def load_dotenv(path=".env"):
-    env_path = Path(path)
+def get_env_file():
+    return Path(os.getenv("TG_ENV_FILE", str(DEFAULT_ENV_FILE)))
+
+
+def ensure_env_file(path=None):
+    env_path = Path(path) if path is not None else get_env_file()
+
+    if env_path.exists() or os.getenv("TG_BOOTSTRAP_ENV", "").lower() not in {"1", "true", "yes"}:
+        return env_path
+
+    if not DEFAULT_ENV_EXAMPLE_FILE.exists():
+        return env_path
+
+    env_path.parent.mkdir(parents=True, exist_ok=True)
+    env_path.write_text(DEFAULT_ENV_EXAMPLE_FILE.read_text(encoding="utf-8"), encoding="utf-8")
+    return env_path
+
+
+def load_dotenv(path=None):
+    env_path = ensure_env_file(path)
 
     if not env_path.exists():
         return

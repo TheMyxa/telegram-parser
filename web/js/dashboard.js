@@ -1408,7 +1408,7 @@
           el.appVersion.textContent = `v${data.version}`;
         }
       } catch (_error) {
-        el.appVersion.textContent = 'v2.3.0';
+        el.appVersion.textContent = 'v2.3.1';
       }
     }
 
