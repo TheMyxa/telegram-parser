@@ -1,50 +1,55 @@
 {
   "repository": "TheMyxa/telegram-parser",
-  "collected_at": "2026-10-05T15:04:06.469234+00:00",
+  "collected_at": "2026-10-06T13:28:41.177047+00:00",
   "period": "last_14_days",
   "views": {
-    "count": 154,
-    "uniques": 30
+    "count": 163,
+    "uniques": 40
   },
   "clones": {
-    "count": 190,
-    "uniques": 103
+    "count": 203,
+    "uniques": 110
   },
   "top_referrers": [
     {
       "referrer": "github.com",
-      "count": 10,
-      "uniques": 4
+      "count": 7,
+      "uniques": 5
+    },
+    {
+      "referrer": "Google",
+      "count": 1,
+      "uniques": 1
     }
   ],
   "popular_paths": [
     {
       "path": "/TheMyxa/telegram-parser",
       "title": "Overview",
-      "count": 101,
-      "uniques": 30
+      "count": 121,
+      "uniques": 40
     },
     {
       "path": "/TheMyxa/telegram-parser/graphs/traffic",
       "title": "/graphs/traffic",
-      "count": 14,
+      "count": 13,
       "uniques": 1
     },
     {
       "path": "/TheMyxa/telegram-parser/pulse",
       "title": "/pulse",
       "count": 10,
+      "uniques": 2
+    },
+    {
+      "path": "/TheMyxa/telegram-parser/blob/star-history/assets/star-history-dark.svg",
+      "title": "/blob/star-history/assets/star-history-dark.svg",
+      "count": 3,
       "uniques": 1
     },
     {
       "path": "/TheMyxa/telegram-parser/graphs/commit-activity",
       "title": "/graphs/commit-activity",
-      "count": 4,
-      "uniques": 1
-    },
-    {
-      "path": "/TheMyxa/telegram-parser/blob/star-history/assets/star-history-dark.svg",
-      "title": "/blob/star-history/assets/star-history-dark.svg",
       "count": 3,
       "uniques": 1
     },
@@ -61,20 +66,20 @@
       "uniques": 1
     },
     {
-      "path": "/TheMyxa/telegram-parser/community",
-      "title": "/community",
+      "path": "/TheMyxa/telegram-parser/issues",
+      "title": "/issues",
       "count": 2,
-      "uniques": 1
+      "uniques": 2
     },
     {
-      "path": "/TheMyxa/telegram-parser/compare/1.1.0...2.3.0",
-      "title": "/compare/1.1.0...2.3.0",
+      "path": "/TheMyxa/telegram-parser/pulls",
+      "title": "/pulls",
       "count": 2,
-      "uniques": 1
+      "uniques": 2
     },
     {
-      "path": "/TheMyxa/telegram-parser/graphs/community",
-      "title": "/graphs/community",
+      "path": "/TheMyxa/telegram-parser/blob/master/README_ru.md",
+      "title": "/blob/master/README_ru.md",
       "count": 2,
       "uniques": 1
     }
