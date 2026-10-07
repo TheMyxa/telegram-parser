@@ -1,23 +1,28 @@
 {
   "repository": "TheMyxa/telegram-parser",
-  "collected_at": "2026-10-06T13:28:41.177047+00:00",
+  "collected_at": "2026-10-07T13:40:08.319014+00:00",
   "period": "last_14_days",
   "views": {
-    "count": 163,
-    "uniques": 40
+    "count": 172,
+    "uniques": 47
   },
   "clones": {
-    "count": 203,
-    "uniques": 110
+    "count": 194,
+    "uniques": 106
   },
   "top_referrers": [
     {
       "referrer": "github.com",
-      "count": 7,
-      "uniques": 5
+      "count": 5,
+      "uniques": 4
     },
     {
       "referrer": "Google",
+      "count": 2,
+      "uniques": 2
+    },
+    {
+      "referrer": "chatgpt.com",
       "count": 1,
       "uniques": 1
     }
@@ -26,49 +31,49 @@
     {
       "path": "/TheMyxa/telegram-parser",
       "title": "Overview",
-      "count": 121,
-      "uniques": 40
-    },
-    {
-      "path": "/TheMyxa/telegram-parser/graphs/traffic",
-      "title": "/graphs/traffic",
-      "count": 13,
-      "uniques": 1
+      "count": 125,
+      "uniques": 47
     },
     {
       "path": "/TheMyxa/telegram-parser/pulse",
       "title": "/pulse",
       "count": 10,
-      "uniques": 2
+      "uniques": 3
     },
     {
-      "path": "/TheMyxa/telegram-parser/blob/star-history/assets/star-history-dark.svg",
-      "title": "/blob/star-history/assets/star-history-dark.svg",
-      "count": 3,
-      "uniques": 1
-    },
-    {
-      "path": "/TheMyxa/telegram-parser/graphs/commit-activity",
-      "title": "/graphs/commit-activity",
-      "count": 3,
-      "uniques": 1
-    },
-    {
-      "path": "/TheMyxa/telegram-parser/tree/star-history",
-      "title": "/tree/star-history",
-      "count": 3,
-      "uniques": 1
-    },
-    {
-      "path": "/TheMyxa/telegram-parser/tree/star-history/assets",
-      "title": "/tree/star-history/assets",
-      "count": 3,
+      "path": "/TheMyxa/telegram-parser/graphs/traffic",
+      "title": "/graphs/traffic",
+      "count": 10,
       "uniques": 1
     },
     {
       "path": "/TheMyxa/telegram-parser/issues",
       "title": "/issues",
-      "count": 2,
+      "count": 5,
+      "uniques": 3
+    },
+    {
+      "path": "/TheMyxa/telegram-parser/blob/star-history/assets/star-history-dark.svg",
+      "title": "/blob/star-history/assets/star-history-dark.svg",
+      "count": 4,
+      "uniques": 1
+    },
+    {
+      "path": "/TheMyxa/telegram-parser/tree/star-history",
+      "title": "/tree/star-history",
+      "count": 4,
+      "uniques": 1
+    },
+    {
+      "path": "/TheMyxa/telegram-parser/tree/star-history/assets",
+      "title": "/tree/star-history/assets",
+      "count": 4,
+      "uniques": 1
+    },
+    {
+      "path": "/TheMyxa/telegram-parser/blob/master/README_ru.md",
+      "title": "/blob/master/README_ru.md",
+      "count": 3,
       "uniques": 2
     },
     {
@@ -78,8 +83,8 @@
       "uniques": 2
     },
     {
-      "path": "/TheMyxa/telegram-parser/blob/master/README_ru.md",
-      "title": "/blob/master/README_ru.md",
+      "path": "/TheMyxa/telegram-parser/graphs/commit-activity",
+      "title": "/graphs/commit-activity",
       "count": 2,
       "uniques": 1
     }
