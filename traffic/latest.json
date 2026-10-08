@@ -1,20 +1,20 @@
 {
   "repository": "TheMyxa/telegram-parser",
-  "collected_at": "2026-10-07T13:40:08.319014+00:00",
+  "collected_at": "2026-10-08T13:48:29.059798+00:00",
   "period": "last_14_days",
   "views": {
-    "count": 172,
-    "uniques": 47
+    "count": 171,
+    "uniques": 46
   },
   "clones": {
-    "count": 194,
-    "uniques": 106
+    "count": 202,
+    "uniques": 111
   },
   "top_referrers": [
     {
       "referrer": "github.com",
-      "count": 5,
-      "uniques": 4
+      "count": 4,
+      "uniques": 3
     },
     {
       "referrer": "Google",
@@ -31,8 +31,8 @@
     {
       "path": "/TheMyxa/telegram-parser",
       "title": "Overview",
-      "count": 125,
-      "uniques": 47
+      "count": 121,
+      "uniques": 46
     },
     {
       "path": "/TheMyxa/telegram-parser/pulse",
@@ -55,19 +55,19 @@
     {
       "path": "/TheMyxa/telegram-parser/blob/star-history/assets/star-history-dark.svg",
       "title": "/blob/star-history/assets/star-history-dark.svg",
-      "count": 4,
+      "count": 5,
       "uniques": 1
     },
     {
       "path": "/TheMyxa/telegram-parser/tree/star-history",
       "title": "/tree/star-history",
-      "count": 4,
+      "count": 5,
       "uniques": 1
     },
     {
       "path": "/TheMyxa/telegram-parser/tree/star-history/assets",
       "title": "/tree/star-history/assets",
-      "count": 4,
+      "count": 5,
       "uniques": 1
     },
     {
