@@ -1,14 +1,14 @@
 {
   "repository": "TheMyxa/telegram-parser",
-  "collected_at": "2026-10-11T13:11:14.057675+00:00",
+  "collected_at": "2026-10-12T15:49:55.725553+00:00",
   "period": "last_14_days",
   "views": {
-    "count": 242,
+    "count": 241,
     "uniques": 60
   },
   "clones": {
-    "count": 222,
-    "uniques": 121
+    "count": 226,
+    "uniques": 122
   },
   "top_referrers": [
     {
@@ -31,7 +31,7 @@
     {
       "path": "/TheMyxa/telegram-parser",
       "title": "Overview",
-      "count": 189,
+      "count": 188,
       "uniques": 59
     },
     {
