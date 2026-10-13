@@ -1,14 +1,14 @@
 {
   "repository": "TheMyxa/telegram-parser",
-  "collected_at": "2026-10-12T15:49:55.725553+00:00",
+  "collected_at": "2026-10-13T14:26:40.292915+00:00",
   "period": "last_14_days",
   "views": {
-    "count": 241,
-    "uniques": 60
+    "count": 237,
+    "uniques": 61
   },
   "clones": {
-    "count": 226,
-    "uniques": 122
+    "count": 219,
+    "uniques": 121
   },
   "top_referrers": [
     {
@@ -31,19 +31,19 @@
     {
       "path": "/TheMyxa/telegram-parser",
       "title": "Overview",
-      "count": 188,
-      "uniques": 59
+      "count": 189,
+      "uniques": 60
     },
     {
       "path": "/TheMyxa/telegram-parser/pulse",
       "title": "/pulse",
-      "count": 10,
+      "count": 8,
       "uniques": 3
     },
     {
       "path": "/TheMyxa/telegram-parser/graphs/traffic",
       "title": "/graphs/traffic",
-      "count": 9,
+      "count": 7,
       "uniques": 1
     },
     {
@@ -85,7 +85,7 @@
     {
       "path": "/TheMyxa/telegram-parser/graphs/commit-activity",
       "title": "/graphs/commit-activity",
-      "count": 3,
+      "count": 2,
       "uniques": 1
     }
   ]
