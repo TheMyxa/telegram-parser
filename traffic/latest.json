@@ -1,14 +1,14 @@
 {
   "repository": "TheMyxa/telegram-parser",
-  "collected_at": "2026-10-21T12:07:33.561774+00:00",
+  "collected_at": "2026-10-22T12:11:19.058127+00:00",
   "period": "last_14_days",
   "views": {
-    "count": 196,
+    "count": 187,
     "uniques": 61
   },
   "clones": {
-    "count": 263,
-    "uniques": 141
+    "count": 255,
+    "uniques": 139
   },
   "top_referrers": [
     {
@@ -26,36 +26,30 @@
     {
       "path": "/TheMyxa/telegram-parser",
       "title": "Overview",
-      "count": 168,
+      "count": 164,
       "uniques": 59
     },
     {
       "path": "/TheMyxa/telegram-parser/blob/star-history/assets/star-history-dark.svg",
       "title": "/blob/star-history/assets/star-history-dark.svg",
-      "count": 5,
+      "count": 4,
       "uniques": 1
     },
     {
       "path": "/TheMyxa/telegram-parser/pulse",
       "title": "/pulse",
-      "count": 4,
+      "count": 3,
       "uniques": 1
     },
     {
       "path": "/TheMyxa/telegram-parser/tree/star-history",
       "title": "/tree/star-history",
-      "count": 4,
+      "count": 3,
       "uniques": 1
     },
     {
       "path": "/TheMyxa/telegram-parser/tree/star-history/assets",
       "title": "/tree/star-history/assets",
-      "count": 4,
-      "uniques": 1
-    },
-    {
-      "path": "/TheMyxa/telegram-parser/graphs/traffic",
-      "title": "/graphs/traffic",
       "count": 3,
       "uniques": 1
     },
@@ -64,6 +58,12 @@
       "title": "/blob/master/README_ru.md",
       "count": 2,
       "uniques": 2
+    },
+    {
+      "path": "/TheMyxa/telegram-parser/graphs/traffic",
+      "title": "/graphs/traffic",
+      "count": 2,
+      "uniques": 1
     },
     {
       "path": "/TheMyxa/telegram-parser/blob/master/AGENTS.md",
