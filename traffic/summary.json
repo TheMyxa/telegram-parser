@@ -1,9 +1,9 @@
 {
   "repository": "TheMyxa/telegram-parser",
   "first_recorded_date": "2026-08-12",
-  "last_recorded_date": "2026-10-22",
-  "recorded_days": 72,
+  "last_recorded_date": "2026-10-23",
+  "recorded_days": 73,
   "total_views": 1572,
-  "total_clones": 793,
+  "total_clones": 802,
   "note": "unique_visitors and unique_cloners are not summed because the same user may appear on multiple days"
 }
