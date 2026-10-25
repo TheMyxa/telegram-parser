@@ -1,40 +1,40 @@
 {
   "repository": "TheMyxa/telegram-parser",
-  "collected_at": "2026-10-24T11:21:28.931907+00:00",
+  "collected_at": "2026-10-25T11:52:24.696316+00:00",
   "period": "last_14_days",
   "views": {
-    "count": 83,
-    "uniques": 31
+    "count": 70,
+    "uniques": 26
   },
   "clones": {
-    "count": 252,
-    "uniques": 132
+    "count": 226,
+    "uniques": 118
   },
   "top_referrers": [
     {
       "referrer": "github.com",
-      "count": 17,
-      "uniques": 3
+      "count": 10,
+      "uniques": 1
     }
   ],
   "popular_paths": [
     {
       "path": "/TheMyxa/telegram-parser",
       "title": "Overview",
-      "count": 67,
-      "uniques": 29
-    },
-    {
-      "path": "/TheMyxa/telegram-parser/blob/star-history/assets/star-history-dark.svg",
-      "title": "/blob/star-history/assets/star-history-dark.svg",
-      "count": 3,
-      "uniques": 1
+      "count": 57,
+      "uniques": 25
     },
     {
       "path": "/TheMyxa/telegram-parser/blob/master/README_ru.md",
       "title": "/blob/master/README_ru.md",
+      "count": 3,
+      "uniques": 3
+    },
+    {
+      "path": "/TheMyxa/telegram-parser/blob/star-history/assets/star-history-dark.svg",
+      "title": "/blob/star-history/assets/star-history-dark.svg",
       "count": 2,
-      "uniques": 2
+      "uniques": 1
     },
     {
       "path": "/TheMyxa/telegram-parser/graphs/traffic",
@@ -49,24 +49,6 @@
       "uniques": 1
     },
     {
-      "path": "/TheMyxa/telegram-parser/tree/star-history",
-      "title": "/tree/star-history",
-      "count": 2,
-      "uniques": 1
-    },
-    {
-      "path": "/TheMyxa/telegram-parser/tree/star-history/assets",
-      "title": "/tree/star-history/assets",
-      "count": 2,
-      "uniques": 1
-    },
-    {
-      "path": "/TheMyxa/telegram-parser/blob/master/AGENTS.md",
-      "title": "/blob/master/AGENTS.md",
-      "count": 1,
-      "uniques": 1
-    },
-    {
       "path": "/TheMyxa/telegram-parser/issues",
       "title": "/issues",
       "count": 1,
@@ -75,6 +57,18 @@
     {
       "path": "/TheMyxa/telegram-parser/releases/tag/1.1.0",
       "title": "/releases/tag/1.1.0",
+      "count": 1,
+      "uniques": 1
+    },
+    {
+      "path": "/TheMyxa/telegram-parser/tree/star-history",
+      "title": "/tree/star-history",
+      "count": 1,
+      "uniques": 1
+    },
+    {
+      "path": "/TheMyxa/telegram-parser/tree/star-history/assets",
+      "title": "/tree/star-history/assets",
       "count": 1,
       "uniques": 1
     }
