@@ -1,25 +1,25 @@
 {
   "repository": "TheMyxa/telegram-parser",
-  "collected_at": "2026-10-27T12:30:25.137692+00:00",
+  "collected_at": "2026-10-28T13:17:58.675968+00:00",
   "period": "last_14_days",
   "views": {
-    "count": 331,
-    "uniques": 158
+    "count": 351,
+    "uniques": 172
   },
   "clones": {
-    "count": 256,
-    "uniques": 142
+    "count": 244,
+    "uniques": 137
   },
   "top_referrers": [
     {
       "referrer": "habr.com",
-      "count": 96,
-      "uniques": 83
+      "count": 113,
+      "uniques": 96
     },
     {
       "referrer": "github.com",
-      "count": 18,
-      "uniques": 8
+      "count": 20,
+      "uniques": 9
     },
     {
       "referrer": "Google",
@@ -35,26 +35,31 @@
       "referrer": "org.telegram.messenger.web",
       "count": 1,
       "uniques": 1
+    },
+    {
+      "referrer": "yandex.ru",
+      "count": 1,
+      "uniques": 1
     }
   ],
   "popular_paths": [
     {
       "path": "/TheMyxa/telegram-parser",
       "title": "Overview",
-      "count": 208,
-      "uniques": 153
+      "count": 223,
+      "uniques": 166
     },
     {
       "path": "/TheMyxa/telegram-parser/blob/master/README_ru.md",
       "title": "/blob/master/README_ru.md",
-      "count": 18,
-      "uniques": 18
+      "count": 22,
+      "uniques": 20
     },
     {
       "path": "/TheMyxa/telegram-parser/blob/master/docs/screenshots/dashboard.png",
       "title": "/blob/master/docs/screenshots/dashboard.png",
-      "count": 9,
-      "uniques": 9
+      "count": 10,
+      "uniques": 10
     },
     {
       "path": "/TheMyxa/telegram-parser/releases",
@@ -63,22 +68,16 @@
       "uniques": 7
     },
     {
+      "path": "/TheMyxa/telegram-parser/releases/tag/2.3.0",
+      "title": "/releases/tag/2.3.0",
+      "count": 6,
+      "uniques": 6
+    },
+    {
       "path": "/TheMyxa/telegram-parser/tree/master",
       "title": "/tree/master",
       "count": 6,
       "uniques": 5
-    },
-    {
-      "path": "/TheMyxa/telegram-parser/releases/tag/2.3.0",
-      "title": "/releases/tag/2.3.0",
-      "count": 5,
-      "uniques": 5
-    },
-    {
-      "path": "/TheMyxa/telegram-parser/issues",
-      "title": "/issues",
-      "count": 4,
-      "uniques": 3
     },
     {
       "path": "/TheMyxa/telegram-parser/blob/master/requirements.txt",
@@ -89,6 +88,12 @@
     {
       "path": "/TheMyxa/telegram-parser/blob/master/api/web_server.py",
       "title": "/blob/master/api/web_server.py",
+      "count": 3,
+      "uniques": 2
+    },
+    {
+      "path": "/TheMyxa/telegram-parser/blob/master/docker-compose.yml",
+      "title": "/blob/master/docker-compose.yml",
       "count": 3,
       "uniques": 2
     },
