@@ -1,25 +1,30 @@
 {
   "repository": "TheMyxa/telegram-parser",
-  "collected_at": "2026-10-28T13:17:58.675968+00:00",
+  "collected_at": "2026-10-29T13:26:34.219019+00:00",
   "period": "last_14_days",
   "views": {
-    "count": 351,
-    "uniques": 172
+    "count": 358,
+    "uniques": 174
   },
   "clones": {
-    "count": 244,
+    "count": 250,
     "uniques": 137
   },
   "top_referrers": [
     {
       "referrer": "habr.com",
-      "count": 113,
-      "uniques": 96
+      "count": 117,
+      "uniques": 99
     },
     {
       "referrer": "github.com",
-      "count": 20,
-      "uniques": 9
+      "count": 22,
+      "uniques": 10
+    },
+    {
+      "referrer": "DuckDuckGo",
+      "count": 1,
+      "uniques": 1
     },
     {
       "referrer": "Google",
@@ -46,14 +51,14 @@
     {
       "path": "/TheMyxa/telegram-parser",
       "title": "Overview",
-      "count": 223,
-      "uniques": 166
+      "count": 227,
+      "uniques": 169
     },
     {
       "path": "/TheMyxa/telegram-parser/blob/master/README_ru.md",
       "title": "/blob/master/README_ru.md",
-      "count": 22,
-      "uniques": 20
+      "count": 23,
+      "uniques": 21
     },
     {
       "path": "/TheMyxa/telegram-parser/blob/master/docs/screenshots/dashboard.png",
@@ -80,6 +85,18 @@
       "uniques": 5
     },
     {
+      "path": "/TheMyxa/telegram-parser/issues",
+      "title": "/issues",
+      "count": 4,
+      "uniques": 3
+    },
+    {
+      "path": "/TheMyxa/telegram-parser/blob/master/docs/screenshots/export.png",
+      "title": "/blob/master/docs/screenshots/export.png",
+      "count": 3,
+      "uniques": 3
+    },
+    {
       "path": "/TheMyxa/telegram-parser/blob/master/requirements.txt",
       "title": "/blob/master/requirements.txt",
       "count": 3,
@@ -88,18 +105,6 @@
     {
       "path": "/TheMyxa/telegram-parser/blob/master/api/web_server.py",
       "title": "/blob/master/api/web_server.py",
-      "count": 3,
-      "uniques": 2
-    },
-    {
-      "path": "/TheMyxa/telegram-parser/blob/master/docker-compose.yml",
-      "title": "/blob/master/docker-compose.yml",
-      "count": 3,
-      "uniques": 2
-    },
-    {
-      "path": "/TheMyxa/telegram-parser/fork",
-      "title": "/fork",
       "count": 3,
       "uniques": 2
     }
