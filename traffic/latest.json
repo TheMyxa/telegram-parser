@@ -1,24 +1,24 @@
 {
   "repository": "TheMyxa/telegram-parser",
-  "collected_at": "2026-11-02T16:22:59.261744+00:00",
+  "collected_at": "2026-11-03T14:29:54.950173+00:00",
   "period": "last_14_days",
   "views": {
-    "count": 374,
-    "uniques": 191
+    "count": 379,
+    "uniques": 190
   },
   "clones": {
-    "count": 230,
-    "uniques": 131
+    "count": 228,
+    "uniques": 128
   },
   "top_referrers": [
     {
       "referrer": "habr.com",
-      "count": 123,
+      "count": 125,
       "uniques": 102
     },
     {
       "referrer": "github.com",
-      "count": 14,
+      "count": 13,
       "uniques": 10
     },
     {
@@ -51,14 +51,14 @@
     {
       "path": "/TheMyxa/telegram-parser",
       "title": "Overview",
-      "count": 244,
+      "count": 245,
       "uniques": 185
     },
     {
       "path": "/TheMyxa/telegram-parser/blob/master/README_ru.md",
       "title": "/blob/master/README_ru.md",
-      "count": 24,
-      "uniques": 21
+      "count": 23,
+      "uniques": 20
     },
     {
       "path": "/TheMyxa/telegram-parser/blob/master/docs/screenshots/dashboard.png",
