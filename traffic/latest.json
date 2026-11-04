@@ -1,25 +1,25 @@
 {
   "repository": "TheMyxa/telegram-parser",
-  "collected_at": "2026-11-03T14:29:54.950173+00:00",
+  "collected_at": "2026-11-04T14:44:45.303013+00:00",
   "period": "last_14_days",
   "views": {
-    "count": 379,
-    "uniques": 190
+    "count": 391,
+    "uniques": 195
   },
   "clones": {
-    "count": 228,
-    "uniques": 128
+    "count": 222,
+    "uniques": 122
   },
   "top_referrers": [
     {
       "referrer": "habr.com",
-      "count": 125,
-      "uniques": 102
+      "count": 128,
+      "uniques": 103
     },
     {
       "referrer": "github.com",
-      "count": 13,
-      "uniques": 10
+      "count": 12,
+      "uniques": 9
     },
     {
       "referrer": "DuckDuckGo",
@@ -51,20 +51,20 @@
     {
       "path": "/TheMyxa/telegram-parser",
       "title": "Overview",
-      "count": 245,
-      "uniques": 185
+      "count": 252,
+      "uniques": 189
     },
     {
       "path": "/TheMyxa/telegram-parser/blob/master/README_ru.md",
       "title": "/blob/master/README_ru.md",
-      "count": 23,
-      "uniques": 20
+      "count": 24,
+      "uniques": 21
     },
     {
       "path": "/TheMyxa/telegram-parser/blob/master/docs/screenshots/dashboard.png",
       "title": "/blob/master/docs/screenshots/dashboard.png",
-      "count": 10,
-      "uniques": 10
+      "count": 11,
+      "uniques": 11
     },
     {
       "path": "/TheMyxa/telegram-parser/releases",
@@ -85,15 +85,15 @@
       "uniques": 6
     },
     {
+      "path": "/TheMyxa/telegram-parser/blob/master/docs/screenshots/export.png",
+      "title": "/blob/master/docs/screenshots/export.png",
+      "count": 4,
+      "uniques": 4
+    },
+    {
       "path": "/TheMyxa/telegram-parser/issues",
       "title": "/issues",
       "count": 4,
-      "uniques": 3
-    },
-    {
-      "path": "/TheMyxa/telegram-parser/blob/master/docs/screenshots/export.png",
-      "title": "/blob/master/docs/screenshots/export.png",
-      "count": 3,
       "uniques": 3
     },
     {
