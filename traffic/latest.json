@@ -1,25 +1,30 @@
 {
   "repository": "TheMyxa/telegram-parser",
-  "collected_at": "2026-11-04T14:44:45.303013+00:00",
+  "collected_at": "2026-11-05T14:49:45.849016+00:00",
   "period": "last_14_days",
   "views": {
-    "count": 391,
-    "uniques": 195
+    "count": 411,
+    "uniques": 209
   },
   "clones": {
-    "count": 222,
-    "uniques": 122
+    "count": 217,
+    "uniques": 116
   },
   "top_referrers": [
     {
       "referrer": "habr.com",
-      "count": 128,
+      "count": 129,
       "uniques": 103
     },
     {
       "referrer": "github.com",
-      "count": 12,
-      "uniques": 9
+      "count": 13,
+      "uniques": 10
+    },
+    {
+      "referrer": "yandex.ru",
+      "count": 2,
+      "uniques": 2
     },
     {
       "referrer": "DuckDuckGo",
@@ -40,25 +45,20 @@
       "referrer": "org.telegram.messenger.web",
       "count": 1,
       "uniques": 1
-    },
-    {
-      "referrer": "yandex.ru",
-      "count": 1,
-      "uniques": 1
     }
   ],
   "popular_paths": [
     {
       "path": "/TheMyxa/telegram-parser",
       "title": "Overview",
-      "count": 252,
-      "uniques": 189
+      "count": 267,
+      "uniques": 202
     },
     {
       "path": "/TheMyxa/telegram-parser/blob/master/README_ru.md",
       "title": "/blob/master/README_ru.md",
-      "count": 24,
-      "uniques": 21
+      "count": 27,
+      "uniques": 22
     },
     {
       "path": "/TheMyxa/telegram-parser/blob/master/docs/screenshots/dashboard.png",
@@ -97,16 +97,16 @@
       "uniques": 3
     },
     {
-      "path": "/TheMyxa/telegram-parser/blob/master/requirements.txt",
-      "title": "/blob/master/requirements.txt",
+      "path": "/TheMyxa/telegram-parser/blob/master/mcp_server.py",
+      "title": "/blob/master/mcp_server.py",
       "count": 3,
       "uniques": 3
     },
     {
-      "path": "/TheMyxa/telegram-parser/blob/master/api/web_server.py",
-      "title": "/blob/master/api/web_server.py",
+      "path": "/TheMyxa/telegram-parser/blob/master/requirements.txt",
+      "title": "/blob/master/requirements.txt",
       "count": 3,
-      "uniques": 2
+      "uniques": 3
     }
   ]
 }

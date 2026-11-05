@@ -1,0 +1,37 @@
+[
+  {
+    "referrer": "habr.com",
+    "count": 129,
+    "uniques": 103
+  },
+  {
+    "referrer": "github.com",
+    "count": 13,
+    "uniques": 10
+  },
+  {
+    "referrer": "yandex.ru",
+    "count": 2,
+    "uniques": 2
+  },
+  {
+    "referrer": "DuckDuckGo",
+    "count": 1,
+    "uniques": 1
+  },
+  {
+    "referrer": "Google",
+    "count": 1,
+    "uniques": 1
+  },
+  {
+    "referrer": "inoreader.com",
+    "count": 1,
+    "uniques": 1
+  },
+  {
+    "referrer": "org.telegram.messenger.web",
+    "count": 1,
+    "uniques": 1
+  }
+]
