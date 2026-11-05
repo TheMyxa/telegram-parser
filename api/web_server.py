@@ -12,6 +12,25 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 from analytics.export_summary import extract_channel_from_export_name, summarize_export_posts
 from analytics.period_compare import compare_periods
+from storage.sqlite_store import (
+    compare_periods as compare_periods_sqlite,
+    count_scheduler_run_records,
+    get_export_charts as get_export_charts_sqlite,
+    get_filtered_summary as get_filtered_summary_sqlite,
+    get_scheduler_run_stats,
+    get_export_summary as get_export_summary_sqlite,
+    get_indexed_export,
+    get_post as get_post_sqlite,
+    list_indexed_exports,
+    list_export_states,
+    list_posts as list_posts_sqlite,
+    list_scheduler_run_records,
+    needs_fts_reindex,
+    read_scheduler_run_record,
+    search_all_comments,
+    sync_export_file,
+    upsert_scheduler_run,
+)
 from version import APP_VERSION
 
 
@@ -141,10 +160,52 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             self.send_json(list_export_files(sort_by))
             return
 
+        if path == "/api/search":
+            query = parse_qs(parsed.query)
+            try:
+                self.send_json(search_indexed_comments(query))
+            except (ValueError, OSError, json.JSONDecodeError) as e:
+                self.send_json({"ok": False, "error": str(e)}, status=400)
+            return
+
+        if path.startswith("/api/export/") and path.endswith("/posts"):
+            file_name = path.removeprefix("/api/export/").removesuffix("/posts")
+            query = parse_qs(parsed.query)
+            try:
+                self.send_json(get_export_posts(unquote(file_name), query))
+            except (FileNotFoundError, ValueError, OSError, json.JSONDecodeError) as e:
+                self.send_json({"ok": False, "error": str(e)}, status=400)
+            return
+
+        if path.startswith("/api/export/") and path.endswith("/filtered-summary"):
+            file_name = path.removeprefix("/api/export/").removesuffix("/filtered-summary")
+            query = parse_qs(parsed.query)
+            try:
+                self.send_json(get_export_filtered_summary(unquote(file_name), query))
+            except (FileNotFoundError, ValueError, OSError, json.JSONDecodeError) as e:
+                self.send_json({"ok": False, "error": str(e)}, status=400)
+            return
+
+        if path.startswith("/api/export/") and "/post/" in path:
+            file_name, post_id = path.removeprefix("/api/export/").split("/post/", 1)
+            try:
+                self.send_json(get_export_post(unquote(file_name), unquote(post_id)))
+            except (FileNotFoundError, ValueError, OSError, json.JSONDecodeError) as e:
+                self.send_json({"ok": False, "error": str(e)}, status=404)
+            return
+
         if path.startswith("/api/export/") and path.endswith("/summary"):
             file_name = path.removeprefix("/api/export/").removesuffix("/summary")
             try:
                 self.send_json(get_export_summary(unquote(file_name)))
+            except (FileNotFoundError, ValueError, OSError, json.JSONDecodeError) as e:
+                self.send_json({"ok": False, "error": str(e)}, status=404)
+            return
+
+        if path.startswith("/api/export/") and path.endswith("/charts"):
+            file_name = path.removeprefix("/api/export/").removesuffix("/charts")
+            try:
+                self.send_json(get_export_charts(unquote(file_name)))
             except (FileNotFoundError, ValueError, OSError, json.JSONDecodeError) as e:
                 self.send_json({"ok": False, "error": str(e)}, status=404)
             return
@@ -175,7 +236,18 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 limit = int((query.get("limit") or ["50"])[0])
             except ValueError:
                 limit = 50
-            self.send_json({"ok": True, "runs": list_scheduler_runs(max(1, min(limit, 200)))})
+            try:
+                offset = int((query.get("offset") or ["0"])[0])
+            except ValueError:
+                offset = 0
+            status = (query.get("status") or [""])[0]
+            channel = (query.get("channel") or [""])[0]
+            self.send_json(list_scheduler_runs_response(
+                limit=max(1, min(limit, 200)),
+                offset=max(0, offset),
+                status=status.strip() or None,
+                channel=channel.strip() or None,
+            ))
             return
 
         if path.startswith("/api/scheduler/history/"):
@@ -218,6 +290,11 @@ class DashboardHandler(SimpleHTTPRequestHandler):
 
         if path == "/api/watch/stop":
             self.stop_watch()
+            return
+
+        if path.startswith("/api/scheduler/history/") and path.endswith("/retry"):
+            run_id = path.removeprefix("/api/scheduler/history/").removesuffix("/retry")
+            self.retry_scheduler_run(run_id)
             return
 
         self.send_error(404, "Not found")
@@ -288,6 +365,21 @@ class DashboardHandler(SimpleHTTPRequestHandler):
     def stop_scheduler(self):
         stop_scheduler_job()
         self.send_json({"ok": True, "scheduler": get_scheduler_status()})
+
+    def retry_scheduler_run(self, run_id):
+        try:
+            new_run_id = retry_scheduler_run(run_id)
+        except FileNotFoundError as e:
+            self.send_json({"ok": False, "error": str(e)}, status=404)
+            return
+        except RuntimeError as e:
+            self.send_json({"ok": False, "error": str(e)}, status=409)
+            return
+        except ValueError as e:
+            self.send_json({"ok": False, "error": str(e)}, status=400)
+            return
+
+        self.send_json({"ok": True, "run_id": new_run_id, "status": get_export_status()})
 
     def start_watch(self):
         try:
@@ -385,23 +477,110 @@ def scheduler_history_path(run_id):
 
 
 def write_scheduler_run(record):
-    SCHEDULER_HISTORY_DIR.mkdir(parents=True, exist_ok=True)
-    from storage.json_files import write_json_atomic
-
-    write_json_atomic(record, scheduler_history_path(record["id"]))
+    upsert_scheduler_run(record)
 
 
 def read_scheduler_run(run_id):
+    record = read_scheduler_run_record(run_id)
+
+    if record:
+        return record
+
     path = scheduler_history_path(run_id)
 
     if not path.is_file():
         raise FileNotFoundError(f"Scheduler run not found: {run_id}")
 
     with path.open("r", encoding="utf-8") as f:
-        return json.load(f)
+        record = json.load(f)
+
+    upsert_scheduler_run(record)
+    return record
 
 
-def list_scheduler_runs(limit=50):
+def import_scheduler_json_history():
+    SCHEDULER_HISTORY_DIR.mkdir(parents=True, exist_ok=True)
+
+    for path in SCHEDULER_HISTORY_DIR.glob("*.json"):
+        try:
+            with path.open("r", encoding="utf-8") as f:
+                record = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            continue
+
+        if isinstance(record, dict) and record.get("id"):
+            try:
+                upsert_scheduler_run(record)
+            except ValueError:
+                continue
+
+
+def summarize_scheduler_run(record):
+    return {
+        "id": record.get("id"),
+        "status": record.get("status"),
+        "created_at": record.get("created_at"),
+        "scheduled_for": record.get("scheduled_for"),
+        "started_at": record.get("started_at"),
+        "finished_at": record.get("finished_at"),
+        "channels": record.get("channels"),
+        "format": record.get("format"),
+        "posts_processed": record.get("posts_processed"),
+        "channels_ok": record.get("channels_ok"),
+        "channels_failed": record.get("channels_failed"),
+        "error": record.get("error"),
+    }
+
+
+def list_scheduler_runs(limit=50, offset=0, status=None, channel=None):
+    import_scheduler_json_history()
+    records = list_scheduler_run_records(limit, offset, status, channel)
+    return [summarize_scheduler_run(record) for record in records]
+
+
+def list_scheduler_runs_response(limit=50, offset=0, status=None, channel=None):
+    import_scheduler_json_history()
+    runs = [summarize_scheduler_run(record) for record in list_scheduler_run_records(limit, offset, status, channel)]
+    total = count_scheduler_run_records(status, channel)
+    return {
+        "ok": True,
+        "runs": runs,
+        "pagination": {
+            "limit": limit,
+            "offset": offset,
+            "total": total,
+            "next_offset": offset + limit if offset + limit < total else None,
+        },
+        "stats": get_scheduler_run_stats(status, channel),
+    }
+
+
+def list_scheduler_run_details(status=None, channel=None):
+    import_scheduler_json_history()
+    total = count_scheduler_run_records(status, channel)
+    return list_scheduler_run_records(max(1, min(total or 1, 10000)), 0, status, channel)
+
+
+def retry_scheduler_run(run_id):
+    record = read_scheduler_run(run_id)
+    flags = record.get("flags") or {}
+    payload = {
+        "channel": record.get("channels"),
+        "format": record.get("format") or "json",
+        "download_media": bool(flags.get("download_media")),
+        "anonymize": bool(flags.get("anonymize")),
+        "incremental": bool(flags.get("incremental")),
+    }
+
+    if not payload["channel"]:
+        raise ValueError("Scheduler run has no channel to retry")
+
+    retry_run_id = create_scheduler_run(payload)
+    start_export_job(payload, scheduler_run_id=retry_run_id)
+    return retry_run_id
+
+
+def list_scheduler_runs_from_json(limit=50):
     SCHEDULER_HISTORY_DIR.mkdir(parents=True, exist_ok=True)
     items = []
 
@@ -434,15 +613,9 @@ def list_scheduler_runs(limit=50):
 
 
 def reconcile_incomplete_scheduler_runs():
-    SCHEDULER_HISTORY_DIR.mkdir(parents=True, exist_ok=True)
+    import_scheduler_json_history()
 
-    for path in SCHEDULER_HISTORY_DIR.glob("*.json"):
-        try:
-            with path.open("r", encoding="utf-8") as f:
-                record = json.load(f)
-        except (OSError, json.JSONDecodeError):
-            continue
-
+    for record in list_scheduler_run_details():
         if record.get("status") not in {"QUEUED", "RUNNING"}:
             continue
 
@@ -1032,9 +1205,131 @@ def load_export_posts(file_name):
     return path, posts
 
 
+def ensure_sqlite_export_index(file_name, path=None, posts=None):
+    path = path or resolve_raw_json_file(file_name)
+    stat = path.stat()
+    modified_at = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(stat.st_mtime))
+    indexed = get_indexed_export(path.name)
+
+    if (
+        indexed
+        and indexed["modified_at"] == modified_at
+        and indexed["size_bytes"] == stat.st_size
+        and not needs_fts_reindex(path.name)
+    ):
+        return
+
+    if posts is None:
+        _, posts = load_export_posts(path.name)
+
+    sync_export_file(
+        path.name,
+        extract_channel_from_export_name(path.name),
+        posts,
+        path,
+    )
+
+
+def ensure_all_sqlite_export_indexes():
+    raw_dir = DATA_DIR / "raw"
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    indexed = 0
+
+    for path in raw_dir.glob("*.json"):
+        try:
+            ensure_sqlite_export_index(path.name, path)
+            indexed += 1
+        except (OSError, ValueError, json.JSONDecodeError) as e:
+            print(f"SQLite index skipped for {path.name}: {e}")
+
+    return indexed
+
+
+def first_query_value(query, key, default=""):
+    return (query.get(key) or [default])[0]
+
+
+def search_indexed_comments(query):
+    search_text = first_query_value(query, "q").strip()
+
+    if not search_text:
+        raise ValueError("Search query is required")
+
+    try:
+        limit = int(first_query_value(query, "limit", "50"))
+    except ValueError as e:
+        raise ValueError("Search limit must be an integer") from e
+
+    limit = max(1, min(limit, 200))
+    indexed_count = ensure_all_sqlite_export_indexes()
+    results = search_all_comments(
+        search_text,
+        limit=limit,
+        channel_key=first_query_value(query, "channel").strip() or None,
+        date_from=first_query_value(query, "from").strip() or None,
+        date_to=first_query_value(query, "to").strip() or None,
+        user=first_query_value(query, "user").strip() or None,
+    )
+
+    return {
+        "ok": True,
+        "query": search_text,
+        "indexed_count": indexed_count,
+        "results": results,
+    }
+
+
 def list_export_files(sort_by="date"):
     raw_dir = DATA_DIR / "raw"
     raw_dir.mkdir(parents=True, exist_ok=True)
+    current_files = {path.name for path in raw_dir.glob("*.json")}
+
+    for path in sorted(raw_dir.glob("*.json")):
+        try:
+            ensure_sqlite_export_index(path.name, path)
+        except (OSError, ValueError, json.JSONDecodeError) as e:
+            print(f"SQLite export list index skipped for {path.name}: {e}")
+
+    try:
+        states = {record["channel_key"]: record for record in list_export_states()}
+        items = [
+            export_record_to_response(record, states.get(record["channel_key"]))
+            for record in list_indexed_exports()
+            if record["file_name"] in current_files
+        ]
+    except Exception as e:
+        print(f"SQLite export list failed: {e}")
+        items = []
+
+    if not items and current_files:
+        items = list_export_files_from_disk(raw_dir)
+
+    if sort_by == "channel":
+        items = sorted(items, key=lambda item: item["modified_at"], reverse=True)
+        return sorted(items, key=lambda item: item["channel"].casefold())
+
+    return sorted(items, key=lambda item: item["modified_at"], reverse=True)
+
+
+def export_record_to_response(record, state=None):
+    item = {
+        "file": record["file_name"],
+        "channel": record["channel_key"],
+        "size_bytes": record["size_bytes"],
+        "modified_at": record["modified_at"],
+        "indexed_at": record["indexed_at"],
+        "posts_count": record["posts_count"],
+        "comments_count": record["comments_count"],
+        "unique_users_count": record["unique_users_count"],
+        "reactions_count": record["reactions_count"],
+        "url": f"/data/raw/{record['file_name']}",
+    }
+    if state:
+        item["export_state"] = state
+    return item
+
+
+def list_export_files_from_disk(raw_dir):
     items = []
 
     for path in raw_dir.glob("*.json"):
@@ -1047,17 +1342,23 @@ def list_export_files(sort_by="date"):
             "url": f"/data/raw/{path.name}",
         })
 
-    if sort_by == "channel":
-        items = sorted(items, key=lambda item: item["modified_at"], reverse=True)
-        return sorted(items, key=lambda item: item["channel"].casefold())
-
-    return sorted(items, key=lambda item: item["modified_at"], reverse=True)
+    return items
 
 
 def get_export_summary(file_name):
-    path, posts = load_export_posts(file_name)
+    path = resolve_raw_json_file(file_name)
     stat = path.stat()
-    summary = summarize_export_posts(posts)
+    try:
+        ensure_sqlite_export_index(path.name, path)
+        summary = get_export_summary_sqlite(path.name)
+    except Exception as e:
+        print(f"SQLite summary failed for {path.name}: {e}")
+        summary = None
+
+    if summary is None:
+        _, posts = load_export_posts(path.name)
+        summary = summarize_export_posts(posts)
+
     summary.update({
         "ok": True,
         "file": path.name,
@@ -1069,9 +1370,124 @@ def get_export_summary(file_name):
     return summary
 
 
+def get_export_charts(file_name):
+    path = resolve_raw_json_file(file_name)
+    try:
+        ensure_sqlite_export_index(path.name, path)
+        charts = get_export_charts_sqlite(path.name)
+    except Exception as e:
+        print(f"SQLite charts failed for {path.name}: {e}")
+        charts = None
+
+    if charts is None:
+        raise ValueError(f"Export is not indexed: {file_name}")
+
+    return {
+        "ok": True,
+        "file": path.name,
+        "channel": extract_channel_from_export_name(path.name),
+        **charts,
+    }
+
+
+def get_export_posts(file_name, query):
+    path = resolve_raw_json_file(file_name)
+    ensure_sqlite_export_index(path.name, path)
+
+    try:
+        limit = int(first_query_value(query, "limit", "100"))
+    except ValueError as e:
+        raise ValueError("Posts limit must be an integer") from e
+
+    try:
+        offset = int(first_query_value(query, "offset", "0"))
+    except ValueError as e:
+        raise ValueError("Posts offset must be an integer") from e
+
+    result = list_posts_sqlite(
+        path.name,
+        limit=limit,
+        offset=offset,
+        **parse_post_filter_query(query),
+    )
+
+    if result is None:
+        raise ValueError(f"Export is not indexed: {file_name}")
+
+    return {
+        "ok": True,
+        "file": path.name,
+        "channel": extract_channel_from_export_name(path.name),
+        **result,
+    }
+
+
+def get_export_filtered_summary(file_name, query):
+    path = resolve_raw_json_file(file_name)
+    ensure_sqlite_export_index(path.name, path)
+
+    summary = get_filtered_summary_sqlite(
+        path.name,
+        **parse_post_filter_query(query),
+    )
+
+    if summary is None:
+        raise ValueError(f"Export is not indexed: {file_name}")
+
+    return {
+        "ok": True,
+        "file": path.name,
+        "channel": extract_channel_from_export_name(path.name),
+        **summary,
+    }
+
+
+def parse_post_filter_query(query):
+    return {
+        "query": first_query_value(query, "q").strip() or None,
+        "user": first_query_value(query, "user").strip() or None,
+        "date_from": first_query_value(query, "from").strip() or None,
+        "date_to": first_query_value(query, "to").strip() or None,
+        "emoji": first_query_value(query, "emoji").strip() or None,
+        "media": first_query_value(query, "media").strip().lower() in {"1", "true", "yes"},
+        "replies": first_query_value(query, "replies").strip().lower() in {"1", "true", "yes"},
+    }
+
+
+def get_export_post(file_name, post_id):
+    path = resolve_raw_json_file(file_name)
+    ensure_sqlite_export_index(path.name, path)
+
+    try:
+        clean_post_id = int(str(post_id).strip())
+    except ValueError as e:
+        raise ValueError("Post id must be an integer") from e
+
+    post = get_post_sqlite(path.name, clean_post_id)
+    if post is None:
+        raise FileNotFoundError(f"Post not found: {post_id}")
+
+    return {
+        "ok": True,
+        "file": path.name,
+        "channel": extract_channel_from_export_name(path.name),
+        "post": post,
+    }
+
+
 def get_export_period_compare(file_name, from_date, to_date):
-    path, posts = load_export_posts(file_name)
-    result = compare_periods(posts, from_date, to_date)
+    path = resolve_raw_json_file(file_name)
+    try:
+        ensure_sqlite_export_index(path.name, path)
+        result = compare_periods_sqlite(path.name, from_date, to_date)
+    except Exception as e:
+        print(f"SQLite compare failed for {path.name}: {e}")
+        result = None
+
+    if result is None:
+        _, posts = load_export_posts(path.name)
+        result = compare_periods(posts, from_date, to_date)
+
     result.update({
         "ok": True,
         "file": path.name,

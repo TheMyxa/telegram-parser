@@ -1,4 +1,5 @@
 import argparse
+import hashlib
 import json
 import sys
 import urllib.error
@@ -7,6 +8,11 @@ from pathlib import Path
 
 from config import load_llm_config
 from storage.json_files import write_json_atomic
+from storage.sqlite_store import (
+    get_analysis_cache_entry,
+    sync_analysis_file,
+    upsert_analysis_cache_entry,
+)
 
 
 RAW_DIR = Path("data/raw")
@@ -114,7 +120,7 @@ def build_analysis_output(input_path, analyses, prompt_path=None, prompt_config=
     }
 
 
-def build_prompt(post, prompt_config):
+def build_post_prompt_payload(post):
     comments = post.get("comments") or []
     comments_payload = []
 
@@ -144,6 +150,22 @@ def build_prompt(post, prompt_config):
         "comments": comments_payload,
     }
 
+
+def json_hash(value):
+    data = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(data.encode("utf-8")).hexdigest()
+
+
+def build_prompt_hash(prompt_config):
+    return json_hash({
+        "language": prompt_config.get("language"),
+        "system": prompt_config.get("system"),
+        "user_template": prompt_config.get("user_template"),
+    })
+
+
+def build_prompt(post, prompt_config):
+    payload = build_post_prompt_payload(post)
     data = json.dumps(payload, ensure_ascii=False, indent=2)
     return prompt_config["user_template"].format(data=data)
 
@@ -225,6 +247,8 @@ def analyze_posts(posts, limit=None, input_path=None, output_path=None, prompt_p
     selected_posts = posts[:limit] if limit else posts
     result = []
     active_prompt_config = prompt_config or load_prompt_config(prompt_path or resolve_prompt_path())
+    prompt_hash = build_prompt_hash(active_prompt_config)
+    source_file = Path(input_path).as_posix() if input_path else None
 
     for index, post in enumerate(selected_posts, start=1):
         if not isinstance(post, dict):
@@ -248,6 +272,33 @@ def analyze_posts(posts, limit=None, input_path=None, output_path=None, prompt_p
 
         post_id = post.get("post_id")
         comments_count = len(post.get("comments") or [])
+        post_hash = json_hash(build_post_prompt_payload(post))
+
+        if source_file and post_id is not None:
+            try:
+                cached_item = get_analysis_cache_entry(
+                    source_file,
+                    post_id,
+                    post_hash,
+                    prompt_hash,
+                    LLM_MODEL,
+                )
+            except Exception as e:
+                cached_item = None
+                print(f"SQLite analysis cache read failed for post {post_id}: {e}", file=sys.stderr)
+
+            if cached_item:
+                print(f"Using cached analysis for post {post_id} ({index}/{len(selected_posts)})")
+                result.append(cached_item)
+
+                if input_path and output_path:
+                    write_json_atomic(
+                        build_analysis_output(input_path, result, prompt_path, active_prompt_config),
+                        output_path,
+                    )
+
+                continue
+
         print(f"Analyzing post {post_id} ({index}/{len(selected_posts)}), comments: {comments_count}")
 
         try:
@@ -272,6 +323,20 @@ def analyze_posts(posts, limit=None, input_path=None, output_path=None, prompt_p
 
         if error:
             item["analysis_error"] = error
+
+        if source_file and post_id is not None:
+            try:
+                upsert_analysis_cache_entry(
+                    source_file,
+                    post_id,
+                    post_hash,
+                    prompt_hash,
+                    LLM_MODEL,
+                    "ERROR" if error else "OK",
+                    item,
+                )
+            except Exception as e:
+                print(f"SQLite analysis cache update failed for post {post_id}: {e}", file=sys.stderr)
 
         result.append(item)
 
@@ -304,6 +369,10 @@ def main(args=None):
     analyses = analyze_posts(posts, args.limit, input_path, output_path, prompt_path, prompt_config)
     output = build_analysis_output(input_path, analyses, prompt_path, prompt_config)
     write_json_atomic(output, output_path)
+    try:
+        sync_analysis_file(output_path.name, output, output_path)
+    except Exception as e:
+        print(f"SQLite analysis index update failed for {output_path}: {e}", file=sys.stderr)
 
     print(f"Done. Analysis saved to {output_path}")
 

@@ -7,6 +7,23 @@ from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 
+from analytics.export_summary import extract_channel_from_export_name
+from storage.sqlite_store import (
+    get_export_summary as get_export_summary_sqlite,
+    get_indexed_export,
+    get_indexed_analysis,
+    get_post as get_post_sqlite,
+    list_analysis_file_records,
+    list_analysis_result_records,
+    list_indexed_exports,
+    needs_fts_reindex,
+    read_analysis_record,
+    search_all_comments as search_all_comments_sqlite,
+    search_comments as search_comments_sqlite,
+    sync_analysis_file,
+    sync_export_file,
+)
+
 
 ROOT = Path(__file__).resolve().parent
 RAW_DIR = ROOT / "data" / "raw"
@@ -95,6 +112,78 @@ def load_export(file_name):
     return path, data
 
 
+def load_analysis(file_name):
+    path = resolve_safe_file(ANALYSIS_DIR, file_name)
+
+    with path.open("r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    if not isinstance(data, dict):
+        raise ValueError(f"Analysis JSON must contain an object: {file_name}")
+
+    return path, data
+
+
+def ensure_sqlite_export_index(file_name, path=None, posts=None):
+    path = path or resolve_safe_file(RAW_DIR, file_name)
+    stat = path.stat()
+    modified_at = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(stat.st_mtime))
+    indexed = get_indexed_export(path.name)
+
+    if (
+        indexed
+        and indexed["modified_at"] == modified_at
+        and indexed["size_bytes"] == stat.st_size
+        and not needs_fts_reindex(path.name)
+    ):
+        return
+
+    if posts is None:
+        _, posts = load_export(path.name)
+
+    sync_export_file(
+        path.name,
+        extract_channel_from_export_name(path.name),
+        posts,
+        path,
+    )
+
+
+def ensure_sqlite_analysis_index(file_name, path=None, analysis=None):
+    path = path or resolve_safe_file(ANALYSIS_DIR, file_name)
+    stat = path.stat()
+    modified_at = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(stat.st_mtime))
+    indexed = get_indexed_analysis(path.name)
+
+    if indexed and indexed["modified_at"] == modified_at and indexed["size_bytes"] == stat.st_size:
+        return
+
+    if analysis is None:
+        _, analysis = load_analysis(path.name)
+
+    sync_analysis_file(path.name, analysis, path)
+
+
+def ensure_all_sqlite_analysis_indexes():
+    ANALYSIS_DIR.mkdir(parents=True, exist_ok=True)
+
+    for path in ANALYSIS_DIR.glob("*.json"):
+        try:
+            ensure_sqlite_analysis_index(path.name, path)
+        except Exception:
+            continue
+
+
+def ensure_all_sqlite_indexes():
+    RAW_DIR.mkdir(parents=True, exist_ok=True)
+
+    for path in RAW_DIR.glob("*.json"):
+        try:
+            ensure_sqlite_export_index(path.name, path)
+        except Exception:
+            continue
+
+
 def iter_comments(posts):
     for post in posts:
         if not isinstance(post, dict):
@@ -155,14 +244,44 @@ def get_config_safe() -> dict:
 
 @mcp.tool()
 def list_exports() -> list[dict]:
-    """List JSON export files from data/raw with basic file metadata."""
+    """List JSON export files from data/raw with indexed counts when available."""
     RAW_DIR.mkdir(parents=True, exist_ok=True)
-    items = []
+    current_files = {path.name for path in RAW_DIR.glob("*.json")}
 
+    for path in sorted(RAW_DIR.glob("*.json")):
+        try:
+            ensure_sqlite_export_index(path.name, path)
+        except Exception:
+            continue
+
+    indexed = [
+        record
+        for record in list_indexed_exports()
+        if record["file_name"] in current_files
+    ]
+
+    if indexed:
+        return [
+            {
+                "file": record["file_name"],
+                "channel": record["channel_key"],
+                "size_bytes": record["size_bytes"],
+                "modified_at": record["modified_at"],
+                "indexed_at": record["indexed_at"],
+                "posts_count": record["posts_count"],
+                "comments_count": record["comments_count"],
+                "unique_users_count": record["unique_users_count"],
+                "reactions_count": record["reactions_count"],
+            }
+            for record in indexed
+        ]
+
+    items = []
     for path in sorted(RAW_DIR.glob("*.json")):
         stat = path.stat()
         items.append({
             "file": path.name,
+            "channel": extract_channel_from_export_name(path.name),
             "size_bytes": stat.st_size,
             "modified_at": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(stat.st_mtime)),
         })
@@ -174,7 +293,8 @@ def list_exports() -> list[dict]:
 def get_export_summary(file_name: str) -> dict:
     """Return post/comment/user/reaction counts for one export JSON file."""
     path, posts = load_export(file_name)
-    summary = summarize_posts(posts)
+    ensure_sqlite_export_index(path.name, path, posts)
+    summary = get_export_summary_sqlite(path.name) or summarize_posts(posts)
     summary["file"] = path.name
     return summary
 
@@ -182,7 +302,13 @@ def get_export_summary(file_name: str) -> dict:
 @mcp.tool()
 def search_comments(file_name: str, query: str, limit: int = 20) -> list[dict]:
     """Search comments by text in one export JSON file."""
-    _, posts = load_export(file_name)
+    path, posts = load_export(file_name)
+    ensure_sqlite_export_index(path.name, path, posts)
+    indexed_results = search_comments_sqlite(path.name, query, limit)
+
+    if indexed_results:
+        return indexed_results
+
     needle = query.casefold()
     results = []
 
@@ -214,9 +340,21 @@ def search_comments(file_name: str, query: str, limit: int = 20) -> list[dict]:
 
 
 @mcp.tool()
+def search_all_comments(query: str, limit: int = 20, channel: str | None = None) -> list[dict]:
+    """Search comment text across all JSON exports indexed in the local SQLite database."""
+    ensure_all_sqlite_indexes()
+    return search_all_comments_sqlite(query, limit, channel)
+
+
+@mcp.tool()
 def get_post(file_name: str, post_id: int) -> dict:
     """Return one post by post_id from an export JSON file."""
-    _, posts = load_export(file_name)
+    path, posts = load_export(file_name)
+    ensure_sqlite_export_index(path.name, path, posts)
+    indexed_post = get_post_sqlite(path.name, post_id)
+
+    if indexed_post:
+        return indexed_post
 
     for post in posts:
         if isinstance(post, dict) and post.get("post_id") == post_id:
@@ -228,27 +366,51 @@ def get_post(file_name: str, post_id: int) -> dict:
 @mcp.tool()
 def list_analysis_files() -> list[dict]:
     """List analysis JSON files from data/analysis."""
-    ANALYSIS_DIR.mkdir(parents=True, exist_ok=True)
-    items = []
+    ensure_all_sqlite_analysis_indexes()
+    current_files = {path.name for path in ANALYSIS_DIR.glob("*.json")}
+    indexed = [
+        record
+        for record in list_analysis_file_records()
+        if record["file_name"] in current_files
+    ]
 
-    for path in sorted(ANALYSIS_DIR.glob("*.json")):
-        stat = path.stat()
-        items.append({
-            "file": path.name,
-            "size_bytes": stat.st_size,
-            "modified_at": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(stat.st_mtime)),
-        })
+    if indexed:
+        return [
+            {
+                "file": record["file_name"],
+                "source_export": record["source_export"],
+                "size_bytes": record["size_bytes"],
+                "modified_at": record["modified_at"],
+                "prompt_language": record["prompt_language"],
+                "posts_analyzed": record["posts_analyzed"],
+                "status": record["status"],
+                "analysis_errors_count": record["analysis_errors_count"],
+            }
+            for record in indexed
+        ]
 
-    return items
+    return []
 
 
 @mcp.tool()
 def read_analysis(file_name: str) -> dict:
     """Read one analysis JSON file from data/analysis."""
-    path = resolve_safe_file(ANALYSIS_DIR, file_name)
+    path, analysis = load_analysis(file_name)
+    ensure_sqlite_analysis_index(path.name, path, analysis)
+    return read_analysis_record(path.name) or analysis
 
-    with path.open("r", encoding="utf-8") as f:
-        return json.load(f)
+
+@mcp.tool()
+def list_analysis_results(
+    file_name: str,
+    status: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> list[dict]:
+    """List per-post analysis result metadata for one analysis JSON file."""
+    path, analysis = load_analysis(file_name)
+    ensure_sqlite_analysis_index(path.name, path, analysis)
+    return list_analysis_result_records(path.name, status=status, limit=limit, offset=offset)
 
 
 @mcp.tool()

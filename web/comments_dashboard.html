@@ -44,6 +44,7 @@
       <nav class="tabs" aria-label="Разделы">
         <button class="tab active" type="button" data-tab="dashboard">Dashboard</button>
         <button class="tab" type="button" data-tab="posts" data-i18n="postsPage">Страница постов</button>
+        <button class="tab" type="button" data-tab="globalSearch" data-i18n="globalSearch">Глобальный поиск</button>
         <button class="tab" type="button" data-tab="export" data-i18n="export">Экспорт</button>
       </nav>
 
@@ -154,6 +155,13 @@
             </div>
             <div id="topPostsChart" class="chart-body"></div>
           </div>
+          <div class="panel chart heatmap-panel">
+            <div class="panel-head">
+              <h2 data-i18n="activityHeatmap">Тепловая карта активности</h2>
+              <div id="heatmapStatus" class="status">Нет данных</div>
+            </div>
+            <div id="activityHeatmap" class="heatmap-wrap"></div>
+          </div>
         </section>
       </section>
 
@@ -177,6 +185,61 @@
               </thead>
               <tbody id="postsBody">
                 <tr><td colspan="6" class="empty">Нет загруженных данных</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section id="globalSearchView" class="view">
+        <section class="panel">
+          <div class="panel-head">
+            <h2 data-i18n="globalSearch">Глобальный поиск</h2>
+            <div id="globalSearchStatus" class="status" data-i18n="globalSearchReady">Введите запрос</div>
+          </div>
+          <div class="global-search-controls">
+            <div class="field global-search-query">
+              <label for="globalSearchQuery" data-i18n="search">Поиск</label>
+              <input id="globalSearchQuery" type="search" placeholder="слово, фраза или FTS-запрос" data-i18n-placeholder="globalSearchPlaceholder">
+            </div>
+            <div class="field">
+              <label for="globalSearchChannel" data-i18n="channel">Канал</label>
+              <select id="globalSearchChannel">
+                <option value="" data-i18n="all">Все</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="globalSearchUser" data-i18n="user">Пользователь</label>
+              <input id="globalSearchUser" type="search" placeholder="user_id или username" data-i18n-placeholder="globalSearchUserPlaceholder">
+            </div>
+            <div class="field">
+              <label for="globalSearchDateFrom" data-i18n="dateFrom">Дата от</label>
+              <input id="globalSearchDateFrom" type="date">
+            </div>
+            <div class="field">
+              <label for="globalSearchDateTo" data-i18n="dateTo">Дата до</label>
+              <input id="globalSearchDateTo" type="date">
+            </div>
+            <div class="field">
+              <label for="globalSearchLimit" data-i18n="limit">Лимит</label>
+              <input id="globalSearchLimit" type="number" min="1" max="200" step="1" value="50">
+            </div>
+            <button id="runGlobalSearch" class="button" type="button" data-i18n="runSearch">Искать</button>
+          </div>
+          <div class="table-wrap">
+            <table class="global-search-table">
+              <thead>
+                <tr>
+                  <th data-i18n="channel">Канал</th>
+                  <th data-i18n="file">Файл</th>
+                  <th data-i18n="date">Дата</th>
+                  <th data-i18n="user">Пользователь</th>
+                  <th data-i18n="comment">Комментарий</th>
+                  <th data-i18n="links">Ссылки</th>
+                </tr>
+              </thead>
+              <tbody id="globalSearchBody">
+                <tr><td colspan="6" class="empty" data-i18n="globalSearchReady">Введите запрос</td></tr>
               </tbody>
             </table>
           </div>

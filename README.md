@@ -4,7 +4,7 @@
 
 TG is a local-first Telegram comments exporter and analytics dashboard. It exports channel posts, discussion comments, reactions, links, optional media files, and can update existing datasets incrementally.
 
-Current version: `2.3.1`.
+Current version: `3.0.0`.
 
 ![Dashboard screenshot](docs/screenshots/dashboard.png)
 
@@ -16,8 +16,9 @@ Current version: `2.3.1`.
 - True incremental export: scan new posts and revisit older exported posts to refresh comments, reactions, and counters.
 - Optional media download into `data/content/<dataset_name>/`.
 - Optional anonymization of `user_id`, `username`, `first_name`, and `last_name`.
-- Web UI on port `9595` with dashboard, post view, comment tree, filters, user profiles, export launch screen, Scheduler mode, and Watch mode.
+- Web UI on port `9595` with dashboard, activity heatmap, global search, post view, comment tree, filters, user profiles, export launch screen, Scheduler mode, and Watch mode.
 - Open local JSON exports from `data/raw` directly in the dashboard, sorted by date or channel.
+- Maintain a local SQLite index in `data/state/tg.sqlite` for faster dashboard summaries, period comparison, and full-text MCP/CLI search.
 - LLM analyzer for exported JSON files with Russian, English, and Chinese prompt files.
 - Period comparison for comments, users, and reactions with `tg compare`.
 - MCP server for local automation through AI clients.
@@ -41,7 +42,7 @@ Use [examples/example.json](examples/example.json) to test the dashboard without
 
 ```text
 .
-├── main.py                    # Unified CLI: export, analyze, dashboard, config-check, mcp
+├── main.py                    # Unified CLI: export, index, search, analyze, dashboard, config-check, mcp
 ├── export_comments.py         # Compatibility entrypoint for exporters.telegram_exporter
 ├── web/
 │   ├── comments_dashboard.html # Web dashboard markup
@@ -51,7 +52,7 @@ Use [examples/example.json](examples/example.json) to test the dashboard without
 ├── api/                       # Local web server and dashboard API
 ├── telegram/                  # Telegram message serialization helpers
 ├── exporters/                 # Telegram export orchestration and output formats
-├── storage/                   # JSON file loading and atomic writes
+├── storage/                   # JSON file loading, atomic writes, and SQLite index
 ├── analytics/                 # Export summaries and dataset analytics helpers
 ├── llm/                       # LLM analysis implementation
 ├── mcp_server.py              # MCP server for local exports and analysis
@@ -192,9 +193,14 @@ Incremental mode writes and updates:
 ```text
 data/raw/<channel>_dataset.json
 data/state/<channel>_state.json
+data/state/tg.sqlite
 ```
 
+Incremental state is stored in SQLite table `export_states`; the per-channel JSON state file remains a compatibility fallback and migration source.
+
 It scans posts newer than the saved `last_post_id` plus `INCREMENTAL_LOOKBACK_POSTS` already exported posts at or below that `last_post_id`. This refreshes counters, reactions, and comments on older posts that changed after a previous run. It merges posts by `post_id`, merges comments by `comment_id`, and keeps already downloaded media files.
+
+JSON exports are also indexed into local SQLite at `data/state/tg.sqlite`. The database is runtime data and can be rebuilt from JSON exports.
 
 ### Watch Mode
 
@@ -269,7 +275,36 @@ docker compose run --rm cli compare --from 2026-07-01 --to 2026-08-01 --file dur
 
 `--to` is exclusive. If `--file` is omitted, the newest JSON export from `data/raw` is used.
 
+### Index JSON Exports
+
+Build or refresh the local SQLite index without running a Telegram export:
+
+```powershell
+docker compose run --rm cli index
+docker compose run --rm cli index --file durov_dataset.json
+```
+
+The dashboard and MCP server also index JSON exports lazily when they need them.
+
+### Search Indexed Comments
+
+Search one export:
+
+```powershell
+docker compose run --rm cli search "telegram" --file durov_dataset.json
+```
+
+Search all JSON exports from `data/raw`:
+
+```powershell
+docker compose run --rm cli search "telegram" --limit 50
+```
+
+Search uses SQLite FTS5 when available and falls back to regular `LIKE` matching when FTS5 is unavailable or the FTS query is invalid.
+
 Prompt files are JSON objects with `system` and `user_template` fields. `user_template` must include `{data}`.
+
+Per-post LLM results are cached in SQLite table `analysis_cache` by `source_file`, `post_id`, `post_hash`, `prompt_hash`, and `model`. Re-running analysis skips unchanged posts with a successful cached result and continues writing the JSON output incrementally.
 
 Analysis files are saved to:
 
@@ -294,8 +329,8 @@ python main.py mcp
 The MCP server exposes tools for local automation:
 
 - `get_config_safe`: read non-secret config values with secrets masked.
-- `list_exports`, `get_export_summary`, `get_post`, `search_comments`: inspect JSON exports in `data/raw`.
-- `list_analysis_files`, `read_analysis`, `run_analysis`: work with LLM analysis files.
+- `list_exports`, `get_export_summary`, `get_post`, `search_comments`, `search_all_comments`: inspect JSON exports in `data/raw`. Search uses SQLite FTS5 when available, with `LIKE` fallback.
+- `list_analysis_files`, `list_analysis_results`, `read_analysis`, `run_analysis`: work with LLM analysis files. Analysis metadata is indexed in SQLite for fast listing and error inspection.
 - `start_export`, `get_export_process_status`: start and monitor a Telegram export. `start_export` requires `confirm=true`.
 
 ### Run Dashboard
@@ -310,6 +345,7 @@ The dashboard can:
 - open a local JSON export from `data/raw`;
 - show file name, posts, comments, unique users, reactions;
 - draw charts by day, top users, top emoji, discussed posts;
+- draw an activity heatmap by weekday and hour;
 - open a post and show comments as a tree;
 - filter by user, date range, emoji, media, and replies;
 - open user details;
@@ -322,12 +358,18 @@ The dashboard can:
 Dashboard API endpoints:
 
 - `GET /api/version`: return the current app version.
-- `GET /api/exports?sort=date|channel`: list JSON exports from `data/raw`.
+- `GET /api/exports?sort=date|channel`: list JSON exports from `data/raw` with SQLite-indexed counts when available.
+- `GET /api/search?q=text&channel=name&from=YYYY-MM-DD&to=YYYY-MM-DD&user=username&limit=50`: search indexed comments across all local JSON exports.
 - `GET /api/export/<file>/summary`: return counts and metadata for one JSON export.
+- `GET /api/export/<file>/filtered-summary?q=text&user=username&from=YYYY-MM-DD&to=YYYY-MM-DD&emoji=👍&media=1&replies=1`: return SQLite-backed counts for filtered dashboard views.
+- `GET /api/export/<file>/charts`: return SQLite-backed dashboard chart aggregates for one JSON export.
+- `GET /api/export/<file>/posts?limit=100&offset=0&q=text&user=username&from=YYYY-MM-DD&to=YYYY-MM-DD&emoji=👍&media=1&replies=1`: return SQLite-backed post rows for the dashboard table.
+- `GET /api/export/<file>/post/<post_id>`: return one reconstructed post with comments from SQLite.
 - `GET /api/export/<file>/compare?from=YYYY-MM-DD&to=YYYY-MM-DD`: compare comments, users, and reactions between periods.
 - `GET /api/scheduler/status`: return current scheduler state.
-- `GET /api/scheduler/history?limit=50`: list persisted scheduled run records.
+- `GET /api/scheduler/history?limit=50&offset=0&status=FAILED&channel=durov`: list persisted scheduled run records from SQLite with pagination, filters, and stats.
 - `GET /api/scheduler/history/<run_id>`: return one scheduled run detail card.
+- `POST /api/scheduler/history/<run_id>/retry`: retry a saved scheduled run with the same channels, format, and export flags.
 - `POST /api/scheduler/start`: start scheduled exports with `channel`, `interval_minutes`, format, and export flags.
 - `POST /api/scheduler/stop`: stop scheduled exports.
 - `GET /api/watch/status`: return current Watch mode state.
@@ -336,7 +378,7 @@ Dashboard API endpoints:
 
 Scheduler mode starts the first export immediately, then repeats every configured interval. If an export is still running when the next interval arrives, that run is skipped.
 
-Scheduler history is stored as JSON files in `data/scheduler/`. Each scheduled run has its own record with status `QUEUED`, `RUNNING`, `SUCCESS`, `PARTIAL`, `FAILED`, `SKIPPED`, or `CANCELLED`, plus channel results, structured error information, and recent log lines.
+Scheduler history is stored in the local SQLite index at `data/state/tg.sqlite`. Older JSON records from `data/scheduler/` are imported lazily when history is read. Each scheduled run has status `QUEUED`, `RUNNING`, `SUCCESS`, `PARTIAL`, `FAILED`, `SKIPPED`, or `CANCELLED`, plus channel results, structured error information, and recent log lines.
 
 Watch mode is separate from Scheduler mode. It stays running and updates changed posts as channel or discussion activity arrives, with a periodic refresh for counters and missed comment updates.
 
@@ -355,6 +397,8 @@ python main.py --help
 python main.py config-check
 python main.py export json --incremental
 python main.py watch --poll-interval 30 --refresh-active-posts 20
+python main.py index --file durov_dataset.json
+python main.py search "telegram" --file durov_dataset.json
 python main.py compare --from 2026-07-01 --to 2026-08-01 --file durov_dataset.json
 python main.py dashboard
 python main.py mcp

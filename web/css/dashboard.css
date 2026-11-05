@@ -428,6 +428,36 @@
       align-items: end;
     }
 
+    .global-search-controls {
+      display: grid;
+      grid-template-columns: minmax(240px, 2fr) repeat(5, minmax(120px, 1fr)) auto;
+      gap: 12px;
+      padding: 16px;
+      align-items: end;
+    }
+
+    .global-search-query {
+      min-width: 220px;
+    }
+
+    .global-search-table {
+      min-width: 1120px;
+    }
+
+    .global-search-comment {
+      max-width: 520px;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      line-height: 1.4;
+    }
+
+    .global-search-comment mark {
+      padding: 0 3px;
+      border-radius: 4px;
+      background: rgba(242, 166, 90, 0.32);
+      color: var(--text);
+    }
+
     .progress-log {
       min-height: 320px;
       max-height: 520px;
@@ -569,6 +599,50 @@
     .bar-value {
       color: var(--muted);
       text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .heatmap-panel {
+      grid-column: 1 / -1;
+    }
+
+    .heatmap-wrap {
+      padding: 16px;
+      overflow-x: auto;
+    }
+
+    .heatmap-grid {
+      display: grid;
+      grid-template-columns: 54px repeat(24, minmax(28px, 1fr));
+      gap: 4px;
+      min-width: 820px;
+      align-items: center;
+    }
+
+    .heatmap-corner,
+    .heatmap-hour,
+    .heatmap-day {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .heatmap-day {
+      text-align: left;
+      padding-right: 6px;
+    }
+
+    .heatmap-cell {
+      display: grid;
+      place-items: center;
+      min-width: 28px;
+      aspect-ratio: 1;
+      border: 1px solid color-mix(in srgb, var(--accent) calc(var(--heat) * 42%), var(--line));
+      border-radius: 6px;
+      background: color-mix(in srgb, var(--accent) calc(8% + var(--heat) * 72%), var(--surface));
+      color: var(--text);
+      font-size: 11px;
       font-variant-numeric: tabular-nums;
     }
 
@@ -898,6 +972,7 @@
       .summary,
       .filters,
       .compare-controls,
+      .global-search-controls,
       .export-grid,
       .user-stats {
         grid-template-columns: 1fr;

@@ -98,6 +98,37 @@ def build_parser():
     )
     compare_parser.set_defaults(handler=run_compare)
 
+    index_parser = subparsers.add_parser(
+        "index",
+        help="Index JSON exports into the local SQLite database.",
+        description="Index one or all JSON exports from data/raw into the local SQLite database.",
+    )
+    index_parser.add_argument(
+        "--file",
+        default=None,
+        help="JSON file name from data/raw or direct path. If omitted, all data/raw JSON exports are indexed.",
+    )
+    index_parser.set_defaults(handler=run_index)
+
+    search_parser = subparsers.add_parser(
+        "search",
+        help="Search indexed comments with SQLite FTS.",
+        description="Search comments in one or all indexed JSON exports with SQLite FTS and LIKE fallback.",
+    )
+    search_parser.add_argument("query", help="Search query. FTS syntax is supported when available.")
+    search_parser.add_argument(
+        "--file",
+        default=None,
+        help="JSON file name from data/raw or direct path. If omitted, all data/raw JSON exports are searched.",
+    )
+    search_parser.add_argument(
+        "--channel",
+        default=None,
+        help="Limit global search to one indexed channel key. Ignored when --file is used.",
+    )
+    search_parser.add_argument("--limit", type=int, default=20, help="Maximum results to return. Default: 20.")
+    search_parser.set_defaults(handler=run_search)
+
     dashboard_parser = subparsers.add_parser(
         "dashboard",
         help="Run web dashboard on port 9595.",
@@ -193,11 +224,83 @@ def resolve_compare_file(value=None):
 
 def run_compare(args):
     from analytics.period_compare import compare_periods, load_posts
+    from storage.sqlite_store import compare_periods as compare_periods_sqlite
 
     path = resolve_compare_file(args.file)
-    result = compare_periods(load_posts(path), args.from_date, args.to_date)
+    result = None
+
+    try:
+        index_paths([path])
+        result = compare_periods_sqlite(path.name, args.from_date, args.to_date)
+    except Exception as e:
+        print(f"SQLite compare failed for {path}: {e}", file=sys.stderr)
+
+    if result is None:
+        result = compare_periods(load_posts(path), args.from_date, args.to_date)
+
     result["file"] = str(path)
     print(json.dumps(result, ensure_ascii=False, indent=2))
+
+
+def resolve_index_files(value=None):
+    if value:
+        path = Path(value)
+
+        if path.exists():
+            return [path]
+
+        raw_path = Path("data/raw") / value
+
+        if raw_path.exists():
+            return [raw_path]
+
+        raise FileNotFoundError(f"Index file not found: {value}")
+
+    return sorted(Path("data/raw").glob("*.json"))
+
+
+def run_index(args):
+    indexed = index_paths(resolve_index_files(args.file))
+    print(json.dumps({"indexed": indexed, "count": len(indexed)}, ensure_ascii=False, indent=2))
+
+
+def index_paths(paths):
+    from analytics.export_summary import extract_channel_from_export_name
+    from storage.json_files import load_json_dataset
+    from storage.sqlite_store import sync_export_file
+
+    indexed = []
+
+    for path in paths:
+        posts = load_json_dataset(path)
+        sync_export_file(
+            path.name,
+            extract_channel_from_export_name(path.name),
+            posts,
+            path,
+        )
+        indexed.append(str(path))
+
+    return indexed
+
+
+def run_search(args):
+    from storage.sqlite_store import search_all_comments, search_comments
+
+    paths = resolve_index_files(args.file)
+    indexed = index_paths(paths)
+
+    if args.file:
+        file_name = paths[0].name
+        results = search_comments(file_name, args.query, args.limit)
+    else:
+        results = search_all_comments(args.query, args.limit, args.channel)
+
+    print(json.dumps({
+        "query": args.query,
+        "indexed_count": len(indexed),
+        "results": results,
+    }, ensure_ascii=False, indent=2))
 
 
 def run_dashboard(_args):

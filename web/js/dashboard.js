@@ -10,9 +10,16 @@
       activeTab: 'dashboard',
       language: 'ru',
       localExports: [],
+      globalSearchResults: [],
       schedulerRuns: [],
       schedulerEnabled: false,
-      watchEnabled: false
+      watchEnabled: false,
+      sqliteCharts: null,
+      serverBacked: false,
+      serverSummary: null,
+      serverFilteredSummary: null,
+      serverPostsMeta: null,
+      postsLimit: 100
     };
 
     const el = {
@@ -28,6 +35,7 @@
       tabs: document.querySelectorAll('.tab'),
       dashboardView: document.getElementById('dashboardView'),
       postsView: document.getElementById('postsView'),
+      globalSearchView: document.getElementById('globalSearchView'),
       exportView: document.getElementById('exportView'),
       searchText: document.getElementById('searchText'),
       filterUserId: document.getElementById('filterUserId'),
@@ -51,10 +59,21 @@
       topUsersChart: document.getElementById('topUsersChart'),
       topEmojiChart: document.getElementById('topEmojiChart'),
       topPostsChart: document.getElementById('topPostsChart'),
+      activityHeatmap: document.getElementById('activityHeatmap'),
       daysStatus: document.getElementById('daysStatus'),
       usersStatus: document.getElementById('usersStatus'),
       emojiStatus: document.getElementById('emojiStatus'),
       postsStatus: document.getElementById('postsStatus'),
+      heatmapStatus: document.getElementById('heatmapStatus'),
+      globalSearchQuery: document.getElementById('globalSearchQuery'),
+      globalSearchChannel: document.getElementById('globalSearchChannel'),
+      globalSearchUser: document.getElementById('globalSearchUser'),
+      globalSearchDateFrom: document.getElementById('globalSearchDateFrom'),
+      globalSearchDateTo: document.getElementById('globalSearchDateTo'),
+      globalSearchLimit: document.getElementById('globalSearchLimit'),
+      runGlobalSearch: document.getElementById('runGlobalSearch'),
+      globalSearchStatus: document.getElementById('globalSearchStatus'),
+      globalSearchBody: document.getElementById('globalSearchBody'),
       tableStatus: document.getElementById('tableStatus'),
       postsBody: document.getElementById('postsBody'),
       drawerBackdrop: document.getElementById('drawerBackdrop'),
@@ -121,6 +140,18 @@
         nightTheme: 'Ночная тема',
         lightTheme: 'Светлая тема',
         postsPage: 'Страница постов',
+        globalSearch: 'Глобальный поиск',
+        globalSearchReady: 'Введите запрос',
+        globalSearchRunning: 'Поиск...',
+        globalSearchNoResults: 'Ничего не найдено',
+        globalSearchFailed: 'Не удалось выполнить поиск',
+        globalSearchPlaceholder: 'слово, фраза или FTS-запрос',
+        globalSearchUserPlaceholder: 'user_id или username',
+        runSearch: 'Искать',
+        limit: 'Лимит',
+        user: 'Пользователь',
+        comment: 'Комментарий',
+        links: 'Ссылки',
         export: 'Экспорт',
         search: 'Поиск',
         searchPlaceholder: 'Текст, post_id, comment_id',
@@ -150,6 +181,9 @@
         compareUsers: 'Users',
         compareReactions: 'Reactions',
         commentsByDay: 'Комментарии по дням',
+        activityHeatmap: 'Тепловая карта активности',
+        heatmapHour: 'Час',
+        weekdayShort: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'],
         topUsers: 'Топ пользователей',
         topEmoji: 'Топ эмодзи',
         topPosts: 'Самые обсуждаемые посты',
@@ -268,6 +302,18 @@
         nightTheme: 'Dark theme',
         lightTheme: 'Light theme',
         postsPage: 'Posts page',
+        globalSearch: 'Global search',
+        globalSearchReady: 'Enter a query',
+        globalSearchRunning: 'Searching...',
+        globalSearchNoResults: 'No results',
+        globalSearchFailed: 'Could not run search',
+        globalSearchPlaceholder: 'word, phrase, or FTS query',
+        globalSearchUserPlaceholder: 'user_id or username',
+        runSearch: 'Search',
+        limit: 'Limit',
+        user: 'User',
+        comment: 'Comment',
+        links: 'Links',
         export: 'Export',
         search: 'Search',
         searchPlaceholder: 'Text, post_id, comment_id',
@@ -297,6 +343,9 @@
         compareUsers: 'Users',
         compareReactions: 'Reactions',
         commentsByDay: 'Comments by day',
+        activityHeatmap: 'Activity heatmap',
+        heatmapHour: 'Hour',
+        weekdayShort: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
         topUsers: 'Top users',
         topEmoji: 'Top emoji',
         topPosts: 'Most discussed posts',
@@ -415,6 +464,18 @@
         nightTheme: '夜间主题',
         lightTheme: '浅色主题',
         postsPage: '帖子页面',
+        globalSearch: '全局搜索',
+        globalSearchReady: '请输入查询',
+        globalSearchRunning: '正在搜索...',
+        globalSearchNoResults: '没有结果',
+        globalSearchFailed: '无法执行搜索',
+        globalSearchPlaceholder: '词、短语或 FTS 查询',
+        globalSearchUserPlaceholder: 'user_id 或 username',
+        runSearch: '搜索',
+        limit: '限制',
+        user: '用户',
+        comment: '评论',
+        links: '链接',
         export: '导出',
         search: '搜索',
         searchPlaceholder: '文本、post_id、comment_id',
@@ -444,6 +505,9 @@
         compareUsers: 'Users',
         compareReactions: 'Reactions',
         commentsByDay: '每日评论',
+        activityHeatmap: '活动热力图',
+        heatmapHour: '小时',
+        weekdayShort: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
         topUsers: '热门用户',
         topEmoji: '热门表情',
         topPosts: '讨论最多的帖子',
@@ -563,6 +627,12 @@
     el.closeDrawer.addEventListener('click', closeUserDrawer);
     el.drawerBackdrop.addEventListener('click', closeUserDrawer);
     el.runCompare.addEventListener('click', runPeriodCompare);
+    el.runGlobalSearch.addEventListener('click', runGlobalSearch);
+    el.globalSearchQuery.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        runGlobalSearch();
+      }
+    });
     el.saveConfig.addEventListener('click', saveConfig);
     el.startExport.addEventListener('click', startExport);
     el.startScheduler.addEventListener('click', startScheduler);
@@ -605,7 +675,7 @@
       }
     }
 
-    function loadExportData(fileName, data) {
+    function loadExportData(fileName, data, sqliteCharts = null) {
       if (!Array.isArray(data)) {
         throw new Error(t('jsonMustBeArray'));
       }
@@ -614,8 +684,33 @@
       el.selectedFileName.textContent = fileName;
       el.tableStatus.classList.remove('error');
       parseExport(data);
+      state.serverBacked = false;
+      state.serverSummary = null;
+      state.serverFilteredSummary = null;
+      state.serverPostsMeta = null;
+      state.sqliteCharts = sqliteCharts;
       populateEmojiFilter();
       applyFilters();
+    }
+
+    function loadServerExportData(fileName, summary, charts, postsPayload) {
+      state.fileName = fileName;
+      el.selectedFileName.textContent = fileName;
+      el.tableStatus.classList.remove('error');
+      parseExport(postsPayload.posts || []);
+      state.serverBacked = true;
+      state.serverSummary = summary;
+      state.serverFilteredSummary = summary;
+      state.serverPostsMeta = {
+        total: postsPayload.total || 0,
+        limit: postsPayload.limit || state.postsLimit,
+        offset: postsPayload.offset || 0
+      };
+      state.sqliteCharts = charts;
+      state.filteredPosts = state.posts;
+      state.filteredComments = state.comments;
+      populateEmojiFilter();
+      renderAll();
     }
 
     function showLoadError(error) {
@@ -664,15 +759,47 @@
         el.localExportSelect.innerHTML = `<option value="">${escapeHtml(t('noLocalExports'))}</option>`;
         el.openLocalExport.disabled = true;
         el.localExportStatus.textContent = t('noLocalExports');
+        renderGlobalSearchChannels();
         return;
       }
 
       el.localExportSelect.innerHTML = exports.map((item) => {
-        const label = `${item.channel || '-'} - ${item.file} - ${formatFileSize(item.size_bytes)}`;
+        const label = formatLocalExportLabel(item);
         return `<option value="${escapeAttribute(item.file)}">${escapeHtml(label)}</option>`;
       }).join('');
       el.openLocalExport.disabled = false;
       el.localExportStatus.textContent = `${t('localExportsLoaded')}: ${formatNumber(exports.length)}`;
+      renderGlobalSearchChannels();
+    }
+
+    function formatLocalExportLabel(item) {
+      const parts = [
+        item.channel || '-',
+        item.file,
+        formatFileSize(item.size_bytes)
+      ];
+
+      if (item.posts_count !== undefined && item.comments_count !== undefined) {
+        parts.push(`${formatNumber(item.posts_count)} ${t('posts')}, ${formatNumber(item.comments_count)} ${t('comments')}`);
+      }
+
+      return parts.filter(Boolean).join(' - ');
+    }
+
+    function renderGlobalSearchChannels() {
+      const channels = Array.from(new Set(
+        state.localExports
+          .map((item) => item.channel)
+          .filter(Boolean)
+      )).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+      const current = el.globalSearchChannel.value;
+      el.globalSearchChannel.innerHTML = `<option value="">${escapeHtml(t('all'))}</option>` + channels
+        .map((channel) => `<option value="${escapeAttribute(channel)}">${escapeHtml(channel)}</option>`)
+        .join('');
+
+      if (channels.includes(current)) {
+        el.globalSearchChannel.value = current;
+      }
     }
 
     async function openSelectedLocalExport() {
@@ -693,14 +820,9 @@
           throw new Error(summary.error || t('localExportLoadFailed'));
         }
 
-        const response = await fetch(`/data/raw/${encodeURIComponent(fileName)}`, { cache: 'no-store' });
-
-        if (!response.ok) {
-          throw new Error(t('localExportLoadFailed'));
-        }
-
-        const data = await response.json();
-        loadExportData(fileName, data);
+        const charts = await loadExportCharts(fileName);
+        const posts = await loadExportPosts(fileName, getFilters(), 0);
+        loadServerExportData(fileName, summary, charts, posts);
         el.localExportStatus.textContent = [
           summary.channel,
           `${formatNumber(summary.posts_count)} ${t('posts')}`,
@@ -712,6 +834,190 @@
       } finally {
         el.openLocalExport.disabled = !state.localExports.length;
       }
+    }
+
+    async function loadExportCharts(fileName) {
+      try {
+        const response = await fetch(`/api/export/${encodeURIComponent(fileName)}/charts`, { cache: 'no-store' });
+        const data = await response.json();
+
+        if (!response.ok || data.ok === false) {
+          return null;
+        }
+
+        return data;
+      } catch (_error) {
+        return null;
+      }
+    }
+
+    async function loadExportPosts(fileName, filters, offset = 0) {
+      const params = buildFilterParams(filters);
+      params.set('limit', String(state.postsLimit));
+      params.set('offset', String(offset));
+
+      const response = await fetch(`/api/export/${encodeURIComponent(fileName)}/posts?${params.toString()}`, { cache: 'no-store' });
+      const data = await response.json();
+
+      if (!response.ok || data.ok === false) {
+        throw new Error(data.error || t('localExportLoadFailed'));
+      }
+
+      return data;
+    }
+
+    async function loadFilteredSummary(fileName, filters) {
+      const params = buildFilterParams(filters);
+      const response = await fetch(`/api/export/${encodeURIComponent(fileName)}/filtered-summary?${params.toString()}`, { cache: 'no-store' });
+      const data = await response.json();
+
+      if (!response.ok || data.ok === false) {
+        throw new Error(data.error || t('localExportLoadFailed'));
+      }
+
+      return data;
+    }
+
+    function buildFilterParams(filters) {
+      const params = new URLSearchParams();
+
+      if (filters.search) {
+        params.set('q', filters.search);
+      }
+
+      if (filters.userId || filters.username) {
+        params.set('user', filters.userId || filters.username);
+      }
+
+      if (filters.dateFrom) {
+        params.set('from', filters.dateFrom);
+      }
+
+      if (filters.dateTo) {
+        params.set('to', filters.dateTo);
+      }
+
+      if (filters.emoji) {
+        params.set('emoji', filters.emoji);
+      }
+
+      if (filters.onlyMedia) {
+        params.set('media', '1');
+      }
+
+      if (filters.onlyReplies) {
+        params.set('replies', '1');
+      }
+
+      return params;
+    }
+
+    async function loadExportPost(fileName, postId) {
+      const response = await fetch(`/api/export/${encodeURIComponent(fileName)}/post/${encodeURIComponent(postId)}`, { cache: 'no-store' });
+      const data = await response.json();
+
+      if (!response.ok || data.ok === false) {
+        throw new Error(data.error || t('localExportLoadFailed'));
+      }
+
+      return data.post;
+    }
+
+    async function runGlobalSearch() {
+      const query = el.globalSearchQuery.value.trim();
+
+      if (!query) {
+        el.globalSearchStatus.textContent = t('globalSearchReady');
+        el.globalSearchBody.innerHTML = `<tr><td colspan="6" class="empty">${escapeHtml(t('globalSearchReady'))}</td></tr>`;
+        return;
+      }
+
+      const params = new URLSearchParams({
+        q: query,
+        limit: String(Number(el.globalSearchLimit.value) || 50)
+      });
+
+      if (el.globalSearchChannel.value) {
+        params.set('channel', el.globalSearchChannel.value);
+      }
+
+      if (el.globalSearchUser.value.trim()) {
+        params.set('user', el.globalSearchUser.value.trim());
+      }
+
+      if (el.globalSearchDateFrom.value) {
+        params.set('from', el.globalSearchDateFrom.value);
+      }
+
+      if (el.globalSearchDateTo.value) {
+        params.set('to', el.globalSearchDateTo.value);
+      }
+
+      el.runGlobalSearch.disabled = true;
+      el.globalSearchStatus.classList.remove('error');
+      el.globalSearchStatus.textContent = t('globalSearchRunning');
+
+      try {
+        const response = await fetch(`/api/search?${params.toString()}`, { cache: 'no-store' });
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+          throw new Error(data.error || t('globalSearchFailed'));
+        }
+
+        state.globalSearchResults = data.results || [];
+        renderGlobalSearchResults(data);
+      } catch (error) {
+        state.globalSearchResults = [];
+        el.globalSearchStatus.textContent = `${t('error')}: ${error.message}`;
+        el.globalSearchStatus.classList.add('error');
+        el.globalSearchBody.innerHTML = `<tr><td colspan="6" class="empty error">${escapeHtml(t('globalSearchFailed'))}</td></tr>`;
+      } finally {
+        el.runGlobalSearch.disabled = false;
+      }
+    }
+
+    function renderGlobalSearchResults(data) {
+      const results = data.results || [];
+
+      if (!results.length) {
+        el.globalSearchStatus.textContent = t('globalSearchNoResults');
+        el.globalSearchBody.innerHTML = `<tr><td colspan="6" class="empty">${escapeHtml(t('globalSearchNoResults'))}</td></tr>`;
+        return;
+      }
+
+      el.globalSearchStatus.textContent = `${formatNumber(results.length)} ${t('rows')} | indexed: ${formatNumber(data.indexed_count || 0)}`;
+      el.globalSearchBody.innerHTML = results.map((item) => {
+        const user = formatSearchUser(item);
+        const text = item.snippet ? renderSearchSnippet(item.snippet) : escapeHtml(item.comment_text || t('noText'));
+        const links = [
+          renderTelegramLink(item.post_link, `Post ${item.post_id || '-'}`),
+          renderTelegramLink(item.comment_link, t('openComment'))
+        ].filter(Boolean).join(' ');
+
+        return `
+          <tr>
+            <td>${escapeHtml(item.channel_key || '-')}</td>
+            <td>${escapeHtml(item.file_name || '-')}</td>
+            <td>${escapeHtml(formatDate(item.comment_date) || '-')}</td>
+            <td>${escapeHtml(user)}</td>
+            <td><div class="global-search-comment">${text}</div></td>
+            <td>${links || '-'}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function formatSearchUser(item) {
+      const name = [item.first_name, item.last_name].filter(Boolean).join(' ').trim();
+      const username = item.username ? `@${item.username}` : '';
+      return [name, username].filter(Boolean).join(' ') || '-';
+    }
+
+    function renderSearchSnippet(snippet) {
+      return escapeHtml(snippet)
+        .replace(/&lt;mark&gt;/g, '<mark>')
+        .replace(/&lt;\/mark&gt;/g, '</mark>');
     }
 
     function initTheme() {
@@ -810,6 +1116,7 @@
         link: post.post_link || '',
         mediaPath: post.post_media || '',
         reactions: Array.isArray(post.post_reactions) ? post.post_reactions : [],
+        commentsCount: Number(post.comments_count ?? comments.length) || 0,
         hasMedia: detectMedia(post),
         raw: post,
         comments: []
@@ -866,8 +1173,13 @@
       }
     }
 
-    function applyFilters() {
+    async function applyFilters() {
       const filters = getFilters();
+
+      if (state.serverBacked) {
+        await applyServerFilters(filters);
+        return;
+      }
 
       state.filteredComments = state.comments.filter((comment) => commentMatchesFilters(comment, filters));
       const allowedPostIds = new Set(state.filteredComments.map((comment) => comment.postId));
@@ -891,6 +1203,36 @@
       });
 
       renderAll();
+    }
+
+    async function applyServerFilters(filters) {
+      if (!state.fileName) {
+        renderAll();
+        return;
+      }
+
+      try {
+        const [payload, summary] = await Promise.all([
+          loadExportPosts(state.fileName, filters, 0),
+          loadFilteredSummary(state.fileName, filters)
+        ]);
+        state.serverPostsMeta = {
+          total: payload.total || 0,
+          limit: payload.limit || state.postsLimit,
+          offset: payload.offset || 0
+        };
+        state.serverFilteredSummary = summary;
+        state.expandedPostId = null;
+        state.posts = (payload.posts || []).map(normalizePost);
+        state.comments = state.posts.flatMap((post) => post.comments);
+        buildUsers();
+        state.filteredPosts = state.posts;
+        state.filteredComments = state.comments;
+        renderAll();
+      } catch (error) {
+        el.tableStatus.textContent = `${t('error')}: ${error.message}`;
+        el.tableStatus.classList.add('error');
+      }
     }
 
     function getFilters() {
@@ -958,9 +1300,22 @@
     }
 
     function renderSummary() {
+      const serverSummary = state.serverBacked
+        ? (state.serverFilteredSummary || state.serverSummary)
+        : null;
+
+      if (serverSummary) {
+        el.metricFile.textContent = state.fileName || '-';
+        el.metricPosts.textContent = formatNumber(serverSummary.posts_count);
+        el.metricComments.textContent = formatNumber(serverSummary.comments_count);
+        el.metricUsers.textContent = formatNumber(serverSummary.unique_users_count);
+        el.metricReactions.textContent = formatNumber(serverSummary.reactions_count);
+        return;
+      }
+
       const filteredUserIds = new Set(state.filteredComments.map((comment) => comment.userId).filter(Boolean));
       el.metricFile.textContent = state.fileName || '-';
-      el.metricPosts.textContent = formatNumber(state.filteredPosts.length);
+      el.metricPosts.textContent = formatNumber(state.serverBacked && state.serverPostsMeta ? state.serverPostsMeta.total : state.filteredPosts.length);
       el.metricComments.textContent = formatNumber(state.filteredComments.length);
       el.metricUsers.textContent = formatNumber(filteredUserIds.size);
       el.metricReactions.textContent = formatNumber(countReactions(state.filteredPosts, state.filteredComments));
@@ -1095,6 +1450,11 @@
     }
 
     function renderCharts() {
+      if (canUseSqliteCharts()) {
+        renderSqliteCharts(state.sqliteCharts);
+        return;
+      }
+
       const byDay = countBy(state.filteredComments, (comment) => formatDay(comment.date));
       const topUsers = Array.from(groupCommentsByUser(state.filteredComments).values())
         .map((user) => ({ label: user.fullName, value: user.comments.length, userId: user.id }))
@@ -1110,11 +1470,46 @@
       renderBarChart(el.commentsByDayChart, Object.entries(byDay).map(([label, value]) => ({ label, value })), el.daysStatus);
       renderBarChart(el.topUsersChart, topUsers, el.usersStatus, (item) => openUserDrawer(item.userId));
       renderBarChart(el.topEmojiChart, topEmoji, el.emojiStatus);
-      renderBarChart(el.topPostsChart, topPosts, el.postsStatus, (item) => {
+      renderBarChart(el.topPostsChart, topPosts, el.postsStatus, async (item) => {
         state.expandedPostId = item.postId;
+        if (state.serverBacked) {
+          await ensureServerPostLoaded(String(item.postId || ''));
+        }
         setTab('posts');
         renderPostsTable();
       });
+      renderActivityHeatmap(state.filteredComments);
+    }
+
+    function canUseSqliteCharts() {
+      return Boolean(state.sqliteCharts && !hasActiveFilters() && state.filteredComments.length === state.comments.length);
+    }
+
+    function hasActiveFilters() {
+      const filters = getFilters();
+      return Boolean(
+        filters.search
+        || filters.userId
+        || filters.username
+        || filters.dateFrom
+        || filters.dateTo
+        || filters.emoji
+        || filters.onlyMedia
+        || filters.onlyReplies
+      );
+    }
+
+    function renderSqliteCharts(charts) {
+      renderBarChart(el.commentsByDayChart, charts.comments_by_day || [], el.daysStatus);
+      renderBarChart(el.topUsersChart, charts.top_users || [], el.usersStatus, (item) => openUserDrawer(String(item.userId || '')));
+      renderBarChart(el.topEmojiChart, charts.top_reactions || [], el.emojiStatus);
+      renderBarChart(el.topPostsChart, charts.top_posts_by_comments || [], el.postsStatus, async (item) => {
+        state.expandedPostId = String(item.postId || '');
+        await ensureServerPostLoaded(String(item.postId || ''));
+        setTab('posts');
+        renderPostsTable();
+      });
+      renderActivityHeatmapMatrix(charts.activity_heatmap || [], totalHeatmapComments(charts.activity_heatmap || []));
     }
 
     function renderBarChart(container, data, statusElement, onClick) {
@@ -1149,11 +1544,88 @@
       }
     }
 
+    function renderActivityHeatmap(comments) {
+      const matrix = buildActivityHeatmap(comments);
+      renderActivityHeatmapMatrix(matrix, comments.length);
+    }
+
+    function renderActivityHeatmapMatrix(matrix, commentsCount) {
+      const normalizedMatrix = normalizeHeatmapMatrix(matrix);
+      const max = normalizedMatrix.reduce((outerMax, row) => Math.max(outerMax, ...row), 0);
+
+      if (!max) {
+        el.activityHeatmap.innerHTML = `<div class="empty">${escapeHtml(t('noData'))}</div>`;
+        el.heatmapStatus.textContent = '0';
+        return;
+      }
+
+      const days = t('weekdayShort');
+      const hourHeaders = Array.from({ length: 24 }, (_, hour) => `<div class="heatmap-hour">${hour}</div>`).join('');
+      const rows = normalizedMatrix.map((row, dayIndex) => `
+        <div class="heatmap-day">${escapeHtml(days[dayIndex] || String(dayIndex + 1))}</div>
+        ${row.map((value, hour) => {
+          const intensity = value / max;
+          const label = `${days[dayIndex] || ''} ${hour}:00 - ${formatNumber(value)}`;
+          return `
+            <div
+              class="heatmap-cell"
+              style="--heat: ${intensity.toFixed(3)}"
+              title="${escapeAttribute(label)}"
+              aria-label="${escapeAttribute(label)}"
+            >${value ? escapeHtml(value) : ''}</div>
+          `;
+        }).join('')}
+      `).join('');
+
+      el.heatmapStatus.textContent = `${formatNumber(commentsCount)} ${t('comments')}`;
+      el.activityHeatmap.innerHTML = `
+        <div class="heatmap-grid">
+          <div class="heatmap-corner">${escapeHtml(t('heatmapHour'))}</div>
+          ${hourHeaders}
+          ${rows}
+        </div>
+      `;
+    }
+
+    function totalHeatmapComments(matrix) {
+      return normalizeHeatmapMatrix(matrix).reduce((total, row) => total + row.reduce((sum, value) => sum + (Number(value) || 0), 0), 0);
+    }
+
+    function normalizeHeatmapMatrix(matrix) {
+      return Array.from({ length: 7 }, (_, dayIndex) => {
+        const row = Array.isArray(matrix[dayIndex]) ? matrix[dayIndex] : [];
+        return Array.from({ length: 24 }, (_item, hour) => Number(row[hour]) || 0);
+      });
+    }
+
+    function buildActivityHeatmap(comments) {
+      const matrix = Array.from({ length: 7 }, () => Array(24).fill(0));
+
+      for (const comment of comments) {
+        const date = new Date(comment.date);
+
+        if (Number.isNaN(date.getTime())) {
+          continue;
+        }
+
+        const dayIndex = (date.getDay() + 6) % 7;
+        const hour = date.getHours();
+        matrix[dayIndex][hour] += 1;
+      }
+
+      return matrix;
+    }
+
     function renderPostsTable() {
       el.tableStatus.classList.remove('error');
-      el.tableStatus.textContent = state.fileName
-        ? `${formatNumber(state.filteredPosts.length)} ${t('posts')}`
-        : t('chooseJson');
+      if (!state.fileName) {
+        el.tableStatus.textContent = t('chooseJson');
+      } else if (state.serverBacked && state.serverPostsMeta) {
+        const shown = Math.min(state.serverPostsMeta.offset + state.filteredPosts.length, state.serverPostsMeta.total);
+        el.tableStatus.textContent = `${formatNumber(shown)} / ${formatNumber(state.serverPostsMeta.total)} ${t('posts')}`;
+      } else {
+        el.tableStatus.textContent = `${formatNumber(state.filteredPosts.length)} ${t('posts')}`;
+      }
 
       if (!state.filteredPosts.length) {
         const emptyMessage = state.fileName ? t('noPostsForFilters') : t('noLoadedData');
@@ -1165,6 +1637,7 @@
         const filteredComments = post.comments.filter((comment) => state.filteredComments.includes(comment));
         const isExpanded = state.expandedPostId === post.id;
         const reactionsCount = sumReactions(post.reactions);
+        const commentsCount = state.serverBacked ? post.commentsCount : filteredComments.length;
 
         return `
           <tr class="post-row ${isExpanded ? 'expanded' : ''}" data-post-id="${escapeAttribute(post.id)}" tabindex="0" aria-expanded="${isExpanded ? 'true' : 'false'}">
@@ -1177,7 +1650,7 @@
             </td>
             <td>${escapeHtml(formatDate(post.date))}</td>
             <td>${formatNumber(post.views || 0)}</td>
-            <td>${formatNumber(filteredComments.length)}</td>
+            <td>${formatNumber(commentsCount)}</td>
             <td>${formatReactionList(post.reactions)}</td>
             <td>${post.hasMedia ? '<span class="pill">media</span>' : '-'}</td>
           </tr>
@@ -1289,9 +1762,50 @@
       togglePostRow(postRow.dataset.postId);
     }
 
-    function togglePostRow(postId) {
-      state.expandedPostId = state.expandedPostId === postId ? null : postId;
+    async function togglePostRow(postId) {
+      const shouldExpand = state.expandedPostId !== postId;
+      state.expandedPostId = shouldExpand ? postId : null;
+
+      if (shouldExpand && state.serverBacked) {
+        await ensureServerPostLoaded(postId);
+      }
+
       renderPostsTable();
+    }
+
+    async function ensureServerPostLoaded(postId) {
+      const current = state.posts.find((post) => post.id === postId);
+      if (current && (current.comments.length || !current.commentsCount)) {
+        return;
+      }
+
+      try {
+        const rawPost = await loadExportPost(state.fileName, postId);
+        const fullPost = normalizePost(rawPost);
+        replacePost(fullPost);
+      } catch (error) {
+        el.tableStatus.textContent = `${t('error')}: ${error.message}`;
+        el.tableStatus.classList.add('error');
+      }
+    }
+
+    function replacePost(fullPost) {
+      const replace = (post) => (post.id === fullPost.id ? fullPost : post);
+      if (state.posts.some((post) => post.id === fullPost.id)) {
+        state.posts = state.posts.map(replace);
+      } else {
+        state.posts = [fullPost, ...state.posts];
+      }
+
+      if (state.filteredPosts.some((post) => post.id === fullPost.id)) {
+        state.filteredPosts = state.filteredPosts.map(replace);
+      } else {
+        state.filteredPosts = [fullPost, ...state.filteredPosts];
+      }
+
+      state.comments = state.posts.flatMap((post) => post.comments);
+      state.filteredComments = state.comments;
+      buildUsers();
     }
 
     function openUserDrawer(userId) {
@@ -1355,6 +1869,7 @@
       el.tabs.forEach((tab) => tab.classList.toggle('active', tab.dataset.tab === tabName));
       el.dashboardView.classList.toggle('active', tabName === 'dashboard');
       el.postsView.classList.toggle('active', tabName === 'posts');
+      el.globalSearchView.classList.toggle('active', tabName === 'globalSearch');
       el.exportView.classList.toggle('active', tabName === 'export');
     }
 
@@ -1408,7 +1923,7 @@
           el.appVersion.textContent = `v${data.version}`;
         }
       } catch (_error) {
-        el.appVersion.textContent = 'v2.3.1';
+        el.appVersion.textContent = 'v3.0.0';
       }
     }
 
@@ -2263,6 +2778,11 @@
       state.filteredComments = [];
       state.users = new Map();
       state.expandedPostId = null;
+      state.sqliteCharts = null;
+      state.serverBacked = false;
+      state.serverSummary = null;
+      state.serverFilteredSummary = null;
+      state.serverPostsMeta = null;
       el.compareStatus.textContent = t('compareChooseDates');
       el.compareResults.innerHTML = '';
       renderAll();

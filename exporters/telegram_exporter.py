@@ -14,6 +14,7 @@ from telethon.utils import get_peer_id
 
 from config import load_export_config, load_postgres_config
 from storage.json_files import backup_problem_file, load_json_dataset, write_json_atomic
+from storage.sqlite_store import get_export_state, sync_export_file, upsert_export_state
 from telegram.messages import (
     UserAnonymizer,
     build_message_link,
@@ -240,33 +241,63 @@ async def download_message_media(client, message, content_dir, prefix):
 
 
 def load_incremental_state(channel):
+    channel_key = get_channel_name(channel)
     state_path = get_incremental_state_path(channel)
+
+    try:
+        state = get_export_state(channel_key)
+        if state:
+            return state
+    except Exception as e:
+        print(f"SQLite export state read failed for {channel_key}: {e}. Falling back to JSON state.")
 
     if not state_path.exists():
         return {}
 
     try:
         with state_path.open("r", encoding="utf-8") as f:
-            return json.load(f)
+            state = json.load(f)
     except json.JSONDecodeError as e:
         backup_path = backup_problem_file(state_path)
         print(f"Cannot read incremental state {state_path}: {e}. Backup saved to {backup_path}. Starting empty state.")
         return {}
 
+    try:
+        upsert_export_state({
+            **state,
+            "channel_key": channel_key,
+            "dataset_file": state.get("dataset_file") or state.get("dataset_path") or str(get_incremental_dataset_path(channel).as_posix()),
+        })
+    except Exception as e:
+        print(f"SQLite export state migration failed for {state_path}: {e}")
 
-def save_incremental_state(channel, export_target, export_data):
+    return state
+
+
+def save_incremental_state(channel, export_target, export_data, last_error=None):
     STATE_DIR.mkdir(parents=True, exist_ok=True)
+    channel_key = get_channel_name(channel)
     state_path = get_incremental_state_path(channel)
     last_post_id = get_last_post_id(export_data)
+    updated_at = datetime.now().isoformat(timespec="seconds")
     payload = {
         "channel": str(channel),
+        "channel_key": channel_key,
         "last_post_id": last_post_id,
         "dataset_path": str(get_incremental_dataset_path(channel).as_posix()),
+        "dataset_file": str(get_incremental_dataset_path(channel).as_posix()),
         "export_format": export_target["format"],
         "export_target": describe_export_target(export_target),
         "lookback_posts": INCREMENTAL_LOOKBACK_POSTS,
-        "updated_at": datetime.now().isoformat(timespec="seconds"),
+        "last_success_at": updated_at if not last_error else None,
+        "last_error": str(last_error) if last_error else None,
+        "updated_at": updated_at,
     }
+
+    try:
+        upsert_export_state(payload)
+    except Exception as e:
+        print(f"SQLite export state update failed for {channel_key}: {e}")
 
     write_json_atomic(payload, state_path)
 
@@ -376,6 +407,22 @@ def ensure_parent_dir(path):
 
 def save_json(export_data, path):
     write_json_atomic(export_data, path, indent=5)
+
+
+def sync_sqlite_export_data(export_data, path, channel):
+    if not path:
+        return
+
+    try:
+        export_path = Path(path)
+        sync_export_file(
+            export_path.name,
+            get_channel_name(channel),
+            export_data,
+            export_path,
+        )
+    except Exception as e:
+        print(f"SQLite index update failed for {path}: {e}")
 
 
 def save_csv(export_data, path, export_run_id):
@@ -523,13 +570,15 @@ def save_postgresql(export_data, export_run_id):
                 )
 
 
-def save_export_data(export_data, export_target):
+def save_export_data(export_data, export_target, channel=None):
     export_format = export_target["format"]
     export_run_id = export_target["run_id"]
     path = export_target["path"]
 
     if export_format == "json":
         save_json(export_data, path)
+        if channel is not None:
+            sync_sqlite_export_data(export_data, path, channel)
     elif export_format == "csv":
         save_csv(export_data, path, export_run_id)
     elif export_format == "parquet":
@@ -540,14 +589,15 @@ def save_export_data(export_data, export_target):
         raise ValueError(f"Unsupported export format: {export_format}")
 
 
-def save_incremental_export_data(export_data, export_target, channel):
+def save_incremental_export_data(export_data, export_target, channel, last_error=None):
     dataset_path = get_incremental_dataset_path(channel)
     save_json(export_data, str(dataset_path))
+    sync_sqlite_export_data(export_data, dataset_path, channel)
 
     if export_target["format"] != "json":
-        save_export_data(export_data, export_target)
+        save_export_data(export_data, export_target, channel)
 
-    save_incremental_state(channel, export_target, export_data)
+    save_incremental_state(channel, export_target, export_data, last_error)
 
 
 def describe_export_target(export_target):
@@ -870,13 +920,13 @@ async def export_channel(client, channel, args, anonymizer):
 
         return collected
 
-    def save_current_export(extra_post=None):
+    def save_current_export(extra_post=None, last_error=None):
         data = current_export_data(extra_post)
 
         if incremental:
-            save_incremental_export_data(data, export_target, channel)
+            save_incremental_export_data(data, export_target, channel, last_error)
         else:
-            save_export_data(data, export_target)
+            save_export_data(data, export_target, channel)
 
     try:
         last_post_id = get_last_post_id(existing_data) or incremental_state.get("last_post_id")
@@ -930,7 +980,7 @@ async def export_channel(client, channel, args, anonymizer):
         error_message = f"FloodWaitError: Telegram requested wait for {e.seconds} seconds"
         print(error_message)
         channel_errors.append(error_message)
-        save_current_export()
+        save_current_export(last_error=error_message)
         print(f"Partial export saved to {describe_export_target(export_target)}")
         await asyncio.sleep(e.seconds)
 
@@ -938,10 +988,10 @@ async def export_channel(client, channel, args, anonymizer):
         error_message = f"Channel {channel} failed: {e}"
         print(error_message)
         channel_errors.append(error_message)
-        save_current_export()
+        save_current_export(last_error=error_message)
         print(f"Partial export saved to {describe_export_target(export_target)}")
 
-    save_current_export()
+    save_current_export(last_error=channel_errors[-1] if channel_errors else None)
     print(f"Done. Saved to {describe_export_target(export_target)}")
     return {
         "channel": str(channel),

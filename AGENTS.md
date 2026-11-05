@@ -12,14 +12,15 @@ Core capabilities:
 - Support one or more channels in `CHANNEL`, separated by commas.
 - Save exports as JSON, CSV, Parquet, or PostgreSQL rows.
 - Support incremental exports with saved state and a configurable old-post lookback window.
-- Run a local Web UI on port `9595`.
+- Maintain a local SQLite index for faster dashboard summaries, period comparisons, and full-text MCP/CLI search.
+- Run a local Web UI on port `9595`, including dashboard charts, activity heatmap, global search, posts, and export controls.
 - Start one-off or scheduled exports from the Web UI; the scheduler runs immediately once, then repeats every configured interval.
 - Analyze exported JSON files through an LLM endpoint using prompt files.
 - Expose local export/analysis tools through an MCP server over stdio.
 
 ## Important Files
 
-- `main.py` - unified CLI entrypoint: `export`, `watch`, `compare`, `analyze`, `dashboard`, `config-check`, `mcp`.
+- `main.py` - unified CLI entrypoint: `export`, `watch`, `compare`, `index`, `search`, `analyze`, `dashboard`, `config-check`, `mcp`.
 - `export_comments.py` - compatibility entrypoint for Telegram export.
 - `exporters/telegram_exporter.py` - Telethon export logic, multi-channel export, incremental merge, retry/error handling.
 - `web/comments_dashboard.html` - Web UI markup.
@@ -31,6 +32,7 @@ Core capabilities:
 - `llm/analyzer.py` - LLM analysis for exported JSON files.
 - `telegram/messages.py` - Telegram link, reaction, user, and anonymization helpers.
 - `storage/json_files.py` - JSON dataset loading, backups, and atomic writes.
+- `storage/sqlite_store.py` - local SQLite schema, export indexing, FTS5/LIKE search, summary, period comparison, post reconstruction, and scheduler history.
 - `analytics/export_summary.py` - export summary metrics.
 - `mcp_server.py` - MCP server tools for config, exports, search, analysis, and controlled export starts.
 - `config.py` - `.env` loader and runtime configuration.
@@ -58,6 +60,8 @@ Ignored runtime paths:
 - `data/scheduler/*`
 
 Keep `.gitkeep` files in runtime folders so the directory structure exists after clone.
+
+`data/state/tg.sqlite` is a derived local SQLite index. It is runtime data, can be rebuilt from JSON exports, and must not be committed.
 
 ## Configuration
 
@@ -95,6 +99,8 @@ docker compose run --rm cli --help
 docker compose run --rm cli config-check
 docker compose run --rm cli export json --incremental
 docker compose run --rm cli export json --incremental --download-media
+docker compose run --rm cli index --file example.json
+docker compose run --rm cli search "telegram" --file example.json
 docker compose run --rm cli compare --from 2026-07-01 --to 2026-08-01 --file example.json
 docker compose run --rm cli analyze example.json --limit 5
 docker compose run --rm cli analyze example.json --limit 5 --language en
@@ -107,6 +113,8 @@ Local Python commands:
 python main.py --help
 python main.py config-check
 python main.py export json --incremental
+python main.py index --file example.json
+python main.py search "telegram" --file example.json
 python main.py analyze example.json --limit 5
 python main.py dashboard
 python main.py mcp
@@ -131,14 +139,16 @@ docker compose build dashboard
 If Python is available:
 
 ```powershell
-python -m py_compile main.py export_comments.py web_server.py llm_analyzer.py mcp_server.py config.py version.py exporters/telegram_exporter.py api/web_server.py llm/analyzer.py telegram/messages.py storage/json_files.py analytics/export_summary.py
+python -m py_compile main.py export_comments.py web_server.py llm_analyzer.py mcp_server.py config.py version.py exporters/telegram_exporter.py api/web_server.py llm/analyzer.py telegram/messages.py storage/json_files.py storage/sqlite_store.py analytics/export_summary.py analytics/period_compare.py
 ```
 
 If local Python is broken, use Docker:
 
 ```powershell
-docker compose run --rm --entrypoint python cli -m py_compile main.py export_comments.py web_server.py llm_analyzer.py mcp_server.py config.py version.py exporters/telegram_exporter.py api/web_server.py llm/analyzer.py telegram/messages.py storage/json_files.py analytics/export_summary.py
+docker compose run --rm --workdir /workspace --entrypoint python cli -m py_compile main.py export_comments.py web_server.py llm_analyzer.py mcp_server.py config.py version.py exporters/telegram_exporter.py api/web_server.py llm/analyzer.py telegram/messages.py storage/json_files.py storage/sqlite_store.py analytics/export_summary.py analytics/period_compare.py
 ```
+
+When validating current workspace changes through Docker without rebuilding the image, use `--workdir /workspace`; `/app` contains the code copied into the image at build time.
 
 For JSON examples and prompts:
 
@@ -208,6 +218,7 @@ Incremental mode uses one dataset/state/content folder per channel:
 
 - `data/raw/<channel>_dataset.json`
 - `data/state/<channel>_state.json`
+- `data/state/tg.sqlite`
 - `data/content/<channel>_dataset/`
 
 Expected behavior:
@@ -218,10 +229,30 @@ Expected behavior:
 - Merge comments by `comment_id`.
 - Refresh post/comment counters and reactions.
 - Reuse already downloaded media when the referenced file still exists.
+- Update the SQLite index after JSON dataset writes. SQLite failures should be logged but should not make an otherwise successful Telegram export fail.
 - Save partial data before long `FloodWaitError` waits and after recoverable failures where possible.
 - Keep channel failures isolated so one failed channel does not stop all subsequent channels.
 
 Do not simplify incremental mode to only `min_id = last_post_id`; old posts can receive new comments, reactions, and counter updates.
+
+## SQLite Index Notes
+
+SQLite is a local derived index, not a replacement for JSON export compatibility.
+
+Expected behavior:
+
+- `python main.py index` indexes all JSON exports from `data/raw`.
+- `python main.py index --file <name>.json` indexes one JSON export from `data/raw` or a direct path.
+- `python main.py search <query>` searches all indexed comments, indexing JSON exports first.
+- `python main.py search <query> --file <name>.json` searches one export.
+- Dashboard summary and period comparison should use SQLite when available, with JSON fallback.
+- MCP search and post tools should use SQLite when available, with JSON fallback where practical.
+- Comment search should use SQLite FTS5 when available, with `LIKE` fallback when FTS5 is unavailable or the FTS query is invalid.
+- Index records are keyed by export file name, so historical exports and `<channel>_dataset.json` stay separate.
+- Preserve the public JSON data shape when reconstructing posts from SQLite.
+- Treat SQLite contents as sensitive runtime data because they can contain exported comments and users.
+
+Do not require PostgreSQL for local dashboard/MCP workflows. PostgreSQL remains an export target for users who need an external database.
 
 ## LLM Analyzer Notes
 
@@ -259,6 +290,7 @@ MCP tools should default to safe local operations:
 - Mask secrets in config tools.
 - Use path validation to prevent traversal outside expected runtime directories.
 - Require `confirm=true` before starting live Telegram exports.
+- Use the local SQLite index for fast search/summary when available, but preserve access only to approved runtime directories.
 - Avoid exposing `.env`, session files, raw private datasets, or media outside explicit read/search tools.
 
 Current MCP tools include:
@@ -267,8 +299,10 @@ Current MCP tools include:
 - `list_exports`
 - `get_export_summary`
 - `search_comments`
+- `search_all_comments`
 - `get_post`
 - `list_analysis_files`
+- `list_analysis_results`
 - `read_analysis`
 - `run_analysis`
 - `start_export`
@@ -286,7 +320,12 @@ Current endpoints:
 - `GET /api/config`
 - `POST /api/config`
 - `GET /api/exports`
+- `GET /api/search`
 - `GET /api/export/<file>/summary`
+- `GET /api/export/<file>/filtered-summary`
+- `GET /api/export/<file>/charts`
+- `GET /api/export/<file>/posts`
+- `GET /api/export/<file>/post/<post_id>`
 - `GET /api/export/<file>/compare`
 - `POST /api/export/start`
 - `GET /api/export/status`
@@ -295,8 +334,13 @@ Current endpoints:
 - `GET /api/scheduler/status`
 - `GET /api/scheduler/history`
 - `GET /api/scheduler/history/<run_id>`
+- `POST /api/scheduler/history/<run_id>/retry`
 - `GET /data/...`
 - `GET /web/...`
+
+`summary` and `compare` should lazily index JSON exports into SQLite and then query SQLite. Keep JSON fallback so old or malformed SQLite indexes do not break dashboard reads.
+
+`/api/search` should search across indexed JSON exports with optional `q`, `channel`, `from`, `to`, `user`, and `limit` query parameters. It should lazily index local JSON exports before searching and keep using SQLite FTS5 with `LIKE` fallback.
 
 Scheduler behavior:
 
@@ -304,7 +348,9 @@ Scheduler behavior:
 - If an export is already running when a scheduled run is due, the scheduled run is skipped and `runs_skipped` is incremented.
 - Scheduler state is in-memory inside the dashboard process; restarting the dashboard stops the scheduler.
 - Scheduler payload reuses the normal export payload fields plus `interval_minutes`.
-- Scheduler run history is persisted as JSON files in `data/scheduler/`.
+- Scheduler run history is persisted in SQLite at `data/state/tg.sqlite`; old JSON files in `data/scheduler/` are read as a migration fallback.
+- `GET /api/scheduler/history` supports `limit`, `offset`, `status`, and `channel`, and returns `pagination` plus aggregate `stats`.
+- Retrying a scheduler run should create a new scheduler history record and start the export with the original channels, format, and export flags.
 
 When adding UI controls, wire them through:
 
