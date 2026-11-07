@@ -1,25 +1,25 @@
 {
   "repository": "TheMyxa/telegram-parser",
-  "collected_at": "2026-11-06T14:28:11.806177+00:00",
+  "collected_at": "2026-11-07T13:22:26.773880+00:00",
   "period": "last_14_days",
   "views": {
-    "count": 438,
-    "uniques": 227
+    "count": 445,
+    "uniques": 230
   },
   "clones": {
-    "count": 227,
-    "uniques": 127
+    "count": 245,
+    "uniques": 141
   },
   "top_referrers": [
     {
       "referrer": "habr.com",
-      "count": 131,
-      "uniques": 103
+      "count": 135,
+      "uniques": 104
     },
     {
       "referrer": "github.com",
-      "count": 13,
-      "uniques": 10
+      "count": 14,
+      "uniques": 11
     },
     {
       "referrer": "yandex.ru",
@@ -51,14 +51,14 @@
     {
       "path": "/TheMyxa/telegram-parser",
       "title": "Overview",
-      "count": 291,
-      "uniques": 220
+      "count": 296,
+      "uniques": 222
     },
     {
       "path": "/TheMyxa/telegram-parser/blob/master/README_ru.md",
       "title": "/blob/master/README_ru.md",
-      "count": 27,
-      "uniques": 22
+      "count": 28,
+      "uniques": 23
     },
     {
       "path": "/TheMyxa/telegram-parser/blob/master/docs/screenshots/dashboard.png",
@@ -73,15 +73,15 @@
       "uniques": 7
     },
     {
+      "path": "/TheMyxa/telegram-parser/releases/tag/2.3.0",
+      "title": "/releases/tag/2.3.0",
+      "count": 7,
+      "uniques": 7
+    },
+    {
       "path": "/TheMyxa/telegram-parser/tree/master",
       "title": "/tree/master",
       "count": 7,
-      "uniques": 6
-    },
-    {
-      "path": "/TheMyxa/telegram-parser/releases/tag/2.3.0",
-      "title": "/releases/tag/2.3.0",
-      "count": 6,
       "uniques": 6
     },
     {
