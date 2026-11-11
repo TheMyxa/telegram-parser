@@ -1,0 +1,62 @@
+[
+  {
+    "path": "/TheMyxa/telegram-parser",
+    "title": "Overview",
+    "count": 147,
+    "uniques": 113
+  },
+  {
+    "path": "/TheMyxa/telegram-parser/blob/master/README_ru.md",
+    "title": "/blob/master/README_ru.md",
+    "count": 9,
+    "uniques": 6
+  },
+  {
+    "path": "/TheMyxa/telegram-parser/graphs/traffic",
+    "title": "/graphs/traffic",
+    "count": 4,
+    "uniques": 1
+  },
+  {
+    "path": "/TheMyxa/telegram-parser/pulse",
+    "title": "/pulse",
+    "count": 4,
+    "uniques": 1
+  },
+  {
+    "path": "/TheMyxa/telegram-parser/blob/master/docs/screenshots/export.png",
+    "title": "/blob/master/docs/screenshots/export.png",
+    "count": 2,
+    "uniques": 2
+  },
+  {
+    "path": "/TheMyxa/telegram-parser/blob/master/README_cn.md",
+    "title": "/blob/master/README_cn.md",
+    "count": 2,
+    "uniques": 1
+  },
+  {
+    "path": "/TheMyxa/telegram-parser/blob/star-history/assets/star-history-dark.svg",
+    "title": "/blob/star-history/assets/star-history-dark.svg",
+    "count": 2,
+    "uniques": 1
+  },
+  {
+    "path": "/TheMyxa/telegram-parser/tree/star-history/assets",
+    "title": "/tree/star-history/assets",
+    "count": 2,
+    "uniques": 1
+  },
+  {
+    "path": "/TheMyxa/telegram-parser/blob/master/Dockerfile",
+    "title": "/blob/master/Dockerfile",
+    "count": 1,
+    "uniques": 1
+  },
+  {
+    "path": "/TheMyxa/telegram-parser/blob/master/docs/screenshots/dashboard.png",
+    "title": "/blob/master/docs/screenshots/dashboard.png",
+    "count": 1,
+    "uniques": 1
+  }
+]

@@ -1,30 +1,25 @@
 {
   "repository": "TheMyxa/telegram-parser",
-  "collected_at": "2026-11-10T15:05:45.192626+00:00",
+  "collected_at": "2026-11-11T14:36:49.425856+00:00",
   "period": "last_14_days",
   "views": {
-    "count": 203,
-    "uniques": 127
+    "count": 180,
+    "uniques": 117
   },
   "clones": {
-    "count": 217,
-    "uniques": 120
+    "count": 225,
+    "uniques": 121
   },
   "top_referrers": [
     {
       "referrer": "habr.com",
-      "count": 42,
-      "uniques": 26
+      "count": 26,
+      "uniques": 13
     },
     {
       "referrer": "github.com",
-      "count": 8,
+      "count": 7,
       "uniques": 6
-    },
-    {
-      "referrer": "yandex.ru",
-      "count": 2,
-      "uniques": 2
     },
     {
       "referrer": "Bing",
@@ -40,20 +35,25 @@
       "referrer": "Google",
       "count": 1,
       "uniques": 1
+    },
+    {
+      "referrer": "yandex.ru",
+      "count": 1,
+      "uniques": 1
     }
   ],
   "popular_paths": [
     {
       "path": "/TheMyxa/telegram-parser",
       "title": "Overview",
-      "count": 163,
-      "uniques": 123
+      "count": 147,
+      "uniques": 113
     },
     {
       "path": "/TheMyxa/telegram-parser/blob/master/README_ru.md",
       "title": "/blob/master/README_ru.md",
-      "count": 13,
-      "uniques": 8
+      "count": 9,
+      "uniques": 6
     },
     {
       "path": "/TheMyxa/telegram-parser/graphs/traffic",
@@ -68,22 +68,16 @@
       "uniques": 1
     },
     {
-      "path": "/TheMyxa/telegram-parser/blob/master/docs/screenshots/dashboard.png",
-      "title": "/blob/master/docs/screenshots/dashboard.png",
-      "count": 2,
-      "uniques": 2
-    },
-    {
       "path": "/TheMyxa/telegram-parser/blob/master/docs/screenshots/export.png",
       "title": "/blob/master/docs/screenshots/export.png",
       "count": 2,
       "uniques": 2
     },
     {
-      "path": "/TheMyxa/telegram-parser/releases/tag/2.3.0",
-      "title": "/releases/tag/2.3.0",
+      "path": "/TheMyxa/telegram-parser/blob/master/README_cn.md",
+      "title": "/blob/master/README_cn.md",
       "count": 2,
-      "uniques": 2
+      "uniques": 1
     },
     {
       "path": "/TheMyxa/telegram-parser/blob/star-history/assets/star-history-dark.svg",
@@ -100,6 +94,12 @@
     {
       "path": "/TheMyxa/telegram-parser/blob/master/Dockerfile",
       "title": "/blob/master/Dockerfile",
+      "count": 1,
+      "uniques": 1
+    },
+    {
+      "path": "/TheMyxa/telegram-parser/blob/master/docs/screenshots/dashboard.png",
+      "title": "/blob/master/docs/screenshots/dashboard.png",
       "count": 1,
       "uniques": 1
     }
