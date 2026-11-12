@@ -2,55 +2,48 @@
 
 [English](README.md) | [Русский](README_ru.md)
 
-TG 是一个本地优先的 Telegram 评论导出和分析工具。它可以导出频道帖子、讨论区评论、反应、链接、可选媒体文件，并支持增量更新已有 dataset。
+TG 是本地优先的 Telegram 评论导出与分析工具，支持增量更新、Watch、定时任务、LLM 分析和 MCP 服务器。
 
-当前版本：`2.1.0`。
+当前版本: `3.0.1`.
 
 ## 功能
 
-- 使用 Telethon 导出 Telegram 频道帖子和评论。
-- `CHANNEL` 支持用逗号配置多个频道。
-- 导出格式：`JSON`、`CSV`、`Parquet`、`PostgreSQL`。
-- 真正的增量导出：导出新帖子，同时回看一部分旧帖子，刷新评论、反应和计数器。
-- 可选下载媒体到 `data/content/<dataset_name>/`。
-- 可选匿名化 `user_id`、`username`、`first_name`、`last_name`。
-- Web UI 运行在 `9595` 端口，包含 dashboard、活动热力图、全局搜索、帖子列表、评论树、过滤器、用户详情、导出启动页、Scheduler mode 和 Watch mode。
-- 可直接从 dashboard 打开 `data/raw` 中的本地 JSON 导出，并按日期或频道排序。
-- 使用本地 SQLite 索引 `data/state/tg.sqlite` 加速 summary、周期对比以及 MCP/CLI 全文搜索。
-- 支持对导出的 JSON 文件进行 LLM 分析，内置中文、英文、俄文 prompt 文件。
-- 可通过 `tg compare` 对比两个周期的评论、用户和反应。
-- MCP 服务器，用于让 AI 客户端通过标准工具接口读取本地导出和启动分析。
-- Docker Compose 本地启动。
+- 从一个或多个频道导出帖子、讨论区评论、反应、链接和可选媒体。
+- 支持 JSON、CSV、Parquet、PostgreSQL，保留普通帖子数组 JSON 的兼容性。
+- 增量导出会回看旧帖子，并复用已下载的媒体。
+- Watch 合并事件，仅更新 SQLite 中变化的帖子。
+- 图表、活动热力图、周期对比、评论树、用户详情和全局搜索。
+- 在浏览器启动单次导出、Scheduler 或 Watch。
+- 稳定可读的用户别名，可通过私有映射恢复身份字段。
+- ru/en/zh 提示词驱动的 LLM 分析，以及 MCP 本地自动化。
 
 ## 快速启动
 
+安装 Docker Desktop 并启动 dashboard：
+
 ```powershell
-docker compose up --build
+docker compose up --build dashboard
 ```
 
-打开：
+打开 **http://localhost:9595**。首次启动若没有 `.env`，Compose 会从 `.env.example` 创建。请在 Export 页填写 Telegram 设置。首次 Telegram 登录应使用交互式 CLI 导出并按提示操作；后续运行复用 `sessions/`。
 
-```text
-http://localhost:9595
-```
+无需凭据即可用文件选择按钮上传 [examples/example.json](examples/example.json)。如需全局搜索和服务器视图，请将该合成示例复制到 `data/raw/`，作为本地导出打开。单纯浏览器上传不会在服务器持久化或索引文件。
+
+## 截图
+
+版本 3.0.1 的真实界面截图，仅使用合成示例：3 个帖子、7 条评论。[重新生成截图](docs/screenshots.md)。
+
+![Dashboard 与活动热力图](docs/screenshots/dashboard.png)
+
+| 帖子与评论树 | 全局评论搜索 |
+| --- | --- |
+| ![帖子与评论树](docs/screenshots/posts.png) | ![全局评论搜索](docs/screenshots/search.png) |
+
+![Export、Scheduler 和 Watch 控制](docs/screenshots/export.png)
 
 ## 配置
 
-Docker 会在首次启动时从 `.env.example` 创建 `.env`，所以新用户只需要一条命令：
-
-```powershell
-docker compose up --build
-```
-
-然后打开 `http://localhost:9595`，在 Export 页面填写 Telegram 配置。
-
-如果你想先手动编辑文件，也可以自己创建 `.env`：
-
-```powershell
-Copy-Item .env.example .env
-```
-
-示例：
+手动配置时将 `.env.example` 复制为 `.env`。完整安全模板：[.env.example](.env.example)。
 
 ```env
 API_ID=123456
@@ -63,187 +56,114 @@ INCREMENTAL_LOOKBACK_POSTS=50
 POSTS_PAUSE_SECONDS=30
 POSTS_PAUSE_AFTER_POSTS=500
 
+# Required only for LLM analysis
+LLM_ENDPOINT=http://host.docker.internal:1234/v1/chat/completions
+LLM_MODEL=local-model
+
+# Required only for PostgreSQL export
 POSTGRES_HOST=host.docker.internal
 POSTGRES_PORT=5432
 POSTGRES_DB=telegram_parser
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=your_postgres_password_here
 POSTGRES_TABLE=telegram_comments_export
-
-LLM_ENDPOINT=http://localhost:1234/v1/chat/completions
-LLM_MODEL=local-model
 ```
 
-重要配置：
+`export` 和 `watch` 需要 `API_ID`、`API_HASH`、`CHANNEL`。只有 `analyze` 需要 `LLM_ENDPOINT`/`LLM_MODEL`；PostgreSQL 设置仅用于该导出目标。`CHANNEL` 接受逗号分隔的名称或链接。`OUTPUT_FILE` 决定输出目录；`POST_LIMIT` 限制新/最近帖子，`INCREMENTAL_LOOKBACK_POSTS` 指定回看旧帖数。暂停设置控制 Telegram 请求节奏。在 Docker 内 `localhost` 指容器；Docker Desktop 主机上的 LLM/PostgreSQL 应使用 `host.docker.internal`。项目挂载在 `/workspace`，配置来自 `/workspace/.env`，运行数据和会话挂载在 `/app` 下。
 
-- `API_ID`、`API_HASH`：Telegram API 凭据。
-- `CHANNEL`：一个或多个频道，用逗号分隔，例如 `durov,telegram`。
-- `TELEGRAM_SESSION`：Telethon session 文件路径，通常放在 `sessions/` 内。
-- `POST_LIMIT`：每次运行扫描的新帖子/latest 帖子数量。
-- `INCREMENTAL_LOOKBACK_POSTS`：增量模式下，在 `last_post_id` 及更旧范围内回看多少个已经导出的旧帖子。
-- `POSTS_PAUSE_SECONDS`：暂停秒数。
-- `POSTS_PAUSE_AFTER_POSTS`：每处理 N 个帖子后暂停。
-- `LLM_ENDPOINT`、`LLM_MODEL`：用于 `analyze` 命令。
-
-配置会按命令验证：`export` 需要 Telegram 配置，`analyze` 需要 LLM 配置，PostgreSQL 配置只在 `postgresql` 导出时加载。
-
-## CLI
+## CLI 命令
 
 ```powershell
 docker compose run --rm cli --help
 docker compose run --rm cli config-check
 docker compose run --rm cli export json --incremental
-docker compose run --rm cli watch --poll-interval 30 --refresh-active-posts 20
-docker compose run --rm cli index --file durov_dataset.json
-docker compose run --rm cli search "telegram" --file durov_dataset.json
-docker compose run --rm cli compare --from 2026-07-01 --to 2026-08-01 --file durov_dataset.json
-docker compose run --rm cli export json --incremental --download-media
-docker compose run --rm cli analyze example.json --limit 5
-```
-
-### 增量导出
-
-```powershell
-docker compose run --rm cli export json --incremental
-```
-
-增量模式会更新：
-
-```text
-data/raw/<channel>_dataset.json
-data/state/<channel>_state.json
-data/state/tg.sqlite
-```
-
-增量导出状态保存在 SQLite 表 `export_states` 中；每个频道的 JSON state 文件仍保留为兼容 fallback 和迁移来源。
-
-导出器会扫描比已保存 `last_post_id` 更新的帖子，并额外回看 `last_post_id` 及更旧范围内的 `INCREMENTAL_LOOKBACK_POSTS` 个旧帖子。这样旧帖子中新增加的评论、反应和计数器也会被刷新。
-
-JSON 导出也会索引到本地 SQLite 数据库 `data/state/tg.sqlite`。这是 runtime 文件，可以从 JSON 导出重新生成。
-
-### SQLite 索引
-
-不运行 Telegram 导出，也可以构建或刷新本地 SQLite 索引：
-
-```powershell
-docker compose run --rm cli index
-docker compose run --rm cli index --file durov_dataset.json
-```
-
-Dashboard 和 MCP 服务器在需要 summary、compare 或搜索时也会按需索引 JSON。
-
-### 索引搜索
-
-搜索单个导出：
-
-```powershell
-docker compose run --rm cli search "telegram" --file durov_dataset.json
-```
-
-搜索 `data/raw` 中的全部 JSON 导出：
-
-```powershell
-docker compose run --rm cli search "telegram" --limit 50
-```
-
-搜索会优先使用 SQLite FTS5；如果 FTS5 不可用，或者 FTS 查询语法无效，会自动回退到普通 `LIKE` 匹配。
-
-### LLM 分析
-
-```powershell
-docker compose run --rm cli analyze durov_dataset.json --limit 10
-```
-
-选择 prompt 语言：
-
-```powershell
-docker compose run --rm cli analyze durov_dataset.json --limit 10 --language en
-docker compose run --rm cli analyze durov_dataset.json --limit 10 --language zh
-```
-
-内置 prompt 文件：
-
-- `prompts/llm_ru.json`
-- `prompts/llm_en.json`
-- `prompts/llm_zh.json`
-
-也可以传入自定义 prompt 文件：
-
-```powershell
-docker compose run --rm cli analyze durov_dataset.json --prompt-file prompts/llm_zh.json
-```
-
-Prompt 文件必须是 JSON 对象，包含 `system` 和 `user_template` 字段；`user_template` 必须包含 `{data}` placeholder。
-
-## MCP 服务器
-
-通过 stdio 启动 MCP 服务器：
-
-```powershell
+docker compose run --rm cli export json --incremental --download-media --anonymize
+docker compose run --rm cli export csv
+docker compose run --rm cli export parquet
+docker compose run --rm cli export postgresql
+docker compose run --rm cli watch --poll-interval 30 --refresh-active-posts 20 --anonymize
+docker compose run --rm cli index --file examples/example.json
+docker compose run --rm cli search "incremental" --file examples/example.json
+docker compose run --rm cli compare --from 2026-07-01 --to 2026-08-01 --file examples/example.json
+docker compose run --rm cli analyze examples/example.json --limit 3 --language en
 docker compose run --rm -i cli mcp
 ```
 
-本地 Python：
+安装 `requirements.txt` 后可在本地使用 `python main.py <command>`。帮助中的 `tg` 是解析器名称，并非已安装的可执行命令。Windows Python 别名失效时请用 Docker。`config-check` 同时检查 Telegram、LLM 和 PostgreSQL，因此未使用的可选服务也可能导致完整检查失败。
+
+## 增量导出、Watch 和 Scheduler
+
+增量存档为 `data/raw/<channel>_dataset.json`，频道状态保存在 JSON 和派生 SQLite 索引 `data/state/tg.sqlite`。新帖子和配置范围内的旧帖子按 `post_id` 合并，评论按 `comment_id` 合并。
+
+Watch 收集一秒内的事件，对待处理帖子去重，每批每频道最多处理 20 个帖子。每批读取一次 JSON，仅有变化时原子重写一次；SQLite 仅更新变化的帖子、评论、反应和 FTS 记录。索引缺失或过期时完整重建。FloodWait 或任务取消时会保存已获取的变化。每次保存仍会重写完整 JSON 文件。
+
+Scheduler 首次立即运行，之后每隔 `interval_minutes` 重复。已有导出运行时跳过本次任务。调度状态保存在内存，重启 dashboard 会停止调度；历史存入 SQLite，旧 `data/scheduler/` JSON 记录按需导入。Watch 是独立长期进程。避免同时写同一存档或并发使用同一会话。
+
+## 可逆用户别名
+
+默认 `--anonymize` 规则位于 [anonymization_rules.json](anonymization_rules.json)，由形容词与动物名组成，例如 «Зелёный слон»。Export/Watch 重启后别名保持稳定；组合耗尽时追加编号。默认按频道隔离，新映射可选择 `project` 范围。`--anonymizer-file` 接受 JSON 规则或旧文本名字列表。
 
 ```powershell
-python main.py mcp
+docker compose run --rm cli anonymize --file examples/example.json --channel demo --output data/raw/demo_anonymous.json
+docker compose run --rm cli deanonymize --file data/raw/demo_anonymous.json --channel demo --map data/private/anonymization_map.json --output data/raw/demo_restored.json
 ```
 
-可用 tools：
+两条转换命令都创建新文件并拒绝覆盖。`--channel` 必须与原频道一致。`data/private/anonymization_map.json` 以**未加密 JSON** 保存原身份，请保护并单独备份。映射不进入 Git、Docker 镜像，也不能通过 HTTP/MCP 读取。文本、链接和媒体保持不变。旧内存别名通常无法恢复。不兼容的身份模式会阻止增量更新。[规则、恢复与迁移](docs/anonymization.md)。
 
-- `get_config_safe`：读取非敏感配置，敏感值会被遮蔽。
-- `list_exports`、`get_export_summary`、`get_post`、`search_comments`、`search_all_comments`：读取和搜索 `data/raw` 中的 JSON 导出。搜索会优先使用 SQLite FTS5，并带有 `LIKE` fallback。
-- `list_analysis_files`、`list_analysis_results`、`read_analysis`、`run_analysis`：处理 LLM 分析文件。分析元数据会索引到 SQLite，便于快速列出和查看错误。
-- `start_export`、`get_export_process_status`：启动和监控 Telegram 导出。`start_export` 需要 `confirm=true`。
+## LLM 分析与 MCP
 
-## Dashboard 本地导出
+提示词位于 `prompts/llm_ru.json`、`llm_en.json`、`llm_zh.json`。`--prompt-file` 优先于 `--language`；JSON 需含 `system` 和带 `{data}` 的 `user_template`。分析逐步写入 `data/analysis/analysis_<source>.json`，SQLite 保存分析元数据和缓存。
 
-Dashboard 可以直接打开 `data/raw` 中的本地 JSON 导出，无需手动上传文件。
+**已知限制：** 当前 `build_post_prompt_payload()` 没有返回已构造的数据。依赖 LLM 结果或内容缓存失效机制前，请先检查/修复该函数。[实现限制](docs/architecture.md#known-limitations)。
 
-Scheduler mode 可以每 N 分钟自动更新选中的频道。第一次导出会立即开始；如果到达下一次间隔时上一次导出仍在运行，本次运行会被跳过。
+MCP 使用 stdio 和交互式 stdin（`-i`）。工具包括 `get_config_safe`、`list_exports`、`get_export_summary`、`search_comments`、`search_all_comments`、`get_post`、`list_analysis_files`、`list_analysis_results`、`read_analysis`、`run_analysis`、`start_export`、`get_export_process_status`。实时导出要求 `confirm=true`。没有恢复身份的 MCP 工具。
 
-Watch mode 独立于 Scheduler。它是一个长期运行的进程，会保持 Telethon session，监听新帖子和 discussion 活动，并只更新 `data/raw/<channel>_dataset.json` 中发生变化的帖子。周期刷新用于补充计数器、反应、嵌套回复和可能漏掉的事件。
+## 错误与恢复
 
-API:
+预期 HTTP 应用错误除 `ok`/`error` 外包含 `error_code`：进程冲突 409、损坏数据 422、索引不可用 503、进程启动失败 500。CLI 预期错误返回 2 且无 traceback，意外错误记录 traceback 并返回 1。无效 JSON 会停止处理；导出加载器保存备份而不返回空存档。重试前请修复或恢复文件。SQLite 不可用时 summary/compare 保留 JSON fallback，编程错误不会静默触发 fallback。[错误参考](docs/errors.md)。
 
-- `GET /api/version`：返回当前应用版本。
-- `GET /api/exports?sort=date|channel`：列出 `data/raw` 中的 JSON 导出；可用时包含 SQLite 索引统计。
-- `GET /api/search?q=text&channel=name&from=YYYY-MM-DD&to=YYYY-MM-DD&user=username&limit=50`：在全部本地 JSON 导出的索引评论中搜索。
-- `GET /api/export/<file>/summary`：返回一个 JSON 导出的计数和元数据。
-- `GET /api/export/<file>/filtered-summary?q=text&user=username&from=YYYY-MM-DD&to=YYYY-MM-DD&emoji=👍&media=1&replies=1`：返回筛选后 dashboard 视图的 SQLite 计数。
-- `GET /api/export/<file>/charts`：返回单个 JSON 导出的 SQLite dashboard 图表聚合。
-- `GET /api/export/<file>/posts?limit=100&offset=0&q=text&user=username&from=YYYY-MM-DD&to=YYYY-MM-DD&emoji=👍&media=1&replies=1`：从 SQLite 返回 dashboard 表格的帖子行。
-- `GET /api/export/<file>/post/<post_id>`：从 SQLite 返回一个重建后的帖子及其评论。
-- `GET /api/export/<file>/compare?from=YYYY-MM-DD&to=YYYY-MM-DD`：对比两个周期的评论、用户和反应。
-- `GET /api/scheduler/status`：返回当前 scheduler 状态。
-- `GET /api/scheduler/history?limit=50&offset=0&status=FAILED&channel=durov`：从 SQLite 列出已保存的 scheduler 运行记录，支持分页、过滤和统计。
-- `GET /api/scheduler/history/<run_id>`：返回一个 scheduler 运行详情。
-- `POST /api/scheduler/history/<run_id>/retry`：用相同频道、格式和导出标志重试一个已保存的 scheduler run。
-- `POST /api/scheduler/start`：使用 `channel`、`interval_minutes`、格式和导出标志启动定时导出。
-- `POST /api/scheduler/stop`：停止 scheduler。
-- `GET /api/watch/status`：返回当前 Watch mode 状态。
-- `POST /api/watch/start`：使用 `channel`、`poll_interval`、`refresh_active_posts` 和导出标志启动 Watch mode。
-- `POST /api/watch/stop`：停止 Watch mode。
+## 本地数据与访问
 
-Scheduler 历史保存在本地 SQLite 索引 `data/state/tg.sqlite` 中。旧的 `data/scheduler/` JSON 记录会在读取历史时按需导入。每次运行都有自己的状态：`QUEUED`、`RUNNING`、`SUCCESS`、`PARTIAL`、`FAILED`、`SKIPPED` 或 `CANCELLED`，并保存频道结果、结构化错误和最近日志。
+不要提交 `.env`、会话、私有映射、导出、媒体、分析、SQLite 状态或调度历史。保留运行目录的 `.gitkeep`。Dashboard 当前没有认证，Compose 默认在主机全部接口发布 9595 端口；请在可信本地网络使用，或绑定 `127.0.0.1:9595:9595`。`/api/config` 可读写敏感设置。`/data/` 仅提供 `raw`、`content`、`analysis`，不提供 `private`、`state`、`scheduler`。
 
-## Demo JSON
+## 项目结构与开发检查
 
-无需连接 Telegram，也可以使用 demo 文件测试 dashboard：
+```text
+main.py                        CLI entrypoint
+api/                           HTTP routes and error boundary
+services/                      Configuration, export queries, processes, scheduler
+exporters/                     Telegram export and Watch batching
+storage/                       JSON files, SQLite index, history and LLM cache
+telegram/                      Message helpers and reversible pseudonyms
+analytics/                     Summaries and period comparison
+llm/                           LLM analysis
+web/                           HTML, CSS and JavaScript dashboard
+mcp_server.py                  MCP tools over stdio
+errors.py                      Expected application errors
+version.py                     Application version
+anonymization_rules.json       Public pseudonym naming rules
+anonymizer                     Legacy text list of names
+prompts/                       ru / en / zh prompts
+examples/example.json          Synthetic demonstration dataset
+tests/                         Offline regression tests
+docs/                          Architecture, API, errors, pseudonyms, screenshots
+data/raw/                      JSON and other exported files
+data/content/                  Downloaded media
+data/analysis/                 LLM output
+data/state/                    SQLite index and per-channel state
+data/scheduler/                Legacy JSON scheduler history
+data/private/                  Private identity map (never publish)
+sessions/                      Telegram sessions (never publish)
+```
 
-- [examples/example.json](examples/example.json)
+[架构](docs/architecture.md) · [HTTP API](docs/api.md) · [用户别名](docs/anonymization.md) · [错误](docs/errors.md) · [截图流程](docs/screenshots.md) · [代理说明](AGENTS.md)
 
-## 数据与安全
+不重建镜像而检查当前工作区时使用 `/workspace`；`/app` 是构建时的代码快照。以下检查不访问 Telegram。依赖或镜像内容变化后请重建 dashboard。
 
-不要提交 runtime 数据：
-
-- `.env`
-- `sessions/`
-- `data/raw/*`
-- `data/content/*`
-- `data/analysis/*`
-- `data/state/*`
-
-Per-post LLM cache 保存在 SQLite 表 `analysis_cache` 中，键为 `source_file`, `post_id`, `post_hash`, `prompt_hash`, `model`；重新分析时会跳过未变化且已有 successful cached result 的帖子。
-
-密钥、Telegram session、真实评论和下载的媒体文件应只保存在本地。
+```powershell
+docker compose config --quiet
+docker compose run --rm --workdir /workspace --entrypoint python cli docs/check_docs.py
+docker compose run --rm --workdir /workspace --entrypoint python cli -m unittest discover -s tests -v
+docker compose run --rm --workdir /workspace --entrypoint python cli -m compileall -q errors.py main.py mcp_server.py api services exporters storage telegram analytics llm tests
+docker compose build dashboard
+```

@@ -3,6 +3,7 @@ import os
 import shutil
 from datetime import datetime
 from pathlib import Path
+from errors import DatasetCorruptedError
 
 
 def backup_problem_file(path):
@@ -21,13 +22,14 @@ def load_json_dataset(path):
     try:
         with dataset_path.open("r", encoding="utf-8") as f:
             data = json.load(f)
-    except json.JSONDecodeError as e:
+    except (json.JSONDecodeError, UnicodeError) as e:
         backup_path = backup_problem_file(dataset_path)
-        print(f"Cannot read JSON dataset {dataset_path}: {e}. Backup saved to {backup_path}. Starting empty dataset.")
-        return []
+        raise DatasetCorruptedError(
+            f"Invalid JSON dataset; backup saved as {backup_path.name}"
+        ) from e
 
     if not isinstance(data, list):
-        raise ValueError(f"Dataset must contain a JSON list: {dataset_path}")
+        raise DatasetCorruptedError("Dataset must contain a JSON list")
 
     return data
 

@@ -1,5 +1,7 @@
 import re
 
+from telegram.anonymization import UserAnonymizer
+
 
 def get_channel_name(channel):
     channel_name = str(channel).rstrip("/").split("/")[-1].lstrip("@")
@@ -47,65 +49,7 @@ def extract_reactions(message):
     return result
 
 
-class UserAnonymizer:
-    def __init__(self, path):
-        self.aliases = self.load_aliases(path)
-        self.mapping = {}
-
-    @staticmethod
-    def load_aliases(path):
-        from pathlib import Path
-
-        alias_path = Path(path)
-
-        if not alias_path.exists():
-            raise FileNotFoundError(f"Anonymizer file not found: {path}")
-
-        aliases = [
-            line.strip()
-            for line in alias_path.read_text(encoding="utf-8").splitlines()
-            if line.strip() and not line.strip().startswith("#")
-        ]
-
-        if not aliases:
-            raise ValueError(f"Anonymizer file is empty: {path}")
-
-        return aliases
-
-    def get_alias(self, user_id):
-        key = str(user_id)
-
-        if key not in self.mapping:
-            index = len(self.mapping)
-            base_alias = self.aliases[index % len(self.aliases)]
-            suffix = "" if index < len(self.aliases) else f"_{index + 1}"
-            alias = f"{base_alias}{suffix}"
-
-            self.mapping[key] = {
-                "user_id": index + 1,
-                "username": f"user_{index + 1}",
-                "first_name": alias,
-                "last_name": None,
-            }
-
-        return self.mapping[key]
-
-    def anonymize_user(self, user_data):
-        if not user_data:
-            return None
-
-        alias = self.get_alias(user_data["user_id"])
-
-        return {
-            **user_data,
-            "user_id": alias["user_id"],
-            "username": alias["username"],
-            "first_name": alias["first_name"],
-            "last_name": alias["last_name"],
-        }
-
-
-def user_to_dict(user, anonymizer=None):
+def user_to_dict(user, anonymizer=None, channel=None):
     if not user:
         return None
 
@@ -119,6 +63,6 @@ def user_to_dict(user, anonymizer=None):
     }
 
     if anonymizer:
-        return anonymizer.anonymize_user(user_data)
+        return anonymizer.anonymize_user(user_data, channel)
 
     return user_data

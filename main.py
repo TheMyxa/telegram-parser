@@ -1,3 +1,5 @@
+import logging
+from errors import ApplicationError, IndexUnavailableError
 import argparse
 import asyncio
 import json
@@ -14,6 +16,17 @@ def build_parser():
         description="TG comments exporter, analyzer and dashboard.",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
+
+    for operation in ("anonymize", "deanonymize"):
+        identity_parser = subparsers.add_parser(operation, help=f"{operation.capitalize()} a local JSON export into a new file.")
+        identity_parser.add_argument("--file", required=True)
+        identity_parser.add_argument("--channel", required=True, help="Original channel name used by Export/Watch.")
+        identity_parser.add_argument("--output", default=None, help="New file; existing files are never overwritten.")
+        if operation == "anonymize":
+            identity_parser.add_argument("--rules", default="anonymization_rules.json")
+        else:
+            identity_parser.add_argument("--map", default="data/private/anonymization_map.json")
+        identity_parser.set_defaults(handler=run_identity_transform)
 
     export_parser = subparsers.add_parser(
         "export",
@@ -44,8 +57,8 @@ def build_parser():
     )
     export_parser.add_argument(
         "--anonymizer-file",
-        default="anonymizer",
-        help="Text file with anonymized names, one alias per line. Default: anonymizer.",
+        default="anonymization_rules.json",
+        help="JSON naming rules or legacy text aliases. Default: anonymization_rules.json.",
     )
     export_parser.add_argument(
         "--incremental",
@@ -153,8 +166,8 @@ def build_parser():
     )
     watch_parser.add_argument(
         "--anonymizer-file",
-        default="anonymizer",
-        help="Text file with anonymized names, one alias per line. Default: anonymizer.",
+        default="anonymization_rules.json",
+        help="JSON naming rules or legacy text aliases. Default: anonymization_rules.json.",
     )
     watch_parser.add_argument(
         "--poll-interval",
@@ -185,6 +198,30 @@ def build_parser():
     mcp_parser.set_defaults(handler=run_mcp)
 
     return parser
+
+
+def run_identity_transform(args):
+    from services.exports import load_posts
+    from storage.json_files import write_json_atomic
+    from telegram.anonymization import MAP_PATH, transform_dataset
+
+    source = Path(args.file)
+    if not source.is_file():
+        source = Path("data/raw") / args.file
+    output = Path(args.output) if args.output else source.with_name(f"{source.stem}_{args.command}.json")
+    if output.exists() or output.resolve() == source.resolve():
+        raise ValueError("Output must be a new file")
+    data = transform_dataset(load_posts(source), getattr(args, "map", MAP_PATH), args.channel, rules=getattr(args, "rules", None))
+    # Reserve the output name so a concurrent conversion cannot overwrite it.
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with output.open("x", encoding="utf-8"):
+        pass
+    try:
+        write_json_atomic(data, output)
+    except BaseException:
+        output.unlink(missing_ok=True)
+        raise
+    print(f"Created {output}")
 
 
 def run_export(args):
@@ -232,7 +269,7 @@ def run_compare(args):
     try:
         index_paths([path])
         result = compare_periods_sqlite(path.name, args.from_date, args.to_date)
-    except Exception as e:
+    except IndexUnavailableError as e:
         print(f"SQLite compare failed for {path}: {e}", file=sys.stderr)
 
     if result is None:
@@ -265,23 +302,9 @@ def run_index(args):
 
 
 def index_paths(paths):
-    from analytics.export_summary import extract_channel_from_export_name
-    from storage.json_files import load_json_dataset
-    from storage.sqlite_store import sync_export_file
+    from services.exports import index_paths as index_export_paths
 
-    indexed = []
-
-    for path in paths:
-        posts = load_json_dataset(path)
-        sync_export_file(
-            path.name,
-            extract_channel_from_export_name(path.name),
-            posts,
-            path,
-        )
-        indexed.append(str(path))
-
-    return indexed
+    return index_export_paths(paths)
 
 
 def run_search(args):
@@ -368,8 +391,20 @@ def main(argv=None):
     args.handler(args)
 
 
-if __name__ == "__main__":
+def run_cli(argv=None):
+    """Keep expected errors concise; record tracebacks for unexpected failures."""
     try:
-        main()
+        main(argv)
+        return 0
     except KeyboardInterrupt:
-        sys.exit(130)
+        return 130
+    except (ApplicationError, ValueError, OSError) as error:
+        print(f"{getattr(error, 'code', 'invalid_input')}: {error}", file=sys.stderr)
+        return 2
+    except Exception:
+        logging.getLogger(__name__).exception("Unexpected CLI failure")
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(run_cli())

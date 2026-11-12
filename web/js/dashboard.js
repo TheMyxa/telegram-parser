@@ -1923,7 +1923,7 @@
           el.appVersion.textContent = `v${data.version}`;
         }
       } catch (_error) {
-        el.appVersion.textContent = 'v3.0.0';
+        el.appVersion.textContent = 'v3.0.1';
       }
     }
 

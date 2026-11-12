@@ -1,135 +1,55 @@
+"""Dashboard HTTP routing and static file responses."""
+from errors import ApplicationError
+from api.error_handling import http_errors
 import json
-import os
-import re
-import subprocess
-import sys
-import threading
-import time
-import uuid
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
-
-from analytics.export_summary import extract_channel_from_export_name, summarize_export_posts
-from analytics.period_compare import compare_periods
-from storage.sqlite_store import (
-    compare_periods as compare_periods_sqlite,
-    count_scheduler_run_records,
-    get_export_charts as get_export_charts_sqlite,
-    get_filtered_summary as get_filtered_summary_sqlite,
-    get_scheduler_run_stats,
-    get_export_summary as get_export_summary_sqlite,
-    get_indexed_export,
-    get_post as get_post_sqlite,
-    list_indexed_exports,
-    list_export_states,
-    list_posts as list_posts_sqlite,
-    list_scheduler_run_records,
-    needs_fts_reindex,
-    read_scheduler_run_record,
-    search_all_comments,
-    sync_export_file,
-    upsert_scheduler_run,
+from services.paths import (
+    WEB_DIR,
+    INDEX_FILE,
+    DATA_DIR,
 )
 from version import APP_VERSION
-
+from services.configuration import (
+    ensure_env_file,
+    read_config,
+    save_config_values,
+)
+from services.processes import (
+    start_export_job,
+    start_watch_job,
+    stop_watch_job,
+    get_watch_status,
+    get_export_status,
+)
+from services.scheduler import (
+    retry_scheduler_run,
+    start_scheduler_job,
+    stop_scheduler_job,
+    get_scheduler_status,
+)
+from services.scheduler_history import (
+    read_scheduler_run,
+    list_scheduler_runs_response,
+    reconcile_incomplete_scheduler_runs,
+)
+from services.dashboard_exports import (
+    search_indexed_comments,
+    list_export_files,
+    get_export_summary,
+    get_export_charts,
+    get_export_posts,
+    get_export_filtered_summary,
+    get_export_post,
+    get_export_period_compare,
+)
 
 HOST = "0.0.0.0"
 PORT = 9595
-ROOT = Path(__file__).resolve().parent.parent
-WEB_DIR = ROOT / "web"
-INDEX_FILE = WEB_DIR / "comments_dashboard.html"
-DATA_DIR = ROOT / "data"
-SCHEDULER_HISTORY_DIR = DATA_DIR / "scheduler"
-ENV_FILE = Path(os.getenv("TG_ENV_FILE", str(ROOT / ".env")))
-ENV_EXAMPLE_FILE = ROOT / ".env.example"
-CONFIG_KEYS = [
-    "API_ID",
-    "API_HASH",
-    "CHANNEL",
-    "TELEGRAM_SESSION",
-    "OUTPUT_FILE",
-    "POST_LIMIT",
-    "INCREMENTAL_LOOKBACK_POSTS",
-    "POSTS_PAUSE_SECONDS",
-    "POSTS_PAUSE_AFTER_POSTS",
-    "POSTGRES_HOST",
-    "POSTGRES_PORT",
-    "POSTGRES_DB",
-    "POSTGRES_USER",
-    "POSTGRES_PASSWORD",
-    "POSTGRES_TABLE",
-    "LLM_ENDPOINT",
-    "LLM_MODEL",
-]
-INT_CONFIG_KEYS = {
-    "API_ID",
-    "POST_LIMIT",
-    "INCREMENTAL_LOOKBACK_POSTS",
-    "POSTS_PAUSE_SECONDS",
-    "POSTS_PAUSE_AFTER_POSTS",
-    "POSTGRES_PORT",
-}
-EXPORT_JOB = {
-    "running": False,
-    "returncode": None,
-    "started_at": None,
-    "finished_at": None,
-    "command": [],
-    "lines": [],
-    "current_channel": None,
-    "completed_channels": [],
-    "failed_channels": [],
-    "last_error": None,
-    "summary": None,
-    "scheduler_run_id": None,
-    "channel_summaries": [],
-}
-EXPORT_LOCK = threading.Lock()
-SCHEDULER = {
-    "enabled": False,
-    "interval_minutes": None,
-    "channels": "",
-    "payload": None,
-    "thread": None,
-    "stop_event": None,
-    "started_at": None,
-    "last_run_at": None,
-    "last_skip_at": None,
-    "next_run_at": None,
-    "runs_started": 0,
-    "runs_skipped": 0,
-    "last_error": None,
-    "lines": [],
-}
-SCHEDULER_LOCK = threading.Lock()
-WATCH_JOB = {
-    "running": False,
-    "returncode": None,
-    "started_at": None,
-    "finished_at": None,
-    "command": [],
-    "process": None,
-    "channels": "",
-    "lines": [],
-    "updates": [],
-    "last_error": None,
-}
-WATCH_LOCK = threading.Lock()
-
-
-def ensure_env_file():
-    if ENV_FILE.exists() or os.getenv("TG_BOOTSTRAP_ENV", "").lower() not in {"1", "true", "yes"}:
-        return
-
-    if not ENV_EXAMPLE_FILE.exists():
-        return
-
-    ENV_FILE.parent.mkdir(parents=True, exist_ok=True)
-    ENV_FILE.write_text(ENV_EXAMPLE_FILE.read_text(encoding="utf-8"), encoding="utf-8")
 
 
 class DashboardHandler(SimpleHTTPRequestHandler):
+    @http_errors
     def do_GET(self):
         parsed = urlparse(self.path)
         path = unquote(parsed.path)
@@ -164,6 +84,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             query = parse_qs(parsed.query)
             try:
                 self.send_json(search_indexed_comments(query))
+            except ApplicationError:
+                raise
             except (ValueError, OSError, json.JSONDecodeError) as e:
                 self.send_json({"ok": False, "error": str(e)}, status=400)
             return
@@ -173,6 +95,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             query = parse_qs(parsed.query)
             try:
                 self.send_json(get_export_posts(unquote(file_name), query))
+            except ApplicationError:
+                raise
             except (FileNotFoundError, ValueError, OSError, json.JSONDecodeError) as e:
                 self.send_json({"ok": False, "error": str(e)}, status=400)
             return
@@ -182,6 +106,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             query = parse_qs(parsed.query)
             try:
                 self.send_json(get_export_filtered_summary(unquote(file_name), query))
+            except ApplicationError:
+                raise
             except (FileNotFoundError, ValueError, OSError, json.JSONDecodeError) as e:
                 self.send_json({"ok": False, "error": str(e)}, status=400)
             return
@@ -190,6 +116,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             file_name, post_id = path.removeprefix("/api/export/").split("/post/", 1)
             try:
                 self.send_json(get_export_post(unquote(file_name), unquote(post_id)))
+            except ApplicationError:
+                raise
             except (FileNotFoundError, ValueError, OSError, json.JSONDecodeError) as e:
                 self.send_json({"ok": False, "error": str(e)}, status=404)
             return
@@ -198,6 +126,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             file_name = path.removeprefix("/api/export/").removesuffix("/summary")
             try:
                 self.send_json(get_export_summary(unquote(file_name)))
+            except ApplicationError:
+                raise
             except (FileNotFoundError, ValueError, OSError, json.JSONDecodeError) as e:
                 self.send_json({"ok": False, "error": str(e)}, status=404)
             return
@@ -206,6 +136,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             file_name = path.removeprefix("/api/export/").removesuffix("/charts")
             try:
                 self.send_json(get_export_charts(unquote(file_name)))
+            except ApplicationError:
+                raise
             except (FileNotFoundError, ValueError, OSError, json.JSONDecodeError) as e:
                 self.send_json({"ok": False, "error": str(e)}, status=404)
             return
@@ -218,6 +150,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
 
             try:
                 self.send_json(get_export_period_compare(unquote(file_name), from_date, to_date))
+            except ApplicationError:
+                raise
             except (FileNotFoundError, ValueError, OSError, json.JSONDecodeError) as e:
                 self.send_json({"ok": False, "error": str(e)}, status=400)
             return
@@ -234,10 +168,14 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             query = parse_qs(parsed.query)
             try:
                 limit = int((query.get("limit") or ["50"])[0])
+            except ApplicationError:
+                raise
             except ValueError:
                 limit = 50
             try:
                 offset = int((query.get("offset") or ["0"])[0])
+            except ApplicationError:
+                raise
             except ValueError:
                 offset = 0
             status = (query.get("status") or [""])[0]
@@ -254,6 +192,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             run_id = path.removeprefix("/api/scheduler/history/")
             try:
                 self.send_json({"ok": True, "run": read_scheduler_run(run_id)})
+            except ApplicationError:
+                raise
             except (FileNotFoundError, ValueError, OSError, json.JSONDecodeError) as e:
                 self.send_json({"ok": False, "error": str(e)}, status=404)
             return
@@ -264,6 +204,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
 
         self.send_error(404, "Not found")
 
+    @http_errors
     def do_POST(self):
         parsed = urlparse(self.path)
         path = unquote(parsed.path)
@@ -303,15 +244,16 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         try:
             length = int(self.headers.get("Content-Length", "0"))
             payload = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
+        except ApplicationError:
+            raise
         except (ValueError, json.JSONDecodeError):
             self.send_json({"ok": False, "error": "Invalid JSON payload"}, status=400)
             return
 
         try:
             start_export_job(payload)
-        except RuntimeError as e:
-            self.send_json({"ok": False, "error": str(e)}, status=409)
-            return
+        except ApplicationError:
+            raise
         except ValueError as e:
             self.send_json({"ok": False, "error": str(e)}, status=400)
             return
@@ -325,12 +267,16 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         try:
             length = int(self.headers.get("Content-Length", "0"))
             payload = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
+        except ApplicationError:
+            raise
         except (ValueError, json.JSONDecodeError):
             self.send_json({"ok": False, "error": "Invalid JSON payload"}, status=400)
             return
 
         try:
             config = save_config_values(payload)
+        except ApplicationError:
+            raise
         except ValueError as e:
             self.send_json({"ok": False, "error": str(e)}, status=400)
             return
@@ -344,15 +290,16 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         try:
             length = int(self.headers.get("Content-Length", "0"))
             payload = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
+        except ApplicationError:
+            raise
         except (ValueError, json.JSONDecodeError):
             self.send_json({"ok": False, "error": "Invalid JSON payload"}, status=400)
             return
 
         try:
             start_scheduler_job(payload)
-        except RuntimeError as e:
-            self.send_json({"ok": False, "error": str(e)}, status=409)
-            return
+        except ApplicationError:
+            raise
         except ValueError as e:
             self.send_json({"ok": False, "error": str(e)}, status=400)
             return
@@ -369,11 +316,10 @@ class DashboardHandler(SimpleHTTPRequestHandler):
     def retry_scheduler_run(self, run_id):
         try:
             new_run_id = retry_scheduler_run(run_id)
+        except ApplicationError:
+            raise
         except FileNotFoundError as e:
             self.send_json({"ok": False, "error": str(e)}, status=404)
-            return
-        except RuntimeError as e:
-            self.send_json({"ok": False, "error": str(e)}, status=409)
             return
         except ValueError as e:
             self.send_json({"ok": False, "error": str(e)}, status=400)
@@ -385,15 +331,16 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         try:
             length = int(self.headers.get("Content-Length", "0"))
             payload = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
+        except ApplicationError:
+            raise
         except (ValueError, json.JSONDecodeError):
             self.send_json({"ok": False, "error": "Invalid JSON payload"}, status=400)
             return
 
         try:
             start_watch_job(payload)
-        except RuntimeError as e:
-            self.send_json({"ok": False, "error": str(e)}, status=409)
-            return
+        except ApplicationError:
+            raise
         except ValueError as e:
             self.send_json({"ok": False, "error": str(e)}, status=400)
             return
@@ -411,7 +358,14 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         relative = request_path.removeprefix("/data/")
         target = (DATA_DIR / relative).resolve()
 
-        if not str(target).startswith(str(DATA_DIR.resolve())):
+        try:
+            relative_parts = target.relative_to(DATA_DIR.resolve()).parts
+        except ApplicationError:
+            raise
+        except ValueError:
+            self.send_error(403, "Forbidden")
+            return
+        if not relative_parts or relative_parts[0] not in {"raw", "content", "analysis"}:
             self.send_error(403, "Forbidden")
             return
 
@@ -428,6 +382,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
 
         try:
             target.relative_to(web_dir)
+        except ApplicationError:
+            raise
         except ValueError:
             self.send_error(403, "Forbidden")
             return
@@ -441,6 +397,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
     def serve_file(self, path, content_type):
         try:
             data = path.read_bytes()
+        except ApplicationError:
+            raise
         except OSError:
             self.send_error(404, "Not found")
             return
@@ -463,1232 +421,6 @@ class DashboardHandler(SimpleHTTPRequestHandler):
 
     def log_message(self, format, *args):
         print(f"{self.client_address[0]} - {format % args}")
-
-
-def now_iso():
-    return time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime())
-
-
-def scheduler_history_path(run_id):
-    if not re.match(r"^[A-Za-z0-9_.-]+$", run_id or ""):
-        raise ValueError("Invalid scheduler run id")
-
-    return SCHEDULER_HISTORY_DIR / f"{run_id}.json"
-
-
-def write_scheduler_run(record):
-    upsert_scheduler_run(record)
-
-
-def read_scheduler_run(run_id):
-    record = read_scheduler_run_record(run_id)
-
-    if record:
-        return record
-
-    path = scheduler_history_path(run_id)
-
-    if not path.is_file():
-        raise FileNotFoundError(f"Scheduler run not found: {run_id}")
-
-    with path.open("r", encoding="utf-8") as f:
-        record = json.load(f)
-
-    upsert_scheduler_run(record)
-    return record
-
-
-def import_scheduler_json_history():
-    SCHEDULER_HISTORY_DIR.mkdir(parents=True, exist_ok=True)
-
-    for path in SCHEDULER_HISTORY_DIR.glob("*.json"):
-        try:
-            with path.open("r", encoding="utf-8") as f:
-                record = json.load(f)
-        except (OSError, json.JSONDecodeError):
-            continue
-
-        if isinstance(record, dict) and record.get("id"):
-            try:
-                upsert_scheduler_run(record)
-            except ValueError:
-                continue
-
-
-def summarize_scheduler_run(record):
-    return {
-        "id": record.get("id"),
-        "status": record.get("status"),
-        "created_at": record.get("created_at"),
-        "scheduled_for": record.get("scheduled_for"),
-        "started_at": record.get("started_at"),
-        "finished_at": record.get("finished_at"),
-        "channels": record.get("channels"),
-        "format": record.get("format"),
-        "posts_processed": record.get("posts_processed"),
-        "channels_ok": record.get("channels_ok"),
-        "channels_failed": record.get("channels_failed"),
-        "error": record.get("error"),
-    }
-
-
-def list_scheduler_runs(limit=50, offset=0, status=None, channel=None):
-    import_scheduler_json_history()
-    records = list_scheduler_run_records(limit, offset, status, channel)
-    return [summarize_scheduler_run(record) for record in records]
-
-
-def list_scheduler_runs_response(limit=50, offset=0, status=None, channel=None):
-    import_scheduler_json_history()
-    runs = [summarize_scheduler_run(record) for record in list_scheduler_run_records(limit, offset, status, channel)]
-    total = count_scheduler_run_records(status, channel)
-    return {
-        "ok": True,
-        "runs": runs,
-        "pagination": {
-            "limit": limit,
-            "offset": offset,
-            "total": total,
-            "next_offset": offset + limit if offset + limit < total else None,
-        },
-        "stats": get_scheduler_run_stats(status, channel),
-    }
-
-
-def list_scheduler_run_details(status=None, channel=None):
-    import_scheduler_json_history()
-    total = count_scheduler_run_records(status, channel)
-    return list_scheduler_run_records(max(1, min(total or 1, 10000)), 0, status, channel)
-
-
-def retry_scheduler_run(run_id):
-    record = read_scheduler_run(run_id)
-    flags = record.get("flags") or {}
-    payload = {
-        "channel": record.get("channels"),
-        "format": record.get("format") or "json",
-        "download_media": bool(flags.get("download_media")),
-        "anonymize": bool(flags.get("anonymize")),
-        "incremental": bool(flags.get("incremental")),
-    }
-
-    if not payload["channel"]:
-        raise ValueError("Scheduler run has no channel to retry")
-
-    retry_run_id = create_scheduler_run(payload)
-    start_export_job(payload, scheduler_run_id=retry_run_id)
-    return retry_run_id
-
-
-def list_scheduler_runs_from_json(limit=50):
-    SCHEDULER_HISTORY_DIR.mkdir(parents=True, exist_ok=True)
-    items = []
-
-    for path in sorted(SCHEDULER_HISTORY_DIR.glob("*.json"), key=lambda item: item.stat().st_mtime, reverse=True):
-        try:
-            with path.open("r", encoding="utf-8") as f:
-                record = json.load(f)
-        except (OSError, json.JSONDecodeError):
-            continue
-
-        items.append({
-            "id": record.get("id") or path.stem,
-            "status": record.get("status"),
-            "created_at": record.get("created_at"),
-            "scheduled_for": record.get("scheduled_for"),
-            "started_at": record.get("started_at"),
-            "finished_at": record.get("finished_at"),
-            "channels": record.get("channels"),
-            "format": record.get("format"),
-            "posts_processed": record.get("posts_processed"),
-            "channels_ok": record.get("channels_ok"),
-            "channels_failed": record.get("channels_failed"),
-            "error": record.get("error"),
-        })
-
-        if len(items) >= limit:
-            break
-
-    return items
-
-
-def reconcile_incomplete_scheduler_runs():
-    import_scheduler_json_history()
-
-    for record in list_scheduler_run_details():
-        if record.get("status") not in {"QUEUED", "RUNNING"}:
-            continue
-
-        record.update({
-            "status": "CANCELLED",
-            "finished_at": now_iso(),
-            "error": {
-                "type": "DashboardRestarted",
-                "message": "Dashboard process restarted before this scheduled run completed.",
-            },
-        })
-        write_scheduler_run(record)
-
-
-def create_scheduler_run(payload, status="QUEUED", reason=None):
-    run_id = f"scheduler_{time.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
-    record = {
-        "id": run_id,
-        "status": status,
-        "created_at": now_iso(),
-        "scheduled_for": now_iso(),
-        "started_at": None,
-        "finished_at": now_iso() if status in {"SKIPPED", "FAILED", "CANCELLED"} else None,
-        "channels": payload.get("channel"),
-        "format": payload.get("format"),
-        "flags": {
-            "download_media": bool(payload.get("download_media")),
-            "anonymize": bool(payload.get("anonymize")),
-            "incremental": bool(payload.get("incremental")),
-        },
-        "command": [],
-        "returncode": None,
-        "posts_processed": 0,
-        "channels_ok": 0,
-        "channels_failed": 0,
-        "completed_channels": [],
-        "failed_channels": [],
-        "summary": None,
-        "error": classify_scheduler_error(reason) if reason else None,
-        "lines": [],
-    }
-    write_scheduler_run(record)
-    return run_id
-
-
-def update_scheduler_run(run_id, **updates):
-    if not run_id:
-        return None
-
-    try:
-        record = read_scheduler_run(run_id)
-    except FileNotFoundError:
-        return None
-
-    record.update(updates)
-    write_scheduler_run(record)
-    return record
-
-
-def classify_scheduler_error(message):
-    if not message:
-        return None
-
-    text = str(message)
-    flood_wait = re.search(r"FloodWaitError: Telegram requested wait for (\d+) seconds", text)
-
-    if flood_wait:
-        return {
-            "type": "TelegramFloodWait",
-            "message": text,
-            "wait_seconds": int(flood_wait.group(1)),
-        }
-
-    if "Export is already running" in text:
-        return {
-            "type": "ExportAlreadyRunning",
-            "message": text,
-        }
-
-    if "Missing required config value" in text:
-        return {
-            "type": "ConfigurationError",
-            "message": text,
-        }
-
-    if "Failed to start export" in text:
-        return {
-            "type": "ProcessStartError",
-            "message": text,
-        }
-
-    return {
-        "type": "ExportError",
-        "message": text,
-    }
-
-
-def finish_scheduler_run_from_export(run_id, returncode, export_snapshot):
-    if not run_id:
-        return
-
-    summary = export_snapshot.get("summary") or {}
-    failed_channels = export_snapshot.get("failed_channels") or summary.get("failed_channels") or []
-    completed_channels = export_snapshot.get("completed_channels") or []
-    channel_summaries = export_snapshot.get("channel_summaries") or []
-    lines = export_snapshot.get("lines") or []
-    last_error = export_snapshot.get("last_error")
-    posts_processed = sum(int(item.get("posts_processed") or 0) for item in channel_summaries if isinstance(item, dict))
-
-    if returncode == 0 and not failed_channels:
-        status = "SUCCESS"
-    elif returncode == 0:
-        status = "PARTIAL"
-    elif returncode in {-15, -9, 130}:
-        status = "CANCELLED"
-    elif completed_channels and failed_channels:
-        status = "PARTIAL"
-    else:
-        status = "FAILED"
-
-    update_scheduler_run(
-        run_id,
-        status=status,
-        finished_at=now_iso(),
-        returncode=returncode,
-        posts_processed=posts_processed,
-        channels_ok=summary.get("channels_ok", len(completed_channels)),
-        channels_failed=summary.get("channels_failed", len(failed_channels)),
-        completed_channels=completed_channels,
-        failed_channels=failed_channels,
-        channel_summaries=channel_summaries,
-        summary=summary or None,
-        error=classify_scheduler_error(last_error) if last_error else None,
-        lines=lines[-120:],
-    )
-
-
-def start_export_job(payload, scheduler_run_id=None):
-    if payload.get("config") is not None:
-        save_config_values(payload["config"])
-
-    export_format = payload.get("format") or "json"
-
-    if export_format not in {"json", "csv", "postgresql", "parquet"}:
-        raise ValueError("Unsupported export format")
-
-    channel = str(payload.get("channel") or os.getenv("CHANNEL", "")).strip()
-
-    if not parse_channel_list(channel):
-        raise ValueError("At least one channel is required")
-
-    command = [sys.executable, "main.py", "export", export_format]
-
-    if payload.get("download_media"):
-        command.append("--download-media")
-
-    if payload.get("anonymize"):
-        command.append("--anonymize")
-
-    if payload.get("incremental"):
-        command.append("--incremental")
-
-    env = os.environ.copy()
-    env["CHANNEL"] = channel
-    env["PYTHONUNBUFFERED"] = "1"
-
-    with EXPORT_LOCK:
-        if EXPORT_JOB["running"]:
-            raise RuntimeError("Export is already running")
-
-        EXPORT_JOB.update({
-            "running": True,
-            "returncode": None,
-            "started_at": time.time(),
-            "finished_at": None,
-            "command": command,
-            "lines": [f"Starting export for channel(s) {channel}: {' '.join(command)}"],
-            "current_channel": None,
-            "completed_channels": [],
-            "failed_channels": [],
-            "last_error": None,
-            "summary": None,
-            "scheduler_run_id": scheduler_run_id,
-            "channel_summaries": [],
-        })
-
-    try:
-        process = subprocess.Popen(
-            command,
-            cwd=str(ROOT),
-            env=env,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-        )
-    except OSError as e:
-        with EXPORT_LOCK:
-            EXPORT_JOB["running"] = False
-            EXPORT_JOB["returncode"] = -1
-            EXPORT_JOB["finished_at"] = time.time()
-            EXPORT_JOB["last_error"] = str(e)
-            EXPORT_JOB["lines"].append(f"Failed to start export: {e}")
-        update_scheduler_run(
-            scheduler_run_id,
-            status="FAILED",
-            finished_at=now_iso(),
-            returncode=-1,
-            error=classify_scheduler_error(f"Failed to start export: {e}"),
-        )
-        raise RuntimeError(f"Failed to start export: {e}") from e
-
-    update_scheduler_run(
-        scheduler_run_id,
-        status="RUNNING",
-        started_at=now_iso(),
-        command=command,
-    )
-
-    thread = threading.Thread(target=watch_export_process, args=(process,), daemon=True)
-    thread.start()
-
-
-def build_export_payload(payload):
-    export_format = payload.get("format") or "json"
-
-    if export_format not in {"json", "csv", "postgresql", "parquet"}:
-        raise ValueError("Unsupported export format")
-
-    channel = str(payload.get("channel") or os.getenv("CHANNEL", "")).strip()
-
-    if not parse_channel_list(channel):
-        raise ValueError("At least one channel is required")
-
-    return {
-        "channel": channel,
-        "format": export_format,
-        "download_media": bool(payload.get("download_media")),
-        "anonymize": bool(payload.get("anonymize")),
-        "incremental": bool(payload.get("incremental")),
-        "config": payload.get("config"),
-    }
-
-
-def normalize_scheduler_payload(payload):
-    if not isinstance(payload, dict):
-        raise ValueError("Scheduler payload must be an object")
-
-    try:
-        interval_minutes = int(payload.get("interval_minutes"))
-    except (TypeError, ValueError) as e:
-        raise ValueError("Scheduler interval must be an integer number of minutes") from e
-
-    if interval_minutes < 1:
-        raise ValueError("Scheduler interval must be at least 1 minute")
-
-    export_payload = build_export_payload(payload)
-    return interval_minutes, export_payload
-
-
-def append_scheduler_line(line):
-    with SCHEDULER_LOCK:
-        SCHEDULER["lines"].append(f"{time.strftime('%Y-%m-%dT%H:%M:%S')} {line}")
-        SCHEDULER["lines"] = SCHEDULER["lines"][-120:]
-
-
-def scheduler_loop(stop_event):
-    while not stop_event.is_set():
-        with SCHEDULER_LOCK:
-            payload = dict(SCHEDULER["payload"] or {})
-            interval_seconds = int(SCHEDULER["interval_minutes"] or 1) * 60
-            SCHEDULER["next_run_at"] = time.time()
-
-        if get_export_status()["running"]:
-            run_id = create_scheduler_run(
-                payload,
-                status="SKIPPED",
-                reason="Export is already running when scheduled run is due.",
-            )
-            with SCHEDULER_LOCK:
-                SCHEDULER["last_skip_at"] = time.time()
-                SCHEDULER["runs_skipped"] += 1
-            append_scheduler_line(f"Skipped run {run_id} because export is already running.")
-        else:
-            run_id = create_scheduler_run(payload)
-            try:
-                start_export_job(payload, scheduler_run_id=run_id)
-                with SCHEDULER_LOCK:
-                    SCHEDULER["last_run_at"] = time.time()
-                    SCHEDULER["runs_started"] += 1
-                    SCHEDULER["last_error"] = None
-                append_scheduler_line(f"Started scheduled export {run_id} for channel(s) {payload['channel']}.")
-            except Exception as e:
-                with SCHEDULER_LOCK:
-                    SCHEDULER["last_error"] = str(e)
-                update_scheduler_run(
-                    run_id,
-                    status="FAILED",
-                    finished_at=now_iso(),
-                    error=classify_scheduler_error(e),
-                )
-                append_scheduler_line(f"Scheduled export {run_id} failed to start: {e}")
-
-        with SCHEDULER_LOCK:
-            SCHEDULER["next_run_at"] = time.time() + interval_seconds
-
-        if stop_event.wait(interval_seconds):
-            break
-
-    with SCHEDULER_LOCK:
-        if SCHEDULER.get("stop_event") is stop_event:
-            SCHEDULER["lines"].append(f"{time.strftime('%Y-%m-%dT%H:%M:%S')} Scheduler stopped.")
-            SCHEDULER["lines"] = SCHEDULER["lines"][-120:]
-
-
-def start_scheduler_job(payload):
-    interval_minutes, export_payload = normalize_scheduler_payload(payload)
-
-    if export_payload.get("config"):
-        save_config_values(export_payload["config"])
-
-    stop_event = threading.Event()
-    thread = threading.Thread(target=scheduler_loop, args=(stop_event,), daemon=True)
-
-    with SCHEDULER_LOCK:
-        if SCHEDULER["enabled"]:
-            raise RuntimeError("Scheduler is already running")
-
-        SCHEDULER.update({
-            "enabled": True,
-            "interval_minutes": interval_minutes,
-            "channels": export_payload["channel"],
-            "payload": export_payload,
-            "thread": thread,
-            "stop_event": stop_event,
-            "started_at": time.time(),
-            "last_run_at": None,
-            "last_skip_at": None,
-            "next_run_at": time.time(),
-            "runs_started": 0,
-            "runs_skipped": 0,
-            "last_error": None,
-            "lines": [],
-        })
-
-    append_scheduler_line(
-        f"Scheduler started for channel(s) {export_payload['channel']} every {interval_minutes} minute(s)."
-    )
-    thread.start()
-
-
-def stop_scheduler_job():
-    with SCHEDULER_LOCK:
-        stop_event = SCHEDULER.get("stop_event")
-
-        if stop_event:
-            stop_event.set()
-
-        SCHEDULER["enabled"] = False
-        SCHEDULER["next_run_at"] = None
-
-
-def get_scheduler_status():
-    with SCHEDULER_LOCK:
-        return {
-            "enabled": SCHEDULER["enabled"],
-            "interval_minutes": SCHEDULER["interval_minutes"],
-            "channels": SCHEDULER["channels"],
-            "started_at": SCHEDULER["started_at"],
-            "last_run_at": SCHEDULER["last_run_at"],
-            "last_skip_at": SCHEDULER["last_skip_at"],
-            "next_run_at": SCHEDULER["next_run_at"],
-            "runs_started": SCHEDULER["runs_started"],
-            "runs_skipped": SCHEDULER["runs_skipped"],
-            "last_error": SCHEDULER["last_error"],
-            "lines": list(SCHEDULER["lines"]),
-        }
-
-
-def normalize_watch_payload(payload):
-    if not isinstance(payload, dict):
-        raise ValueError("Watch payload must be an object")
-
-    channel = str(payload.get("channel") or os.getenv("CHANNEL", "")).strip()
-
-    if not parse_channel_list(channel):
-        raise ValueError("At least one channel is required")
-
-    try:
-        poll_interval = int(payload.get("poll_interval") or 30)
-        refresh_active_posts = int(payload.get("refresh_active_posts") or 20)
-    except (TypeError, ValueError) as e:
-        raise ValueError("Watch intervals must be integer values") from e
-
-    if poll_interval < 5:
-        raise ValueError("Watch poll interval must be at least 5 seconds")
-
-    if refresh_active_posts < 1:
-        raise ValueError("Watch active posts must be at least 1")
-
-    return {
-        "channel": channel,
-        "download_media": bool(payload.get("download_media")),
-        "anonymize": bool(payload.get("anonymize")),
-        "poll_interval": poll_interval,
-        "refresh_active_posts": refresh_active_posts,
-        "config": payload.get("config"),
-    }
-
-
-def start_watch_job(payload):
-    watch_payload = normalize_watch_payload(payload)
-
-    if watch_payload.get("config"):
-        save_config_values(watch_payload["config"])
-
-    command = [
-        sys.executable,
-        "main.py",
-        "watch",
-        "--poll-interval",
-        str(watch_payload["poll_interval"]),
-        "--refresh-active-posts",
-        str(watch_payload["refresh_active_posts"]),
-    ]
-
-    if watch_payload["download_media"]:
-        command.append("--download-media")
-
-    if watch_payload["anonymize"]:
-        command.append("--anonymize")
-
-    env = os.environ.copy()
-    env["CHANNEL"] = watch_payload["channel"]
-    env["PYTHONUNBUFFERED"] = "1"
-
-    with WATCH_LOCK:
-        if WATCH_JOB["running"]:
-            raise RuntimeError("Watch mode is already running")
-
-        WATCH_JOB.update({
-            "running": True,
-            "returncode": None,
-            "started_at": time.time(),
-            "finished_at": None,
-            "command": command,
-            "process": None,
-            "channels": watch_payload["channel"],
-            "lines": [f"Starting watch for channel(s) {watch_payload['channel']}: {' '.join(command)}"],
-            "updates": [],
-            "last_error": None,
-        })
-
-    try:
-        process = subprocess.Popen(
-            command,
-            cwd=str(ROOT),
-            env=env,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-        )
-    except OSError as e:
-        with WATCH_LOCK:
-            WATCH_JOB["running"] = False
-            WATCH_JOB["returncode"] = -1
-            WATCH_JOB["finished_at"] = time.time()
-            WATCH_JOB["last_error"] = str(e)
-            WATCH_JOB["lines"].append(f"Failed to start watch: {e}")
-        raise RuntimeError(f"Failed to start watch: {e}") from e
-
-    with WATCH_LOCK:
-        WATCH_JOB["process"] = process
-
-    thread = threading.Thread(target=watch_watch_process, args=(process,), daemon=True)
-    thread.start()
-
-
-def stop_watch_job():
-    with WATCH_LOCK:
-        process = WATCH_JOB.get("process")
-
-    if process and process.poll() is None:
-        process.terminate()
-
-    with WATCH_LOCK:
-        WATCH_JOB["running"] = False
-        WATCH_JOB["finished_at"] = time.time()
-        WATCH_JOB["lines"].append("Watch stop requested.")
-        WATCH_JOB["lines"] = WATCH_JOB["lines"][-500:]
-
-
-def watch_watch_process(process):
-    assert process.stdout is not None
-
-    for line in process.stdout:
-        append_watch_line(line.rstrip())
-
-    returncode = process.wait()
-
-    with WATCH_LOCK:
-        WATCH_JOB["running"] = False
-        WATCH_JOB["returncode"] = returncode
-        WATCH_JOB["finished_at"] = time.time()
-        WATCH_JOB["lines"].append(f"Watch finished with code {returncode}")
-
-
-def append_watch_line(line):
-    with WATCH_LOCK:
-        WATCH_JOB["lines"].append(line)
-        WATCH_JOB["lines"] = WATCH_JOB["lines"][-500:]
-
-        if line.startswith("WATCH_UPDATE "):
-            payload = parse_status_payload(line, "WATCH_UPDATE ")
-
-            if payload:
-                WATCH_JOB["updates"].append(payload)
-                WATCH_JOB["updates"] = WATCH_JOB["updates"][-120:]
-
-                if payload.get("error"):
-                    WATCH_JOB["last_error"] = payload["error"]
-
-
-def get_watch_status():
-    with WATCH_LOCK:
-        process = WATCH_JOB.get("process")
-
-        if process and WATCH_JOB["running"] and process.poll() is not None:
-            WATCH_JOB["running"] = False
-            WATCH_JOB["returncode"] = process.poll()
-            WATCH_JOB["finished_at"] = time.time()
-
-        return {
-            "running": WATCH_JOB["running"],
-            "returncode": WATCH_JOB["returncode"],
-            "started_at": WATCH_JOB["started_at"],
-            "finished_at": WATCH_JOB["finished_at"],
-            "command": WATCH_JOB["command"],
-            "channels": WATCH_JOB["channels"],
-            "lines": list(WATCH_JOB["lines"]),
-            "updates": list(WATCH_JOB["updates"]),
-            "last_error": WATCH_JOB["last_error"],
-        }
-
-
-def parse_channel_list(value):
-    return [
-        item.strip()
-        for item in value.replace("\n", ",").replace(";", ",").split(",")
-        if item.strip()
-    ]
-
-
-def resolve_raw_json_file(file_name):
-    if not file_name or Path(file_name).name != file_name:
-        raise ValueError("Export file name must not contain path separators")
-
-    path = (DATA_DIR / "raw" / file_name).resolve()
-    raw_dir = (DATA_DIR / "raw").resolve()
-
-    try:
-        path.relative_to(raw_dir)
-    except ValueError as e:
-        raise ValueError(f"Path must stay under {raw_dir}") from e
-
-    if path.suffix.lower() != ".json":
-        raise ValueError("Only JSON exports are supported")
-
-    if not path.is_file():
-        raise FileNotFoundError(f"Export file not found: {file_name}")
-
-    return path
-
-
-def load_export_posts(file_name):
-    path = resolve_raw_json_file(file_name)
-
-    with path.open("r", encoding="utf-8") as f:
-        posts = json.load(f)
-
-    if not isinstance(posts, list):
-        raise ValueError(f"Export JSON must contain a list of posts: {file_name}")
-
-    return path, posts
-
-
-def ensure_sqlite_export_index(file_name, path=None, posts=None):
-    path = path or resolve_raw_json_file(file_name)
-    stat = path.stat()
-    modified_at = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(stat.st_mtime))
-    indexed = get_indexed_export(path.name)
-
-    if (
-        indexed
-        and indexed["modified_at"] == modified_at
-        and indexed["size_bytes"] == stat.st_size
-        and not needs_fts_reindex(path.name)
-    ):
-        return
-
-    if posts is None:
-        _, posts = load_export_posts(path.name)
-
-    sync_export_file(
-        path.name,
-        extract_channel_from_export_name(path.name),
-        posts,
-        path,
-    )
-
-
-def ensure_all_sqlite_export_indexes():
-    raw_dir = DATA_DIR / "raw"
-    raw_dir.mkdir(parents=True, exist_ok=True)
-    indexed = 0
-
-    for path in raw_dir.glob("*.json"):
-        try:
-            ensure_sqlite_export_index(path.name, path)
-            indexed += 1
-        except (OSError, ValueError, json.JSONDecodeError) as e:
-            print(f"SQLite index skipped for {path.name}: {e}")
-
-    return indexed
-
-
-def first_query_value(query, key, default=""):
-    return (query.get(key) or [default])[0]
-
-
-def search_indexed_comments(query):
-    search_text = first_query_value(query, "q").strip()
-
-    if not search_text:
-        raise ValueError("Search query is required")
-
-    try:
-        limit = int(first_query_value(query, "limit", "50"))
-    except ValueError as e:
-        raise ValueError("Search limit must be an integer") from e
-
-    limit = max(1, min(limit, 200))
-    indexed_count = ensure_all_sqlite_export_indexes()
-    results = search_all_comments(
-        search_text,
-        limit=limit,
-        channel_key=first_query_value(query, "channel").strip() or None,
-        date_from=first_query_value(query, "from").strip() or None,
-        date_to=first_query_value(query, "to").strip() or None,
-        user=first_query_value(query, "user").strip() or None,
-    )
-
-    return {
-        "ok": True,
-        "query": search_text,
-        "indexed_count": indexed_count,
-        "results": results,
-    }
-
-
-def list_export_files(sort_by="date"):
-    raw_dir = DATA_DIR / "raw"
-    raw_dir.mkdir(parents=True, exist_ok=True)
-    current_files = {path.name for path in raw_dir.glob("*.json")}
-
-    for path in sorted(raw_dir.glob("*.json")):
-        try:
-            ensure_sqlite_export_index(path.name, path)
-        except (OSError, ValueError, json.JSONDecodeError) as e:
-            print(f"SQLite export list index skipped for {path.name}: {e}")
-
-    try:
-        states = {record["channel_key"]: record for record in list_export_states()}
-        items = [
-            export_record_to_response(record, states.get(record["channel_key"]))
-            for record in list_indexed_exports()
-            if record["file_name"] in current_files
-        ]
-    except Exception as e:
-        print(f"SQLite export list failed: {e}")
-        items = []
-
-    if not items and current_files:
-        items = list_export_files_from_disk(raw_dir)
-
-    if sort_by == "channel":
-        items = sorted(items, key=lambda item: item["modified_at"], reverse=True)
-        return sorted(items, key=lambda item: item["channel"].casefold())
-
-    return sorted(items, key=lambda item: item["modified_at"], reverse=True)
-
-
-def export_record_to_response(record, state=None):
-    item = {
-        "file": record["file_name"],
-        "channel": record["channel_key"],
-        "size_bytes": record["size_bytes"],
-        "modified_at": record["modified_at"],
-        "indexed_at": record["indexed_at"],
-        "posts_count": record["posts_count"],
-        "comments_count": record["comments_count"],
-        "unique_users_count": record["unique_users_count"],
-        "reactions_count": record["reactions_count"],
-        "url": f"/data/raw/{record['file_name']}",
-    }
-    if state:
-        item["export_state"] = state
-    return item
-
-
-def list_export_files_from_disk(raw_dir):
-    items = []
-
-    for path in raw_dir.glob("*.json"):
-        stat = path.stat()
-        items.append({
-            "file": path.name,
-            "channel": extract_channel_from_export_name(path.name),
-            "size_bytes": stat.st_size,
-            "modified_at": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(stat.st_mtime)),
-            "url": f"/data/raw/{path.name}",
-        })
-
-    return items
-
-
-def get_export_summary(file_name):
-    path = resolve_raw_json_file(file_name)
-    stat = path.stat()
-    try:
-        ensure_sqlite_export_index(path.name, path)
-        summary = get_export_summary_sqlite(path.name)
-    except Exception as e:
-        print(f"SQLite summary failed for {path.name}: {e}")
-        summary = None
-
-    if summary is None:
-        _, posts = load_export_posts(path.name)
-        summary = summarize_export_posts(posts)
-
-    summary.update({
-        "ok": True,
-        "file": path.name,
-        "channel": extract_channel_from_export_name(path.name),
-        "size_bytes": stat.st_size,
-        "modified_at": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(stat.st_mtime)),
-        "url": f"/data/raw/{path.name}",
-    })
-    return summary
-
-
-def get_export_charts(file_name):
-    path = resolve_raw_json_file(file_name)
-    try:
-        ensure_sqlite_export_index(path.name, path)
-        charts = get_export_charts_sqlite(path.name)
-    except Exception as e:
-        print(f"SQLite charts failed for {path.name}: {e}")
-        charts = None
-
-    if charts is None:
-        raise ValueError(f"Export is not indexed: {file_name}")
-
-    return {
-        "ok": True,
-        "file": path.name,
-        "channel": extract_channel_from_export_name(path.name),
-        **charts,
-    }
-
-
-def get_export_posts(file_name, query):
-    path = resolve_raw_json_file(file_name)
-    ensure_sqlite_export_index(path.name, path)
-
-    try:
-        limit = int(first_query_value(query, "limit", "100"))
-    except ValueError as e:
-        raise ValueError("Posts limit must be an integer") from e
-
-    try:
-        offset = int(first_query_value(query, "offset", "0"))
-    except ValueError as e:
-        raise ValueError("Posts offset must be an integer") from e
-
-    result = list_posts_sqlite(
-        path.name,
-        limit=limit,
-        offset=offset,
-        **parse_post_filter_query(query),
-    )
-
-    if result is None:
-        raise ValueError(f"Export is not indexed: {file_name}")
-
-    return {
-        "ok": True,
-        "file": path.name,
-        "channel": extract_channel_from_export_name(path.name),
-        **result,
-    }
-
-
-def get_export_filtered_summary(file_name, query):
-    path = resolve_raw_json_file(file_name)
-    ensure_sqlite_export_index(path.name, path)
-
-    summary = get_filtered_summary_sqlite(
-        path.name,
-        **parse_post_filter_query(query),
-    )
-
-    if summary is None:
-        raise ValueError(f"Export is not indexed: {file_name}")
-
-    return {
-        "ok": True,
-        "file": path.name,
-        "channel": extract_channel_from_export_name(path.name),
-        **summary,
-    }
-
-
-def parse_post_filter_query(query):
-    return {
-        "query": first_query_value(query, "q").strip() or None,
-        "user": first_query_value(query, "user").strip() or None,
-        "date_from": first_query_value(query, "from").strip() or None,
-        "date_to": first_query_value(query, "to").strip() or None,
-        "emoji": first_query_value(query, "emoji").strip() or None,
-        "media": first_query_value(query, "media").strip().lower() in {"1", "true", "yes"},
-        "replies": first_query_value(query, "replies").strip().lower() in {"1", "true", "yes"},
-    }
-
-
-def get_export_post(file_name, post_id):
-    path = resolve_raw_json_file(file_name)
-    ensure_sqlite_export_index(path.name, path)
-
-    try:
-        clean_post_id = int(str(post_id).strip())
-    except ValueError as e:
-        raise ValueError("Post id must be an integer") from e
-
-    post = get_post_sqlite(path.name, clean_post_id)
-    if post is None:
-        raise FileNotFoundError(f"Post not found: {post_id}")
-
-    return {
-        "ok": True,
-        "file": path.name,
-        "channel": extract_channel_from_export_name(path.name),
-        "post": post,
-    }
-
-
-def get_export_period_compare(file_name, from_date, to_date):
-    path = resolve_raw_json_file(file_name)
-    try:
-        ensure_sqlite_export_index(path.name, path)
-        result = compare_periods_sqlite(path.name, from_date, to_date)
-    except Exception as e:
-        print(f"SQLite compare failed for {path.name}: {e}")
-        result = None
-
-    if result is None:
-        _, posts = load_export_posts(path.name)
-        result = compare_periods(posts, from_date, to_date)
-
-    result.update({
-        "ok": True,
-        "file": path.name,
-        "channel": extract_channel_from_export_name(path.name),
-    })
-    return result
-
-
-def parse_env_file(path=ENV_FILE):
-    values = {}
-
-    if not path.exists():
-        return values
-
-    for line in path.read_text(encoding="utf-8").splitlines():
-        stripped = line.strip()
-
-        if not stripped or stripped.startswith("#") or "=" not in stripped:
-            continue
-
-        key, value = stripped.split("=", 1)
-        key = key.strip()
-        value = value.strip().strip('"').strip("'")
-
-        if key:
-            values[key] = value
-
-    return values
-
-
-def read_config():
-    file_values = parse_env_file()
-    config = {}
-
-    for key in CONFIG_KEYS:
-        config[key] = file_values.get(key, os.getenv(key, ""))
-
-    return config
-
-
-def normalize_config_payload(payload):
-    if not isinstance(payload, dict):
-        raise ValueError("Config payload must be an object")
-
-    normalized = {}
-
-    for key in CONFIG_KEYS:
-        if key not in payload:
-            continue
-
-        value = "" if payload[key] is None else str(payload[key]).strip()
-
-        if "\n" in value or "\r" in value:
-            raise ValueError(f"{key} cannot contain new lines")
-
-        if key in INT_CONFIG_KEYS and value:
-            try:
-                int(value)
-            except ValueError as e:
-                raise ValueError(f"{key} must be an integer") from e
-
-        normalized[key] = value
-
-    return normalized
-
-
-def save_config_values(payload):
-    updates = normalize_config_payload(payload)
-
-    if not updates:
-        return read_config()
-
-    lines = ENV_FILE.read_text(encoding="utf-8").splitlines() if ENV_FILE.exists() else []
-    seen = set()
-    updated_lines = []
-
-    for line in lines:
-        stripped = line.strip()
-
-        if not stripped or stripped.startswith("#") or "=" not in stripped:
-            updated_lines.append(line)
-            continue
-
-        key = stripped.split("=", 1)[0].strip()
-
-        if key in updates:
-            updated_lines.append(f"{key}={updates[key]}")
-            seen.add(key)
-        else:
-            updated_lines.append(line)
-
-    if updated_lines and updated_lines[-1].strip():
-        updated_lines.append("")
-
-    for key in CONFIG_KEYS:
-        if key in updates and key not in seen:
-            updated_lines.append(f"{key}={updates[key]}")
-
-    ENV_FILE.write_text("\n".join(updated_lines).rstrip() + "\n", encoding="utf-8")
-
-    for key, value in updates.items():
-        os.environ[key] = value
-
-    return read_config()
-
-
-def watch_export_process(process):
-    assert process.stdout is not None
-
-    for line in process.stdout:
-        append_export_line(line.rstrip())
-
-    returncode = process.wait()
-
-    with EXPORT_LOCK:
-        EXPORT_JOB["running"] = False
-        EXPORT_JOB["returncode"] = returncode
-        EXPORT_JOB["finished_at"] = time.time()
-        EXPORT_JOB["lines"].append(f"Export finished with code {returncode}")
-        export_snapshot = {
-            "lines": list(EXPORT_JOB["lines"]),
-            "completed_channels": list(EXPORT_JOB["completed_channels"]),
-            "failed_channels": list(EXPORT_JOB["failed_channels"]),
-            "last_error": EXPORT_JOB["last_error"],
-            "summary": EXPORT_JOB["summary"],
-            "scheduler_run_id": EXPORT_JOB["scheduler_run_id"],
-            "channel_summaries": list(EXPORT_JOB["channel_summaries"]),
-        }
-
-    finish_scheduler_run_from_export(
-        export_snapshot.get("scheduler_run_id"),
-        returncode,
-        export_snapshot,
-    )
-
-
-def append_export_line(line):
-    with EXPORT_LOCK:
-        EXPORT_JOB["lines"].append(line)
-        EXPORT_JOB["lines"] = EXPORT_JOB["lines"][-500:]
-        update_export_status_from_line(line)
-
-
-def update_export_status_from_line(line):
-    if line.startswith("Channel:"):
-        EXPORT_JOB["current_channel"] = line.removeprefix("Channel:").strip()
-        return
-
-    if line.startswith("CHANNEL_STATUS "):
-        payload = parse_status_payload(line, "CHANNEL_STATUS ")
-
-        if not payload:
-            return
-
-        channel = payload.get("channel")
-        EXPORT_JOB["channel_summaries"].append(payload)
-
-        if payload.get("ok"):
-            if channel and channel not in EXPORT_JOB["completed_channels"]:
-                EXPORT_JOB["completed_channels"].append(channel)
-        elif channel and channel not in EXPORT_JOB["failed_channels"]:
-            EXPORT_JOB["failed_channels"].append(channel)
-
-        errors = payload.get("errors") or []
-
-        if errors:
-            EXPORT_JOB["last_error"] = errors[-1]
-
-        return
-
-    if line.startswith("EXPORT_SUMMARY "):
-        payload = parse_status_payload(line, "EXPORT_SUMMARY ")
-
-        if payload:
-            EXPORT_JOB["summary"] = payload
-            failed_channels = payload.get("failed_channels") or []
-            EXPORT_JOB["failed_channels"] = failed_channels
-
-
-def parse_status_payload(line, prefix):
-    try:
-        return json.loads(line.removeprefix(prefix))
-    except json.JSONDecodeError:
-        return None
-
-
-def get_export_status():
-    with EXPORT_LOCK:
-        return {
-            "running": EXPORT_JOB["running"],
-            "returncode": EXPORT_JOB["returncode"],
-            "started_at": EXPORT_JOB["started_at"],
-            "finished_at": EXPORT_JOB["finished_at"],
-            "command": EXPORT_JOB["command"],
-            "lines": EXPORT_JOB["lines"],
-            "current_channel": EXPORT_JOB["current_channel"],
-            "completed_channels": EXPORT_JOB["completed_channels"],
-            "failed_channels": EXPORT_JOB["failed_channels"],
-            "last_error": EXPORT_JOB["last_error"],
-            "summary": EXPORT_JOB["summary"],
-        }
 
 
 def main():

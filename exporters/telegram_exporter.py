@@ -1,3 +1,5 @@
+import logging
+from errors import ApplicationError, IdentityModeMismatchError, IndexUnavailableError
 import argparse
 import asyncio
 import csv
@@ -14,7 +16,10 @@ from telethon.utils import get_peer_id
 
 from config import load_export_config, load_postgres_config
 from storage.json_files import backup_problem_file, load_json_dataset, write_json_atomic
-from storage.sqlite_store import get_export_state, sync_export_file, upsert_export_state
+from storage.sqlite_store import (
+    export_file_signature, get_export_state, sync_export_file,
+    sync_export_posts, upsert_export_state,
+)
 from telegram.messages import (
     UserAnonymizer,
     build_message_link,
@@ -38,6 +43,8 @@ POST_LIMIT = 500
 INCREMENTAL_LOOKBACK_POSTS = 50
 POSTS_PAUSE_SECONDS = 30
 POSTS_PAUSE_AFTER_POSTS = 500
+WATCH_BATCH_SECONDS = 1
+WATCH_BATCH_SIZE = 20
 POSTGRES_HOST = "localhost"
 POSTGRES_PORT = 5432
 POSTGRES_DB = "telegram_parser"
@@ -108,8 +115,8 @@ def parse_args(argv=None):
     )
     parser.add_argument(
         "--anonymizer-file",
-        default="anonymizer",
-        help="Text file with anonymized names, one alias per line. Default: anonymizer.",
+        default="anonymization_rules.json",
+        help="JSON naming rules or legacy text aliases. Default: anonymization_rules.json.",
     )
     parser.add_argument(
         "--incremental",
@@ -135,8 +142,8 @@ def build_watch_parser():
     )
     parser.add_argument(
         "--anonymizer-file",
-        default="anonymizer",
-        help="Text file with anonymized names, one alias per line. Default: anonymizer.",
+        default="anonymization_rules.json",
+        help="JSON naming rules or legacy text aliases. Default: anonymization_rules.json.",
     )
     parser.add_argument(
         "--poll-interval",
@@ -248,7 +255,7 @@ def load_incremental_state(channel):
         state = get_export_state(channel_key)
         if state:
             return state
-    except Exception as e:
+    except IndexUnavailableError as e:
         print(f"SQLite export state read failed for {channel_key}: {e}. Falling back to JSON state.")
 
     if not state_path.exists():
@@ -268,7 +275,7 @@ def load_incremental_state(channel):
             "channel_key": channel_key,
             "dataset_file": state.get("dataset_file") or state.get("dataset_path") or str(get_incremental_dataset_path(channel).as_posix()),
         })
-    except Exception as e:
+    except IndexUnavailableError as e:
         print(f"SQLite export state migration failed for {state_path}: {e}")
 
     return state
@@ -296,7 +303,7 @@ def save_incremental_state(channel, export_target, export_data, last_error=None)
 
     try:
         upsert_export_state(payload)
-    except Exception as e:
+    except IndexUnavailableError as e:
         print(f"SQLite export state update failed for {channel_key}: {e}")
 
     write_json_atomic(payload, state_path)
@@ -409,19 +416,20 @@ def save_json(export_data, path):
     write_json_atomic(export_data, path, indent=5)
 
 
-def sync_sqlite_export_data(export_data, path, channel):
+def sync_sqlite_export_data(export_data, path, channel, changed_posts=None, previous_signature=None):
     if not path:
         return
 
     try:
         export_path = Path(path)
-        sync_export_file(
-            export_path.name,
-            get_channel_name(channel),
-            export_data,
-            export_path,
-        )
-    except Exception as e:
+        if changed_posts is None:
+            sync_export_file(export_path.name, get_channel_name(channel), export_data, export_path)
+        else:
+            sync_export_posts(
+                export_path.name, get_channel_name(channel), changed_posts,
+                export_path, previous_signature, export_data,
+            )
+    except IndexUnavailableError as e:
         print(f"SQLite index update failed for {path}: {e}")
 
 
@@ -589,10 +597,11 @@ def save_export_data(export_data, export_target, channel=None):
         raise ValueError(f"Unsupported export format: {export_format}")
 
 
-def save_incremental_export_data(export_data, export_target, channel, last_error=None):
+def save_incremental_export_data(export_data, export_target, channel, last_error=None, changed_posts=None):
     dataset_path = get_incremental_dataset_path(channel)
+    previous_signature = export_file_signature(dataset_path) if changed_posts is not None else None
     save_json(export_data, str(dataset_path))
-    sync_sqlite_export_data(export_data, dataset_path, channel)
+    sync_sqlite_export_data(export_data, dataset_path, channel, changed_posts, previous_signature)
 
     if export_target["format"] != "json":
         save_export_data(export_data, export_target, channel)
@@ -776,7 +785,7 @@ async def build_post_export_data(client, channel, post, args, anonymizer, existi
                         ),
                         "reply_to_msg_id": comment.reply_to_msg_id,
                         "comment_reactions": extract_reactions(comment),
-                        "user": user_to_dict(sender, anonymizer),
+                        "user": user_to_dict(sender, anonymizer, channel),
                     }
 
                     if args.download_media and not comment_data["comment_media"]:
@@ -818,11 +827,13 @@ def is_same_json_data(left, right):
     )
 
 
-async def refresh_dataset_post(client, channel, post_id, args, anonymizer, reason="watch"):
+async def refresh_dataset_post(client, channel, post_id, args, anonymizer, reason="watch", *, batch=None):
     dataset_path = get_incremental_dataset_path(channel)
     export_target = build_incremental_export_target(channel, "json")
-    existing_data = load_json_dataset(dataset_path)
-    existing_posts = {
+    existing_data = batch["data"] if batch is not None else load_json_dataset(dataset_path)
+    if batch is None:
+        validate_dataset_identity(existing_data, anonymizer, channel)
+    existing_posts = batch["posts"] if batch is not None else {
         post.get("post_id"): post
         for post in existing_data
         if isinstance(post, dict)
@@ -863,7 +874,14 @@ async def refresh_dataset_post(client, channel, post_id, args, anonymizer, reaso
             "comments": len(merged_post.get("comments") or []),
         }
 
-    save_incremental_export_data(merge_export_data(existing_data, [new_post]), export_target, channel)
+    if batch is None:
+        save_incremental_export_data(
+            merge_export_data(existing_data, [new_post]), export_target, channel,
+            changed_posts=[merged_post],
+        )
+    else:
+        batch["posts"][post_id] = merged_post
+        batch["changed"][post_id] = merged_post
     return {
         "channel": str(channel),
         "post_id": post_id,
@@ -872,6 +890,51 @@ async def refresh_dataset_post(client, channel, post_id, args, anonymizer, reaso
         "comments": len(merged_post.get("comments") or []),
         "output": str(dataset_path.as_posix()),
     }
+
+
+async def refresh_dataset_posts(client, channel, requests, args, anonymizer):
+    """Read/write JSON once per batch and retain successes on interruption."""
+    data = load_json_dataset(get_incremental_dataset_path(channel))
+    validate_dataset_identity(data, anonymizer, channel)
+    batch = {
+        "data": data,
+        "posts": {p.get("post_id"): p for p in data if isinstance(p, dict)},
+        "changed": {},
+    }
+    results = []
+    try:
+        for post_id, reason in requests.items():
+            try:
+                results.append(await refresh_dataset_post(
+                    client, channel, post_id, args, anonymizer, reason, batch=batch,
+                ))
+            except FloodWaitError:
+                raise
+            except Exception as e:
+                if not isinstance(e, (ApplicationError, OSError, RPCError, TimeoutError)):
+                    logging.getLogger(__name__).exception("Unexpected Watch post refresh failure")
+                results.append({
+                    "channel": str(channel), "post_id": post_id,
+                    "changed": False, "reason": reason, "error": str(e),
+                })
+    finally:
+        if batch["changed"]:
+            changed_posts = list(batch["changed"].values())
+            save_incremental_export_data(
+                merge_export_data(data, changed_posts),
+                build_incremental_export_target(channel, "json"), channel,
+                changed_posts=changed_posts,
+            )
+    return results
+
+
+def validate_dataset_identity(data, anonymizer, channel):
+    if anonymizer:
+        anonymizer.validate_dataset(data, channel)
+    else:
+        from telegram.anonymization import iter_users
+        if any(isinstance(u.get("user_id"), int) and u["user_id"] < 0 for u in iter_users(data)):
+            raise IdentityModeMismatchError("This dataset uses pseudonyms; enable --anonymize with its original map")
 
 
 async def export_channel(client, channel, args, anonymizer):
@@ -888,6 +951,7 @@ async def export_channel(client, channel, args, anonymizer):
         existing_data = []
         incremental_state = {}
 
+    validate_dataset_identity(existing_data, anonymizer, channel)
     content_dir = build_content_dir(export_target)
 
     print("Channel:", channel)
@@ -957,6 +1021,8 @@ async def export_channel(client, channel, args, anonymizer):
 
             except Exception as e:
                 error_message = f"Error while processing post {post.id}: {e}"
+                if not isinstance(e, (ApplicationError, OSError, RPCError, TimeoutError)):
+                    logging.getLogger(__name__).exception("Unexpected export post failure")
                 print(error_message)
                 post_data = {
                     "post_id": post.id,
@@ -986,6 +1052,8 @@ async def export_channel(client, channel, args, anonymizer):
 
     except Exception as e:
         error_message = f"Channel {channel} failed: {e}"
+        if not isinstance(e, (ApplicationError, OSError, RPCError, TimeoutError)):
+            logging.getLogger(__name__).exception("Unexpected export channel failure")
         print(error_message)
         channel_errors.append(error_message)
         save_current_export(last_error=error_message)
@@ -1026,29 +1094,60 @@ async def remember_discussion_thread(client, channel, post_id, watch_state):
 
 
 async def refresh_watched_post(client, channel, post_id, args, anonymizer, watch_state, reason):
+    # Event callbacks only enqueue work. Repeated activity for a post is
+    # collapsed until the worker takes the next bounded batch.
+    watch_state["pending"][channel].setdefault(post_id, reason)
+    watch_state["wake"][channel].set()
+
+
+async def flush_watched_posts(client, channel, requests, args, anonymizer, watch_state):
     async with watch_state["locks"][channel]:
         try:
-            result = await refresh_dataset_post(client, channel, post_id, args, anonymizer, reason)
-            print("WATCH_UPDATE", json.dumps(result, ensure_ascii=False))
-
-            if result.get("changed") or reason in {"startup", "new_post"}:
-                await remember_discussion_thread(client, channel, post_id, watch_state)
-
-            return result
+            results = await refresh_dataset_posts(client, channel, requests, args, anonymizer)
+            for result in results:
+                print("WATCH_UPDATE", json.dumps(result, ensure_ascii=False))
+                if result.get("changed") or result["reason"] in {"startup", "new_post"}:
+                    await remember_discussion_thread(client, channel, result["post_id"], watch_state)
         except FloodWaitError as e:
-            print(f"Watch FloodWaitError for {channel}/{post_id}: waiting {e.seconds} seconds")
+            for post_id, reason in requests.items():
+                watch_state["pending"][channel].setdefault(post_id, reason)
+            watch_state["wake"][channel].set()
+            print(f"Watch FloodWaitError for {channel}: waiting {e.seconds} seconds")
             await asyncio.sleep(e.seconds)
         except Exception as e:
-            payload = {
-                "channel": str(channel),
-                "post_id": post_id,
-                "changed": False,
-                "reason": reason,
-                "error": str(e),
-            }
-            print("WATCH_UPDATE", json.dumps(payload, ensure_ascii=False))
+            # Disk/write failures retain the requests for the next attempt.
+            if not isinstance(e, (ApplicationError, OSError, RPCError, TimeoutError)):
+                logging.getLogger(__name__).exception("Unexpected Watch batch failure")
+            for post_id, reason in requests.items():
+                watch_state["pending"][channel].setdefault(post_id, reason)
+            watch_state["wake"][channel].set()
+            print("WATCH_UPDATE", json.dumps({"channel": str(channel), "changed": False, "error": str(e)}))
 
-    return None
+
+async def watch_batch_worker(client, channel, args, anonymizer, watch_state):
+    pending = watch_state["pending"][channel]
+    wake = watch_state["wake"][channel]
+    while True:
+        await wake.wait()
+        wake.clear()
+        await asyncio.sleep(WATCH_BATCH_SECONDS)
+        # Unknown discussion roots request one recent-post scan per batch,
+        # instead of issuing a scan for every comment event.
+        if None in pending:
+            reason = pending.pop(None)
+            try:
+                await refresh_latest_watched_posts(client, channel, args, anonymizer, watch_state, reason)
+            except FloodWaitError as e:
+                pending.setdefault(None, reason)
+                await asyncio.sleep(e.seconds)
+            except Exception as e:
+                pending.setdefault(None, reason)
+                print(f"Watch recent-post scan failed for {channel}: {e}")
+        requests = {post_id: pending.pop(post_id) for post_id in list(pending)[:WATCH_BATCH_SIZE] if post_id is not None}
+        if requests:
+            await flush_watched_posts(client, channel, requests, args, anonymizer, watch_state)
+        if pending:
+            wake.set()
 
 
 async def refresh_latest_watched_posts(client, channel, args, anonymizer, watch_state, reason):
@@ -1069,6 +1168,8 @@ async def watch_channel_updates(client, args, anonymizer):
         "discussion_roots": {},
         "discussion_channels": {},
         "locks": {},
+        "pending": {},
+        "wake": {},
     }
 
     for channel in CHANNELS:
@@ -1078,6 +1179,8 @@ async def watch_channel_updates(client, args, anonymizer):
         )
         channel_entities[get_peer_id(entity)] = channel
         watch_state["locks"][channel] = asyncio.Lock()
+        watch_state["pending"][channel] = {}
+        watch_state["wake"][channel] = asyncio.Event()
 
     @client.on(events.NewMessage(chats=list(channel_entities.keys())))
     async def handle_channel_post(event):
@@ -1120,14 +1223,7 @@ async def watch_channel_updates(client, args, anonymizer):
             return
 
         channel = watch_state["discussion_channels"][discussion_chat_id]
-        await refresh_latest_watched_posts(
-            client,
-            channel,
-            args,
-            anonymizer,
-            watch_state,
-            "discussion_activity",
-        )
+        await refresh_watched_post(client, channel, None, args, anonymizer, watch_state, "discussion_activity")
 
     print("Watch mode started.")
     print("Channels:", ", ".join(CHANNELS))
@@ -1135,14 +1231,18 @@ async def watch_channel_updates(client, args, anonymizer):
     print("Poll interval seconds:", args.poll_interval)
     print("Refresh active posts:", args.refresh_active_posts)
 
-    for channel in CHANNELS:
-        await refresh_latest_watched_posts(client, channel, args, anonymizer, watch_state, "startup")
-
-    while True:
-        await safe_sleep(max(5, int(args.poll_interval or 30)))
-
+    workers = [asyncio.create_task(watch_batch_worker(client, channel, args, anonymizer, watch_state)) for channel in CHANNELS]
+    try:
         for channel in CHANNELS:
-            await refresh_latest_watched_posts(client, channel, args, anonymizer, watch_state, "poll")
+            await refresh_latest_watched_posts(client, channel, args, anonymizer, watch_state, "startup")
+        while True:
+            await safe_sleep(max(5, int(args.poll_interval or 30)))
+            for channel in CHANNELS:
+                await refresh_latest_watched_posts(client, channel, args, anonymizer, watch_state, "poll")
+    finally:
+        for worker in workers:
+            worker.cancel()
+        await asyncio.gather(*workers, return_exceptions=True)
 
 
 async def watch_main(args=None):

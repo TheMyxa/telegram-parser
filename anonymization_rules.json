@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "scope": "channel",
+  "adjectives": [
+    "Amber", "Azure", "Blue", "Coral", "Crimson", "Emerald", "Golden", "Green",
+    "Indigo", "Ivory", "Jade", "Lavender", "Lilac", "Mint", "Olive", "Orange",
+    "Peach", "Pearl", "Purple", "Ruby", "Scarlet", "Silver", "Teal", "Violet",
+    "Brave", "Bright", "Calm", "Cheerful", "Clever", "Cozy", "Curious", "Daring",
+    "Dreamy", "Eager", "Fancy", "Friendly", "Gentle", "Happy", "Jolly", "Kind",
+    "Lively", "Lucky", "Merry", "Nimble", "Patient", "Playful", "Proud", "Quiet",
+    "Sleepy", "Smiling", "Snowy", "Sparkling", "Speedy", "Starry", "Sunny", "Swift",
+    "Thoughtful", "Tiny", "Velvety", "Warm", "Witty", "Wonderful", "Zesty", "Big"
+  ],
+  "nouns": [
+    "aardvark", "albatross", "alpaca", "antelope", "armadillo", "badger", "bat", "bear",
+    "beaver", "bison", "buffalo", "camel", "capybara", "caracal", "cheetah", "chipmunk",
+    "cobra", "cormorant", "cougar", "coyote", "crane", "crocodile", "deer", "dolphin",
+    "dormouse", "eagle", "echidna", "elephant", "falcon", "ferret", "flamingo", "fox",
+    "gazelle", "gecko", "giraffe", "hedgehog", "heron", "ibis", "iguana", "jackal",
+    "jaguar", "kangaroo", "kingfisher", "koala", "lemur", "leopard", "lion", "llama",
+    "lynx", "macaw", "magpie", "manatee", "marmot", "meerkat", "mongoose", "moose",
+    "narwhal", "ocelot", "octopus", "okapi", "otter", "owl", "panda", "pangolin",
+    "panther", "parrot", "peacock", "pelican", "penguin", "puffin", "quail", "quokka",
+    "rabbit", "raccoon", "raven", "reindeer", "robin", "salamander", "seal", "sloth",
+    "sparrow", "squirrel", "swan", "tapir", "tiger", "toucan", "turtle", "walrus",
+    "wombat", "woodpecker", "yak", "zebra", "finch", "hamster", "hummingbird", "whale"
+  ],
+  "collision_policy": "suffix",
+  "fields": {"user_id": "replace", "username": "clear", "first_name": "alias", "last_name": "clear"}
+}

@@ -1,3 +1,4 @@
+from errors import index_operation
 import json
 import sqlite3
 import time
@@ -79,6 +80,7 @@ def init_db(conn):
         );
 
         CREATE INDEX IF NOT EXISTS idx_posts_file_date ON posts(file_name, post_date);
+        CREATE INDEX IF NOT EXISTS idx_reactions_file_post ON reactions(file_name, post_id);
         CREATE INDEX IF NOT EXISTS idx_comments_file_date ON comments(file_name, comment_date);
         CREATE INDEX IF NOT EXISTS idx_comments_file_user ON comments(file_name, user_id);
         CREATE INDEX IF NOT EXISTS idx_comments_file_username ON comments(file_name, username);
@@ -214,6 +216,7 @@ def now_iso():
     return time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime())
 
 
+@index_operation
 def upsert_export_state(state):
     if not isinstance(state, dict):
         raise ValueError("Export state must be an object")
@@ -272,6 +275,7 @@ def upsert_export_state(state):
         )
 
 
+@index_operation
 def get_export_state(channel_key):
     with connect() as conn:
         row = conn.execute(
@@ -285,6 +289,7 @@ def get_export_state(channel_key):
     return json.loads(row["state_json"])
 
 
+@index_operation
 def list_export_states():
     with connect() as conn:
         rows = conn.execute(
@@ -300,6 +305,7 @@ def list_export_states():
     return [dict(row) for row in rows]
 
 
+@index_operation
 def upsert_scheduler_run(record):
     if not isinstance(record, dict):
         raise ValueError("Scheduler run record must be an object")
@@ -357,6 +363,7 @@ def upsert_scheduler_run(record):
         )
 
 
+@index_operation
 def read_scheduler_run_record(run_id):
     with connect() as conn:
         row = conn.execute(
@@ -370,6 +377,7 @@ def read_scheduler_run_record(run_id):
     return json.loads(row["record_json"])
 
 
+@index_operation
 def list_scheduler_run_records(limit=50, offset=0, status=None, channel=None):
     safe_limit = max(1, min(int(limit or 50), 200))
     safe_offset = max(0, int(offset or 0))
@@ -390,6 +398,7 @@ def list_scheduler_run_records(limit=50, offset=0, status=None, channel=None):
     return [json.loads(row["record_json"]) for row in rows]
 
 
+@index_operation
 def count_scheduler_run_records(status=None, channel=None):
     where, params = build_scheduler_run_filters(status, channel)
 
@@ -420,6 +429,7 @@ def build_scheduler_run_filters(status=None, channel=None):
     return "WHERE " + " AND ".join(clauses), params
 
 
+@index_operation
 def get_scheduler_run_stats(status=None, channel=None):
     where, params = build_scheduler_run_filters(status, channel)
 
@@ -491,6 +501,7 @@ def analysis_status(rows):
     return "PARTIAL"
 
 
+@index_operation
 def get_analysis_cache_entry(source_file, post_id, post_hash, prompt_hash, model, status="OK"):
     with connect() as conn:
         row = conn.execute(
@@ -520,6 +531,7 @@ def get_analysis_cache_entry(source_file, post_id, post_hash, prompt_hash, model
     return json.loads(row["analysis_json"])
 
 
+@index_operation
 def upsert_analysis_cache_entry(source_file, post_id, post_hash, prompt_hash, model, status, analysis_item):
     if not isinstance(analysis_item, dict):
         raise ValueError("Analysis cache item must be an object")
@@ -572,6 +584,7 @@ def upsert_analysis_cache_entry(source_file, post_id, post_hash, prompt_hash, mo
         )
 
 
+@index_operation
 def sync_analysis_file(file_name, analysis_payload, source_path=None):
     if not isinstance(analysis_payload, dict):
         raise ValueError("Analysis payload must be an object")
@@ -640,6 +653,7 @@ def sync_analysis_file(file_name, analysis_payload, source_path=None):
             )
 
 
+@index_operation
 def get_indexed_analysis(file_name):
     with connect() as conn:
         return conn.execute(
@@ -648,6 +662,7 @@ def get_indexed_analysis(file_name):
         ).fetchone()
 
 
+@index_operation
 def list_analysis_file_records():
     with connect() as conn:
         rows = conn.execute(
@@ -664,6 +679,7 @@ def list_analysis_file_records():
     return [dict(row) for row in rows]
 
 
+@index_operation
 def read_analysis_record(file_name):
     with connect() as conn:
         row = conn.execute(
@@ -677,6 +693,7 @@ def read_analysis_record(file_name):
     return json.loads(row["record_json"])
 
 
+@index_operation
 def list_analysis_result_records(file_name, status=None, limit=50, offset=0):
     safe_limit = max(1, min(int(limit or 50), 200))
     safe_offset = max(0, int(offset or 0))
@@ -706,6 +723,7 @@ def list_analysis_result_records(file_name, status=None, limit=50, offset=0):
     return [dict(row) for row in rows]
 
 
+@index_operation
 def sync_export_file(file_name, channel_key, posts, source_path=None):
     if not isinstance(posts, list):
         raise ValueError("Export posts must be a list")
@@ -729,77 +747,136 @@ def sync_export_file(file_name, channel_key, posts, source_path=None):
             (file_name, channel_key, size_bytes, modified_at, now_iso()),
         )
 
-        for post in posts:
-            if not isinstance(post, dict):
+        insert_export_posts(conn, file_name, channel_key, posts)
+
+
+def export_file_signature(path):
+    path = Path(path)
+    if not path.exists():
+        return None
+    stat = path.stat()
+    return (stat.st_size, time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(stat.st_mtime)))
+
+
+@index_operation
+def sync_export_posts(file_name, channel_key, posts, source_path, previous_signature, full_posts):
+    """Replace only changed posts when the index matches the previous JSON.
+
+    JSON is written first. A missing/stale index (including a previous failed
+    update) is rebuilt from the complete dataset rather than marked current
+    after an incomplete patch.
+    """
+    signature = export_file_signature(source_path)
+    if not isinstance(posts, list):
+        raise ValueError("Export posts must be a list")
+    with connect() as conn:
+        indexed = conn.execute(
+            "SELECT * FROM export_files WHERE file_name = ?", (file_name,),
+        ).fetchone()
+        fts_missing = has_fts(conn) and conn.execute(
+            "SELECT 1 FROM comments WHERE file_name = ? LIMIT 1", (file_name,),
+        ).fetchone() and not conn.execute(
+            "SELECT 1 FROM comments_fts WHERE file_name = ? LIMIT 1", (file_name,),
+        ).fetchone()
+        if (
+            not indexed or not previous_signature or not signature or fts_missing
+            or indexed["channel_key"] != channel_key
+            or (indexed["size_bytes"], indexed["modified_at"]) != previous_signature
+        ):
+            rebuild = True
+        else:
+            rebuild = False
+            # One FTS scan per batch; other tables use file/post indexes.
+            post_ids = list({p["post_id"] for p in posts if isinstance(p, dict) and p.get("post_id") is not None})
+            for offset in range(0, len(post_ids), 500):
+                chunk = post_ids[offset:offset + 500]
+                placeholders = ",".join("?" for _ in chunk)
+                parameters = [file_name, *chunk]
+                if has_fts(conn):
+                    conn.execute(f"DELETE FROM comments_fts WHERE file_name = ? AND post_id IN ({placeholders})", parameters)
+                conn.execute(f"DELETE FROM reactions WHERE file_name = ? AND post_id IN ({placeholders})", parameters)
+                conn.execute(f"DELETE FROM posts WHERE file_name = ? AND post_id IN ({placeholders})", parameters)
+            insert_export_posts(conn, file_name, channel_key, posts)
+            conn.execute(
+                "UPDATE export_files SET size_bytes = ?, modified_at = ?, indexed_at = ? WHERE file_name = ?",
+                (*signature, now_iso(), file_name),
+            )
+    if rebuild:
+        sync_export_file(file_name, channel_key, full_posts, source_path)
+
+
+def insert_export_posts(conn, file_name, channel_key, posts):
+    for post in posts:
+        if not isinstance(post, dict):
+            continue
+
+        post_id = post.get("post_id")
+        if post_id is None:
+            continue
+
+        conn.execute(
+            """
+            INSERT INTO posts (
+                file_name, channel_key, post_id, post_date, post_text, post_views,
+                post_forwards, post_link, post_media, post_media_error, export_errors
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                file_name,
+                channel_key,
+                post_id,
+                post.get("post_date"),
+                post.get("post_text"),
+                post.get("post_views"),
+                post.get("post_forwards"),
+                post.get("post_link"),
+                post.get("post_media"),
+                post.get("post_media_error"),
+                json_text(post.get("export_errors")),
+            ),
+        )
+        insert_reactions(conn, file_name, "post", post_id, None, post.get("post_reactions"))
+
+        for comment in post.get("comments") or []:
+            if not isinstance(comment, dict):
                 continue
 
-            post_id = post.get("post_id")
-            if post_id is None:
+            comment_id = comment.get("comment_id")
+            if comment_id is None:
                 continue
 
+            user = comment.get("user") or {}
             conn.execute(
                 """
-                INSERT INTO posts (
-                    file_name, channel_key, post_id, post_date, post_text, post_views,
-                    post_forwards, post_link, post_media, post_media_error, export_errors
+                INSERT INTO comments (
+                    file_name, channel_key, post_id, comment_id, comment_date, comment_text,
+                    comment_link, comment_media, reply_to_msg_id, user_id, username,
+                    first_name, last_name, bot, premium, comment_media_error
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     file_name,
                     channel_key,
                     post_id,
-                    post.get("post_date"),
-                    post.get("post_text"),
-                    post.get("post_views"),
-                    post.get("post_forwards"),
-                    post.get("post_link"),
-                    post.get("post_media"),
-                    post.get("post_media_error"),
-                    json_text(post.get("export_errors")),
+                    comment_id,
+                    comment.get("comment_date"),
+                    comment.get("comment_text"),
+                    comment.get("comment_link"),
+                    comment.get("comment_media"),
+                    comment.get("reply_to_msg_id"),
+                    None if user.get("user_id") is None else str(user.get("user_id")),
+                    user.get("username"),
+                    user.get("first_name"),
+                    user.get("last_name"),
+                    bool_int(user.get("bot")),
+                    bool_int(user.get("premium")),
+                    comment.get("comment_media_error"),
                 ),
             )
-            insert_reactions(conn, file_name, "post", post_id, None, post.get("post_reactions"))
-
-            for comment in post.get("comments") or []:
-                if not isinstance(comment, dict):
-                    continue
-
-                comment_id = comment.get("comment_id")
-                if comment_id is None:
-                    continue
-
-                user = comment.get("user") or {}
-                conn.execute(
-                    """
-                    INSERT INTO comments (
-                        file_name, channel_key, post_id, comment_id, comment_date, comment_text,
-                        comment_link, comment_media, reply_to_msg_id, user_id, username,
-                        first_name, last_name, bot, premium, comment_media_error
-                    )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        file_name,
-                        channel_key,
-                        post_id,
-                        comment_id,
-                        comment.get("comment_date"),
-                        comment.get("comment_text"),
-                        comment.get("comment_link"),
-                        comment.get("comment_media"),
-                        comment.get("reply_to_msg_id"),
-                        None if user.get("user_id") is None else str(user.get("user_id")),
-                        user.get("username"),
-                        user.get("first_name"),
-                        user.get("last_name"),
-                        bool_int(user.get("bot")),
-                        bool_int(user.get("premium")),
-                        comment.get("comment_media_error"),
-                    ),
-                )
-                insert_reactions(conn, file_name, "comment", post_id, comment_id, comment.get("comment_reactions"))
-                insert_fts_comment(conn, file_name, channel_key, post_id, comment_id, comment, user)
+            insert_reactions(conn, file_name, "comment", post_id, comment_id, comment.get("comment_reactions"))
+            insert_fts_comment(conn, file_name, channel_key, post_id, comment_id, comment, user)
 
 
 def insert_reactions(conn, file_name, target_type, post_id, comment_id, reactions):
@@ -859,6 +936,7 @@ def insert_fts_comment(conn, file_name, channel_key, post_id, comment_id, commen
     )
 
 
+@index_operation
 def is_indexed(file_name):
     with connect() as conn:
         row = conn.execute(
@@ -868,6 +946,7 @@ def is_indexed(file_name):
     return row is not None
 
 
+@index_operation
 def get_indexed_export(file_name):
     with connect() as conn:
         return conn.execute(
@@ -876,6 +955,7 @@ def get_indexed_export(file_name):
         ).fetchone()
 
 
+@index_operation
 def list_indexed_exports():
     with connect() as conn:
         rows = conn.execute(
@@ -906,6 +986,7 @@ def list_indexed_exports():
     return [dict(row) for row in rows]
 
 
+@index_operation
 def needs_fts_reindex(file_name):
     with connect() as conn:
         if not has_fts(conn):
@@ -927,6 +1008,7 @@ def needs_fts_reindex(file_name):
     return fts_count == 0
 
 
+@index_operation
 def get_export_summary(file_name):
     with connect() as conn:
         export_file = conn.execute(
@@ -956,6 +1038,7 @@ def get_export_summary(file_name):
     }
 
 
+@index_operation
 def comments_by_day(file_name):
     with connect() as conn:
         rows = conn.execute(
@@ -974,6 +1057,7 @@ def comments_by_day(file_name):
     return [dict(row) for row in rows if row["label"]]
 
 
+@index_operation
 def top_users(file_name, limit=10):
     safe_limit = max(1, min(int(limit or 10), 100))
     with connect() as conn:
@@ -1007,6 +1091,7 @@ def top_users(file_name, limit=10):
     ]
 
 
+@index_operation
 def top_reactions(file_name, limit=10):
     safe_limit = max(1, min(int(limit or 10), 100))
     with connect() as conn:
@@ -1026,6 +1111,7 @@ def top_reactions(file_name, limit=10):
     return [dict(row) for row in rows]
 
 
+@index_operation
 def top_posts_by_comments(file_name, limit=10):
     safe_limit = max(1, min(int(limit or 10), 100))
     with connect() as conn:
@@ -1058,6 +1144,7 @@ def top_posts_by_comments(file_name, limit=10):
     ]
 
 
+@index_operation
 def activity_heatmap(file_name):
     matrix = [[0 for _hour in range(24)] for _day in range(7)]
 
@@ -1088,6 +1175,7 @@ def activity_heatmap(file_name):
     return matrix
 
 
+@index_operation
 def get_export_charts(file_name, limit=10):
     with connect() as conn:
         indexed = conn.execute(
@@ -1171,6 +1259,7 @@ def build_diff(current, previous):
     return result
 
 
+@index_operation
 def compare_periods(file_name, from_date, to_date):
     current_start = parse_period_date(from_date)
     current_end = parse_period_date(to_date)
@@ -1246,6 +1335,7 @@ def restore_user_id(value):
     return int(text) if text.isdigit() else value
 
 
+@index_operation
 def get_post(file_name, post_id):
     with connect() as conn:
         post = conn.execute(
@@ -1309,6 +1399,7 @@ def get_post(file_name, post_id):
     return result
 
 
+@index_operation
 def list_posts(
     file_name,
     limit=100,
@@ -1373,6 +1464,7 @@ def list_posts(
     }
 
 
+@index_operation
 def get_filtered_summary(
     file_name,
     query=None,
@@ -1601,6 +1693,7 @@ def search_comments(file_name, query, limit=20, date_from=None, date_to=None, us
     )
 
 
+@index_operation
 def search_comments_like(
     needle,
     limit=20,
@@ -1664,6 +1757,7 @@ def search_comments_like(
     return [dict(row) for row in rows]
 
 
+@index_operation
 def search_comments_fts(
     needle,
     limit=20,

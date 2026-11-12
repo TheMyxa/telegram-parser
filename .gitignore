@@ -1,4 +1,6 @@
 .env
+data/private/*
+!data/private/.gitkeep
 sessions/*
 !sessions/.gitkeep
 data/*.json

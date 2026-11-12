@@ -2,102 +2,48 @@
 
 [Русский](README_ru.md) | [中文](README_cn.md)
 
-TG is a local-first Telegram comments exporter and analytics dashboard. It exports channel posts, discussion comments, reactions, links, optional media files, and can update existing datasets incrementally.
+TG is a local-first Telegram comments exporter and analytics dashboard with incremental updates, Watch mode, a scheduler, LLM analysis and an MCP server.
 
-Current version: `3.0.0`.
-
-![Dashboard screenshot](docs/screenshots/dashboard.png)
+Current version: `3.0.1`.
 
 ## Features
 
-- Export Telegram channel posts and comments with Telethon.
-- Use one or more channels in `CHANNEL`, separated by commas.
-- Save exports as `JSON`, `CSV`, `Parquet`, or `PostgreSQL`.
-- True incremental export: scan new posts and revisit older exported posts to refresh comments, reactions, and counters.
-- Optional media download into `data/content/<dataset_name>/`.
-- Optional anonymization of `user_id`, `username`, `first_name`, and `last_name`.
-- Web UI on port `9595` with dashboard, activity heatmap, global search, post view, comment tree, filters, user profiles, export launch screen, Scheduler mode, and Watch mode.
-- Open local JSON exports from `data/raw` directly in the dashboard, sorted by date or channel.
-- Maintain a local SQLite index in `data/state/tg.sqlite` for faster dashboard summaries, period comparison, and full-text MCP/CLI search.
-- LLM analyzer for exported JSON files with Russian, English, and Chinese prompt files.
-- Period comparison for comments, users, and reactions with `tg compare`.
-- MCP server for local automation through AI clients.
-- Docker Compose setup for local use.
+- Export posts, discussion comments, reactions, links and optional media from one or more channels.
+- Export to JSON, CSV, Parquet or PostgreSQL; retain compatibility with JSON arrays of posts.
+- Refresh older posts during incremental export, reusing downloaded media.
+- Batch Watch events and update only changed posts in SQLite.
+- Explore charts, activity heatmaps, period comparisons, comment trees, user profiles and global search.
+- Run one-off exports, a scheduler or Watch from the dashboard.
+- Assign stable readable pseudonyms and restore user identity fields using a private map.
+- Analyze JSON exports with configurable ru/en/zh prompts; automate local operations over MCP.
+
+## Quick start
+
+Install Docker Desktop and start the dashboard:
+
+```powershell
+docker compose up --build dashboard
+```
+
+Open **http://localhost:9595**. Compose creates `.env` from `.env.example` if it is missing. Fill in Telegram settings in the Export tab. For the first Telegram login, run an interactive CLI export and follow the prompts; subsequent runs reuse `sessions/`.
+
+To explore without credentials, upload [examples/example.json](examples/example.json) with **Choose file**. For global search and server-backed views, copy that synthetic file into `data/raw/` and open it as a local export. Uploading alone does not persist or index a file.
 
 ## Screenshots
 
-### Dashboard
+Real UI captures from version 3.0.1, using only the synthetic example (3 posts, 7 comments). [Reproduce the screenshots](docs/screenshots.md).
 
-![Dashboard](docs/screenshots/dashboard.png)
+![Dashboard and activity heatmap](docs/screenshots/dashboard.png)
 
-### Export Screen
+| Post and comment tree | Global comment search |
+| --- | --- |
+| ![Post and comment tree](docs/screenshots/posts.png) | ![Global comment search](docs/screenshots/search.png) |
 
-![Export screen](docs/screenshots/export.png)
-
-## Demo JSON
-
-Use [examples/example.json](examples/example.json) to test the dashboard without connecting to Telegram.
-
-## Project Structure
-
-```text
-.
-├── main.py                    # Unified CLI: export, index, search, analyze, dashboard, config-check, mcp
-├── export_comments.py         # Compatibility entrypoint for exporters.telegram_exporter
-├── web/
-│   ├── comments_dashboard.html # Web dashboard markup
-│   ├── css/                    # Dashboard styles
-│   └── js/                     # Dashboard scripts
-├── web_server.py              # Compatibility entrypoint for api.web_server
-├── api/                       # Local web server and dashboard API
-├── telegram/                  # Telegram message serialization helpers
-├── exporters/                 # Telegram export orchestration and output formats
-├── storage/                   # JSON file loading, atomic writes, and SQLite index
-├── analytics/                 # Export summaries and dataset analytics helpers
-├── llm/                       # LLM analysis implementation
-├── mcp_server.py              # MCP server for local exports and analysis
-├── llm_analyzer.py            # Compatibility entrypoint for llm.analyzer
-├── config.py                  # .env/config loader
-├── docker-compose.yml         # Docker Compose services
-├── anonymizer                 # Aliases for anonymized users
-├── prompts/                   # LLM prompt files
-├── data/
-│   ├── raw/                   # Exported datasets
-│   ├── content/               # Downloaded media
-│   ├── analysis/              # LLM analysis output
-│   └── state/                 # Incremental export state
-└── examples/
-    ├── example.json
-    └── demo_export.json
-```
-
-## Requirements
-
-- Docker Desktop, recommended.
-- Telegram API credentials: `API_ID` and `API_HASH`.
-- A Telegram account session for Telethon.
-- Optional: PostgreSQL if you use `postgresql` export.
-- Optional: local or remote LLM endpoint if you use `analyze`.
-
-Get Telegram API credentials at `https://my.telegram.org/apps`.
+![Export, Scheduler and Watch controls](docs/screenshots/export.png)
 
 ## Configuration
 
-Docker creates `.env` from `.env.example` on the first start, so new users can begin with one command:
-
-```powershell
-docker compose up --build
-```
-
-Then open `http://localhost:9595` and fill in Telegram settings in the Export tab.
-
-If you prefer to edit the file before starting, create `.env` manually:
-
-```powershell
-Copy-Item .env.example .env
-```
-
-Edit `.env`:
+Copy `.env.example` to `.env` to configure it manually. The complete safe template is [.env.example](.env.example).
 
 ```env
 API_ID=123456
@@ -110,410 +56,114 @@ INCREMENTAL_LOOKBACK_POSTS=50
 POSTS_PAUSE_SECONDS=30
 POSTS_PAUSE_AFTER_POSTS=500
 
+# Required only for LLM analysis
+LLM_ENDPOINT=http://host.docker.internal:1234/v1/chat/completions
+LLM_MODEL=local-model
+
+# Required only for PostgreSQL export
 POSTGRES_HOST=host.docker.internal
 POSTGRES_PORT=5432
 POSTGRES_DB=telegram_parser
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=your_postgres_password_here
 POSTGRES_TABLE=telegram_comments_export
-
-LLM_ENDPOINT=http://localhost:1234/v1/chat/completions
-LLM_MODEL=local-model
 ```
 
-Important fields:
+`export` and `watch` require `API_ID`, `API_HASH` and `CHANNEL`. Only `analyze` requires `LLM_ENDPOINT`/`LLM_MODEL`; PostgreSQL settings are required only for that export target. `CHANNEL` accepts comma-separated names or links. `OUTPUT_FILE` determines the output directory. `POST_LIMIT` limits new/latest posts; `INCREMENTAL_LOOKBACK_POSTS` revisits known older posts. Pause settings control Telegram request pacing. In Docker, `localhost` is the container; use `host.docker.internal` for an LLM/PostgreSQL service on the Docker Desktop host. The project directory is mounted at `/workspace`; configuration uses `/workspace/.env`, while runtime data and sessions are mounted under `/app`.
 
-- `API_ID`, `API_HASH`: Telegram API app credentials.
-- `CHANNEL`: one or more channel usernames or links separated by commas, for example `durov,telegram`.
-- `TELEGRAM_SESSION`: Telethon session file path, usually inside `sessions/`.
-- `POST_LIMIT`: how many new/latest posts to scan per export run.
-- `INCREMENTAL_LOOKBACK_POSTS`: in incremental mode, how many already exported older posts to revisit at or below the saved `last_post_id`.
-- `POSTS_PAUSE_SECONDS`: pause duration in seconds.
-- `POSTS_PAUSE_AFTER_POSTS`: pause after every N processed posts.
-- `OUTPUT_FILE`: base output directory is taken from this path, usually `data/raw/export.json`.
-- `LLM_ENDPOINT`, `LLM_MODEL`: used by `analyze`.
-
-Configuration is validated per command: `export` requires Telegram settings, `analyze` requires LLM settings, and PostgreSQL settings are loaded only for `postgresql` export.
-
-## Docker Usage
-
-Start the web UI with one command:
-
-```powershell
-docker compose up --build
-```
-
-Open:
-
-```text
-http://localhost:9595
-```
-
-Run CLI commands:
+## CLI commands
 
 ```powershell
 docker compose run --rm cli --help
 docker compose run --rm cli config-check
-```
-
-## CLI Commands
-
-The project uses one CLI entrypoint:
-
-```text
-tg <command> [options]
-```
-
-In Docker:
-
-```powershell
-docker compose run --rm cli <command> [options]
-```
-
-### Export JSON
-
-```powershell
-docker compose run --rm cli export json
-```
-
-Output example:
-
-```text
-data/raw/<channel>_20260710_120000.json
-```
-
-### Incremental Export
-
-```powershell
 docker compose run --rm cli export json --incremental
-```
-
-Incremental mode writes and updates:
-
-```text
-data/raw/<channel>_dataset.json
-data/state/<channel>_state.json
-data/state/tg.sqlite
-```
-
-Incremental state is stored in SQLite table `export_states`; the per-channel JSON state file remains a compatibility fallback and migration source.
-
-It scans posts newer than the saved `last_post_id` plus `INCREMENTAL_LOOKBACK_POSTS` already exported posts at or below that `last_post_id`. This refreshes counters, reactions, and comments on older posts that changed after a previous run. It merges posts by `post_id`, merges comments by `comment_id`, and keeps already downloaded media files.
-
-JSON exports are also indexed into local SQLite at `data/state/tg.sqlite`. The database is runtime data and can be rebuilt from JSON exports.
-
-### Watch Mode
-
-```powershell
-docker compose run --rm cli watch --poll-interval 30 --refresh-active-posts 20
-```
-
-Watch mode is a long-running process that keeps the Telethon session open, watches selected channels for new posts, tracks discussion activity for recent posts, and updates changed posts in `data/raw/<channel>_dataset.json`. The poll interval refreshes recent posts for counters, reactions, nested replies, and missed events.
-
-### Export With Media
-
-```powershell
-docker compose run --rm cli export json --incremental --download-media
-```
-
-Media is saved to:
-
-```text
-data/content/<channel>_dataset/
-```
-
-### Other Export Formats
-
-```powershell
+docker compose run --rm cli export json --incremental --download-media --anonymize
 docker compose run --rm cli export csv
 docker compose run --rm cli export parquet
 docker compose run --rm cli export postgresql
-```
-
-PostgreSQL settings are read from `.env`.
-
-### Anonymized Export
-
-```powershell
-docker compose run --rm cli export json --incremental --anonymize
-```
-
-Aliases are loaded from `anonymizer`. Use `--anonymizer-file <path>` to pass a custom file.
-
-### Analyze Exported JSON With LLM
-
-```powershell
-docker compose run --rm cli analyze durov_dataset.json --limit 10
-```
-
-Use a built-in prompt language:
-
-```powershell
-docker compose run --rm cli analyze durov_dataset.json --limit 10 --language en
-docker compose run --rm cli analyze durov_dataset.json --limit 10 --language zh
-```
-
-Built-in prompt files:
-
-- `prompts/llm_ru.json`
-- `prompts/llm_en.json`
-- `prompts/llm_zh.json`
-
-Pass a custom prompt file:
-
-```powershell
-docker compose run --rm cli analyze durov_dataset.json --prompt-file prompts/llm_en.json
-```
-
-### Compare Periods
-
-Compare comments, unique users, and comment reactions for a selected period against the immediately previous period of the same length:
-
-```powershell
-docker compose run --rm cli compare --from 2026-07-01 --to 2026-08-01 --file durov_dataset.json
-```
-
-`--to` is exclusive. If `--file` is omitted, the newest JSON export from `data/raw` is used.
-
-### Index JSON Exports
-
-Build or refresh the local SQLite index without running a Telegram export:
-
-```powershell
-docker compose run --rm cli index
-docker compose run --rm cli index --file durov_dataset.json
-```
-
-The dashboard and MCP server also index JSON exports lazily when they need them.
-
-### Search Indexed Comments
-
-Search one export:
-
-```powershell
-docker compose run --rm cli search "telegram" --file durov_dataset.json
-```
-
-Search all JSON exports from `data/raw`:
-
-```powershell
-docker compose run --rm cli search "telegram" --limit 50
-```
-
-Search uses SQLite FTS5 when available and falls back to regular `LIKE` matching when FTS5 is unavailable or the FTS query is invalid.
-
-Prompt files are JSON objects with `system` and `user_template` fields. `user_template` must include `{data}`.
-
-Per-post LLM results are cached in SQLite table `analysis_cache` by `source_file`, `post_id`, `post_hash`, `prompt_hash`, and `model`. Re-running analysis skips unchanged posts with a successful cached result and continues writing the JSON output incrementally.
-
-Analysis files are saved to:
-
-```text
-data/analysis/analysis_<source_file>.json
-```
-
-### MCP Server
-
-Run a Model Context Protocol server over stdio:
-
-```powershell
+docker compose run --rm cli watch --poll-interval 30 --refresh-active-posts 20 --anonymize
+docker compose run --rm cli index --file examples/example.json
+docker compose run --rm cli search "incremental" --file examples/example.json
+docker compose run --rm cli compare --from 2026-07-01 --to 2026-08-01 --file examples/example.json
+docker compose run --rm cli analyze examples/example.json --limit 3 --language en
 docker compose run --rm -i cli mcp
 ```
 
-Local Python:
+Run locally with `python main.py <command>` after installing `requirements.txt`. The `tg` name shown in help is the parser name, not an installed executable. Docker is preferred when the Windows Python alias is broken. `config-check` validates Telegram, LLM and PostgreSQL settings together; unused optional services can therefore fail that full check.
+
+## Incremental export, Watch and Scheduler
+
+Incremental datasets are `data/raw/<channel>_dataset.json`, with per-channel JSON state and a derived SQLite index at `data/state/tg.sqlite`. New posts and the configured old-post lookback are merged by `post_id`; comments are merged by `comment_id`.
+
+Watch collects events for one second, deduplicates queued posts and processes up to 20 posts per channel per batch. JSON is read once per batch and atomically rewritten once if changed; SQLite patches only the changed posts, comments, reactions and FTS entries. A missing/stale index triggers a full rebuild. Already fetched changes are saved on FloodWait or task cancellation. The JSON file is still rewritten in full at each changed batch.
+
+Scheduler starts immediately and repeats every `interval_minutes`. If an export is running, a due run is skipped. Scheduler state is in memory: restarting the dashboard stops scheduling. Run history is persisted in SQLite; old `data/scheduler/` JSON records are imported lazily. Watch is a separate long-running process. Avoid concurrent writers to the same dataset/session.
+
+## Reversible pseudonyms
+
+The default `--anonymize` rules are [anonymization_rules.json](anonymization_rules.json): adjective + animal, for example «Зелёный слон». Names remain stable across Export/Watch restarts, with numeric suffixes on collisions. Scope defaults to a channel; `project` scope is available for a new map. `--anonymizer-file` accepts JSON rules or a legacy text name list.
 
 ```powershell
-python main.py mcp
+docker compose run --rm cli anonymize --file examples/example.json --channel demo --output data/raw/demo_anonymous.json
+docker compose run --rm cli deanonymize --file data/raw/demo_anonymous.json --channel demo --map data/private/anonymization_map.json --output data/raw/demo_restored.json
 ```
 
-The MCP server exposes tools for local automation:
+Both conversion commands create a new file and refuse to overwrite existing files. `--channel` must match the original channel. The map `data/private/anonymization_map.json` contains original user identities in **unencrypted JSON**; protect it and keep a separate backup. It is excluded from Git, Docker images and HTTP/MCP reads. Text, links and media remain unchanged. Legacy in-memory pseudonyms cannot generally be restored. Incompatible identity modes are rejected during incremental updates. See [pseudonym rules, restoration and migration](docs/anonymization.md).
 
-- `get_config_safe`: read non-secret config values with secrets masked.
-- `list_exports`, `get_export_summary`, `get_post`, `search_comments`, `search_all_comments`: inspect JSON exports in `data/raw`. Search uses SQLite FTS5 when available, with `LIKE` fallback.
-- `list_analysis_files`, `list_analysis_results`, `read_analysis`, `run_analysis`: work with LLM analysis files. Analysis metadata is indexed in SQLite for fast listing and error inspection.
-- `start_export`, `get_export_process_status`: start and monitor a Telegram export. `start_export` requires `confirm=true`.
+## LLM analysis and MCP
 
-### Run Dashboard
+Prompt files live in `prompts/llm_ru.json`, `llm_en.json` and `llm_zh.json`. `--prompt-file` overrides `--language`; the JSON object requires `system` and `user_template`, containing `{data}`. Analysis files are written incrementally to `data/analysis/analysis_<source>.json`; SQLite also stores analysis metadata and cache entries.
 
-```powershell
-docker compose up
-```
+**Known limitation:** the current `build_post_prompt_payload()` does not return its prepared payload. Verify/fix that before relying on LLM results or content-based cache invalidation. See [implementation notes](docs/architecture.md#known-limitations).
 
-The dashboard can:
+MCP runs over stdio with interactive stdin (`-i`). Tools include `get_config_safe`, `list_exports`, `get_export_summary`, `search_comments`, `search_all_comments`, `get_post`, `list_analysis_files`, `list_analysis_results`, `read_analysis`, `run_analysis`, `start_export`, and `get_export_process_status`. Live export requires `confirm=true`. There is no MCP tool for identity restoration.
 
-- upload a JSON file;
-- open a local JSON export from `data/raw`;
-- show file name, posts, comments, unique users, reactions;
-- draw charts by day, top users, top emoji, discussed posts;
-- draw an activity heatmap by weekday and hour;
-- open a post and show comments as a tree;
-- filter by user, date range, emoji, media, and replies;
-- open user details;
-- edit `.env` settings from the Export tab;
-- start exports from the browser and show progress.
-- enable Scheduler mode to update selected channels automatically every N minutes.
-- enable Watch mode to keep watching channels and update changed JSON dataset posts continuously.
-- show the app version from `version.py` through `/api/version`.
+## Errors and recovery
 
-Dashboard API endpoints:
+Expected HTTP application failures include `error_code` alongside `ok`/`error`; process conflicts return 409, corrupt data 422, unavailable index 503 and process start failures 500. CLI expected failures return 2 without a traceback; unexpected failures log a traceback and return 1. Invalid export JSON stops processing; the exporter loader saves a backup instead of substituting an empty dataset. Repair/restore the archive before retrying. SQLite failure can use JSON fallback for summary/comparison; programming errors do not silently trigger fallback. [Full error reference](docs/errors.md).
 
-- `GET /api/version`: return the current app version.
-- `GET /api/exports?sort=date|channel`: list JSON exports from `data/raw` with SQLite-indexed counts when available.
-- `GET /api/search?q=text&channel=name&from=YYYY-MM-DD&to=YYYY-MM-DD&user=username&limit=50`: search indexed comments across all local JSON exports.
-- `GET /api/export/<file>/summary`: return counts and metadata for one JSON export.
-- `GET /api/export/<file>/filtered-summary?q=text&user=username&from=YYYY-MM-DD&to=YYYY-MM-DD&emoji=👍&media=1&replies=1`: return SQLite-backed counts for filtered dashboard views.
-- `GET /api/export/<file>/charts`: return SQLite-backed dashboard chart aggregates for one JSON export.
-- `GET /api/export/<file>/posts?limit=100&offset=0&q=text&user=username&from=YYYY-MM-DD&to=YYYY-MM-DD&emoji=👍&media=1&replies=1`: return SQLite-backed post rows for the dashboard table.
-- `GET /api/export/<file>/post/<post_id>`: return one reconstructed post with comments from SQLite.
-- `GET /api/export/<file>/compare?from=YYYY-MM-DD&to=YYYY-MM-DD`: compare comments, users, and reactions between periods.
-- `GET /api/scheduler/status`: return current scheduler state.
-- `GET /api/scheduler/history?limit=50&offset=0&status=FAILED&channel=durov`: list persisted scheduled run records from SQLite with pagination, filters, and stats.
-- `GET /api/scheduler/history/<run_id>`: return one scheduled run detail card.
-- `POST /api/scheduler/history/<run_id>/retry`: retry a saved scheduled run with the same channels, format, and export flags.
-- `POST /api/scheduler/start`: start scheduled exports with `channel`, `interval_minutes`, format, and export flags.
-- `POST /api/scheduler/stop`: stop scheduled exports.
-- `GET /api/watch/status`: return current Watch mode state.
-- `POST /api/watch/start`: start Watch mode with `channel`, `poll_interval`, `refresh_active_posts`, and export flags.
-- `POST /api/watch/stop`: stop Watch mode.
+## Local data and access
 
-Scheduler mode starts the first export immediately, then repeats every configured interval. If an export is still running when the next interval arrives, that run is skipped.
+Do not commit `.env`, sessions, private identity maps, exports, media, analysis, SQLite state or scheduler history. Keep runtime `.gitkeep` files. The dashboard currently has no authentication and Compose publishes port 9595 on all host interfaces; use it only on a trusted local network or bind `127.0.0.1:9595:9595`. `/api/config` can read/write sensitive settings. Static `/data/` access is restricted to `raw`, `content` and `analysis`; `private`, `state` and `scheduler` are not served.
 
-Scheduler history is stored in the local SQLite index at `data/state/tg.sqlite`. Older JSON records from `data/scheduler/` are imported lazily when history is read. Each scheduled run has status `QUEUED`, `RUNNING`, `SUCCESS`, `PARTIAL`, `FAILED`, `SKIPPED`, or `CANCELLED`, plus channel results, structured error information, and recent log lines.
-
-Watch mode is separate from Scheduler mode. It stays running and updates changed posts as channel or discussion activity arrives, with a periodic refresh for counters and missed comment updates.
-
-## Local Python Usage
-
-If you do not use Docker, install dependencies:
-
-```powershell
-pip install -r requirements.txt
-```
-
-Run commands:
-
-```powershell
-python main.py --help
-python main.py config-check
-python main.py export json --incremental
-python main.py watch --poll-interval 30 --refresh-active-posts 20
-python main.py index --file durov_dataset.json
-python main.py search "telegram" --file durov_dataset.json
-python main.py compare --from 2026-07-01 --to 2026-08-01 --file durov_dataset.json
-python main.py dashboard
-python main.py mcp
-```
-
-## Data Format
-
-The main JSON format is a list of posts:
-
-```json
-[
-  {
-    "post_id": 101,
-    "post_date": "2026-07-10 10:00:00+00:00",
-    "post_text": "Post text",
-    "post_views": 1200,
-    "post_forwards": 10,
-    "post_link": "https://t.me/channel/101",
-    "post_media": null,
-    "post_reactions": [{"emoji": "fire", "count": 12}],
-    "comments": [
-      {
-        "comment_id": 501,
-        "comment_date": "2026-07-10 10:05:00+00:00",
-        "comment_text": "Comment text",
-        "comment_link": "https://t.me/channel/501",
-        "comment_media": null,
-        "reply_to_msg_id": null,
-        "comment_reactions": [],
-        "user": {
-          "user_id": 1001,
-          "username": "alice",
-          "first_name": "Alice",
-          "last_name": null,
-          "bot": false,
-          "premium": false
-        }
-      }
-    ]
-  }
-]
-```
-
-When an exporter step fails but partial data can still be saved, posts may include optional `post_media_error` or `export_errors` fields, and comments may include `comment_media_error`.
-
-See [examples/example.json](examples/example.json) for a complete demo file.
-
-## Notes About Telegram Limits
-
-Telegram does not publish one fixed universal limit for every Telethon workflow. The exporter includes pauses and handles `FloodWaitError` by saving already collected data before waiting.
-
-Recommended practice:
-
-- keep `POST_LIMIT` reasonable;
-- use incremental export instead of full re-export;
-- keep pauses enabled;
-- avoid frequent repeated exports of the same large channel;
-- do not run many sessions in parallel from the same account.
-
-## Troubleshooting
-
-### Docker Is Not Running
-
-Start Docker Desktop and run again:
-
-```powershell
-docker compose up --build
-```
-
-### Missing API_ID Or API_HASH
-
-Check `.env`:
-
-```powershell
-docker compose run --rm cli config-check
-```
-
-### First Telethon Login
-
-On first run Telethon may ask for phone/login code. The session file is configured with `TELEGRAM_SESSION` and is usually stored in:
+## Project structure and developer checks
 
 ```text
-sessions/
+main.py                        CLI entrypoint
+api/                           HTTP routes and error boundary
+services/                      Configuration, export queries, processes, scheduler
+exporters/                     Telegram export and Watch batching
+storage/                       JSON files, SQLite index, history and LLM cache
+telegram/                      Message helpers and reversible pseudonyms
+analytics/                     Summaries and period comparison
+llm/                           LLM analysis
+web/                           HTML, CSS and JavaScript dashboard
+mcp_server.py                  MCP tools over stdio
+errors.py                      Expected application errors
+version.py                     Application version
+anonymization_rules.json       Public pseudonym naming rules
+anonymizer                     Legacy text list of names
+prompts/                       ru / en / zh prompts
+examples/example.json          Synthetic demonstration dataset
+tests/                         Offline regression tests
+docs/                          Architecture, API, errors, pseudonyms, screenshots
+data/raw/                      JSON and other exported files
+data/content/                  Downloaded media
+data/analysis/                 LLM output
+data/state/                    SQLite index and per-channel state
+data/scheduler/                Legacy JSON scheduler history
+data/private/                  Private identity map (never publish)
+sessions/                      Telegram sessions (never publish)
 ```
 
-The folder is mounted into Docker, so the session can be reused between runs.
+[Architecture](docs/architecture.md) · [HTTP API](docs/api.md) · [Pseudonyms](docs/anonymization.md) · [Errors](docs/errors.md) · [Screenshot workflow](docs/screenshots.md) · [Agent guidance](AGENTS.md)
 
-### Parquet Export Fails
-
-Make sure Docker image was rebuilt after dependencies changed:
+Use `/workspace` for checks against the current checkout without rebuilding: `/app` contains the image snapshot. These checks do not contact Telegram. Rebuild the dashboard image after changing dependencies or image contents.
 
 ```powershell
-docker compose build --no-cache
+docker compose config --quiet
+docker compose run --rm --workdir /workspace --entrypoint python cli docs/check_docs.py
+docker compose run --rm --workdir /workspace --entrypoint python cli -m unittest discover -s tests -v
+docker compose run --rm --workdir /workspace --entrypoint python cli -m compileall -q errors.py main.py mcp_server.py api services exporters storage telegram analytics llm tests
+docker compose build dashboard
 ```
-
-### PostgreSQL Export Fails
-
-Check:
-
-- `POSTGRES_HOST`
-- `POSTGRES_PORT`
-- `POSTGRES_DB`
-- `POSTGRES_USER`
-- `POSTGRES_PASSWORD`
-- network access from Docker to PostgreSQL
-
-## Git Ignore Policy
-
-Runtime data is intentionally ignored:
-
-- `.env`
-- `sessions/`
-- `data/raw/*`
-- `data/content/*`
-- `data/analysis/*`
-- `data/state/*`
-
-Keep secrets, sessions, exported private data, and downloaded media out of Git.

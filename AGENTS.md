@@ -17,20 +17,27 @@ Core capabilities:
 - Start one-off or scheduled exports from the Web UI; the scheduler runs immediately once, then repeats every configured interval.
 - Analyze exported JSON files through an LLM endpoint using prompt files.
 - Expose local export/analysis tools through an MCP server over stdio.
+- Keep readable pseudonyms stable across Export/Watch restarts using public naming rules and a private reversible identity map.
+- Batch Watch events and update SQLite only for changed posts when the previous index is current.
 
 ## Important Files
 
-- `main.py` - unified CLI entrypoint: `export`, `watch`, `compare`, `index`, `search`, `analyze`, `dashboard`, `config-check`, `mcp`.
+- `main.py` - unified CLI entrypoint: `export`, `watch`, `compare`, `index`, `search`, `analyze`, `anonymize`, `deanonymize`, `dashboard`, `config-check`, `mcp`.
 - `export_comments.py` - compatibility entrypoint for Telegram export.
 - `exporters/telegram_exporter.py` - Telethon export logic, multi-channel export, incremental merge, retry/error handling.
 - `web/comments_dashboard.html` - Web UI markup.
 - `web/css/dashboard.css` - Web UI styles.
 - `web/js/dashboard.js` - Web UI behavior.
 - `web_server.py` - compatibility entrypoint for dashboard server.
-- `api/web_server.py` - HTTP server, dashboard API, export runner, scheduler, `.env` editor.
+- `api/web_server.py` - HTTP routing and static-file responses.
+- `api/error_handling.py` - HTTP application-error boundary.
+- `services/` - shared export access/indexing, dashboard queries, configuration, process lifecycle, scheduler and run history.
+- `errors.py` - expected application-error categories and SQLite failure translation.
 - `llm_analyzer.py` - compatibility entrypoint for LLM analysis.
 - `llm/analyzer.py` - LLM analysis for exported JSON files.
 - `telegram/messages.py` - Telegram link, reaction, user, and anonymization helpers.
+- `telegram/anonymization.py` - persistent reversible pseudonyms, map validation and local JSON conversion/restoration.
+- `anonymization_rules.json` - public adjective/noun naming rules; `anonymizer` remains a legacy text name list.
 - `storage/json_files.py` - JSON dataset loading, backups, and atomic writes.
 - `storage/sqlite_store.py` - local SQLite schema, export indexing, FTS5/LIKE search, summary, period comparison, post reconstruction, and scheduler history.
 - `analytics/export_summary.py` - export summary metrics.
@@ -44,6 +51,10 @@ Core capabilities:
 - `docker-compose.yml` - Docker services for dashboard and CLI.
 - `examples/example.json` - English demo dataset.
 - `README.md`, `README_ru.md`, `README_cn.md` - user documentation.
+- `docs/architecture.md`, `docs/api.md`, `docs/errors.md`, `docs/anonymization.md` - implementation and operation references.
+- `docs/screenshots.md`, `docs/preview_server.py`, `docs/capture_screenshots.cjs` - isolated, synthetic screenshot workflow.
+- `docs/check_docs.py` - local Markdown links, README versions and screenshot validation.
+- `tests/` - offline regression tests using temporary files/databases and mocked Telegram calls.
 
 ## Runtime Data
 
@@ -58,6 +69,7 @@ Ignored runtime paths:
 - `data/analysis/*`
 - `data/state/*`
 - `data/scheduler/*`
+- `data/private/*`
 
 Keep `.gitkeep` files in runtime folders so the directory structure exists after clone.
 
@@ -67,13 +79,15 @@ Keep `.gitkeep` files in runtime folders so the directory structure exists after
 
 Configuration is loaded from `.env` by `config.py`.
 
-Required values:
+Required for Telegram `export` and `watch`:
 
 - `API_ID`
 - `API_HASH`
 - `CHANNEL`
-- `LLM_ENDPOINT`
-- `LLM_MODEL`
+
+Required only for `analyze`: `LLM_ENDPOINT`, `LLM_MODEL`. PostgreSQL settings are
+loaded only for that export format. `config-check` validates all three groups.
+Local dashboard reads and identity conversion do not require live Telegram access.
 
 Important optional/defaulted values:
 
@@ -85,7 +99,9 @@ Important optional/defaulted values:
 - `POSTS_PAUSE_AFTER_POSTS` - pause after every N processed posts.
 - `POSTGRES_*` - PostgreSQL export settings.
 
-The Web UI can read and write `.env` through `/api/config`. In Docker, `.env` is bind-mounted to `/app/.env`.
+The Web UI can read and write `.env` through `/api/config`. Compose mounts the
+project at `/workspace` and sets `TG_ENV_FILE=/workspace/.env`; runtime data and
+sessions are mounted under `/app`. The image contains an `/app` code snapshot.
 
 Never print or expose secret values unnecessarily. `API_HASH`, PostgreSQL credentials, session files, exported datasets, downloaded media, and analysis outputs should be treated as sensitive.
 
@@ -104,6 +120,9 @@ docker compose run --rm cli search "telegram" --file example.json
 docker compose run --rm cli compare --from 2026-07-01 --to 2026-08-01 --file example.json
 docker compose run --rm cli analyze example.json --limit 5
 docker compose run --rm cli analyze example.json --limit 5 --language en
+docker compose run --rm cli watch --poll-interval 30 --refresh-active-posts 20 --anonymize
+docker compose run --rm cli anonymize --file examples/example.json --channel demo --output data/raw/demo_anonymous.json
+docker compose run --rm cli deanonymize --file data/raw/demo_anonymous.json --channel demo --map data/private/anonymization_map.json --output data/raw/demo_restored.json
 docker compose run --rm -i cli mcp
 ```
 
@@ -150,6 +169,14 @@ docker compose run --rm --workdir /workspace --entrypoint python cli -m py_compi
 
 When validating current workspace changes through Docker without rebuilding the image, use `--workdir /workspace`; `/app` contains the code copied into the image at build time.
 
+Include service, error and anonymization modules in validation:
+
+```powershell
+docker compose run --rm --workdir /workspace --entrypoint python cli -m compileall -q errors.py main.py mcp_server.py api services exporters storage telegram analytics llm tests docs/preview_server.py
+docker compose run --rm --workdir /workspace --entrypoint python cli -m unittest discover -s tests -v
+docker compose run --rm --workdir /workspace --entrypoint python cli docs/check_docs.py
+```
+
 For JSON examples and prompts:
 
 ```powershell
@@ -171,6 +198,8 @@ Only run live Telegram exports when the user explicitly expects it and credentia
 - Keep user-facing text clear and practical.
 - Use `version.py` as the single source of truth for the app version.
 - Use atomic writes for JSON dataset/state/analysis files when practical.
+- Handle expected `ApplicationError` subclasses explicitly. Do not turn programming errors into an unavailable-index fallback. Preserve exception causes and record unexpected failures at CLI/HTTP/MCP/background boundaries.
+- A corrupt dataset raises `DatasetCorruptedError`; never replace it with an empty list. The exporter loader saves a backup before raising; read-only loaders do not modify it.
 - Do not log full secrets, raw session paths with sensitive names, or private comment contents unless necessary for the requested task.
 
 ## Export Data Shape
@@ -235,6 +264,21 @@ Expected behavior:
 
 Do not simplify incremental mode to only `min_id = last_post_id`; old posts can receive new comments, reactions, and counter updates.
 
+Watch coalesces events for one second, with at most 20 distinct posts per channel
+per batch. Read/write the JSON once per batch, patch changed post/comment/reaction/
+FTS rows in SQLite and rebuild only when the previous index is missing or stale.
+Keep partial successful changes on FloodWait/cancellation. Full JSON rewriting
+remains necessary; do not claim in-place JSON updates or cross-process write locks.
+
+## Pseudonymization Notes
+
+- Default rules are `anonymization_rules.json`; text name lists are still accepted through `--anonymizer-file`.
+- The private map is `data/private/anonymization_map.json`, stored as unencrypted JSON. Never print it, commit it, bake it into images, or expose it through HTTP/MCP.
+- Preserve stable aliases across restarts and scope changes must be rejected for an existing map.
+- Negative random pseudonym IDs remain within JavaScript's exact-integer range and PostgreSQL BIGINT.
+- `anonymize` and `deanonymize` create a new JSON file and refuse overwrites. Restoration uses original identity fields recorded at mapping creation; text/links/media are not cleaned.
+- Validate identity mode before incremental merging. Legacy in-memory aliases generally cannot be restored without original data.
+
 ## SQLite Index Notes
 
 SQLite is a local derived index, not a replacement for JSON export compatibility.
@@ -274,6 +318,10 @@ Rules:
 - Built-in language shortcuts are `ru`, `en`, `zh`.
 - `--prompt-file` overrides `--language`.
 - Analyzer should continue when one post fails and write partial analysis output incrementally.
+
+Known current limitation: `build_post_prompt_payload()` constructs data but does
+not return it; do not describe content-sensitive LLM analysis/cache as verified.
+See `docs/architecture.md` for this and other implementation limits.
 
 ## MCP Server Notes
 
@@ -335,10 +383,16 @@ Current endpoints:
 - `GET /api/scheduler/history`
 - `GET /api/scheduler/history/<run_id>`
 - `POST /api/scheduler/history/<run_id>/retry`
+- `POST /api/watch/start`
+- `POST /api/watch/stop`
+- `GET /api/watch/status`
 - `GET /data/...`
 - `GET /web/...`
 
 `summary` and `compare` should lazily index JSON exports into SQLite and then query SQLite. Keep JSON fallback so old or malformed SQLite indexes do not break dashboard reads.
+
+Static `/data/` reads permit only `raw`, `content`, `analysis`; never serve
+`private`, `state` or `scheduler`. The normal server currently has no authentication.
 
 `/api/search` should search across indexed JSON exports with optional `q`, `channel`, `from`, `to`, `user`, and `limit` query parameters. It should lazily index local JSON exports before searching and keep using SQLite FTS5 with `LIKE` fallback.
 
@@ -397,3 +451,8 @@ Update `README.md`, `README_ru.md`, and `README_cn.md` when changing:
 - versioned behavior that affects users.
 
 Keep examples safe and synthetic. Do not use real exported comments in `examples/`.
+
+Use the temporary, read-only preview in `docs/screenshots.md` for screenshots.
+Never capture the normal dashboard's real configuration or runtime archives.
+Keep README versions synchronized with `version.py`; do not change app version
+merely to refresh documentation.

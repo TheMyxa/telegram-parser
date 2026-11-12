@@ -1,3 +1,5 @@
+from services.tool_errors import tool_errors
+from errors import IndexUnavailableError, DatasetCorruptedError
 import json
 import os
 import subprocess
@@ -6,22 +8,20 @@ import time
 from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
+from services.exports import ensure_index, load_posts, resolve_safe_file as resolve_export_file
 
 from analytics.export_summary import extract_channel_from_export_name
 from storage.sqlite_store import (
     get_export_summary as get_export_summary_sqlite,
-    get_indexed_export,
     get_indexed_analysis,
     get_post as get_post_sqlite,
     list_analysis_file_records,
     list_analysis_result_records,
     list_indexed_exports,
-    needs_fts_reindex,
     read_analysis_record,
     search_all_comments as search_all_comments_sqlite,
     search_comments as search_comments_sqlite,
     sync_analysis_file,
-    sync_export_file,
 )
 
 
@@ -81,35 +81,12 @@ def parse_env_file(path=ENV_FILE):
 
 
 def resolve_safe_file(base_dir, value):
-    path = Path(value)
-
-    if not path.is_absolute():
-        path = base_dir / value
-
-    resolved = path.resolve()
-    base = base_dir.resolve()
-
-    try:
-        resolved.relative_to(base)
-    except ValueError as e:
-        raise ValueError(f"Path must stay under {base_dir}: {value}")
-
-    if not resolved.is_file():
-        raise FileNotFoundError(f"File not found: {value}")
-
-    return resolved
+    return resolve_export_file(base_dir, value)
 
 
 def load_export(file_name):
     path = resolve_safe_file(RAW_DIR, file_name)
-
-    with path.open("r", encoding="utf-8") as f:
-        data = json.load(f)
-
-    if not isinstance(data, list):
-        raise ValueError(f"Export JSON must contain a list of posts: {file_name}")
-
-    return path, data
+    return path, load_posts(path)
 
 
 def load_analysis(file_name):
@@ -125,28 +102,7 @@ def load_analysis(file_name):
 
 
 def ensure_sqlite_export_index(file_name, path=None, posts=None):
-    path = path or resolve_safe_file(RAW_DIR, file_name)
-    stat = path.stat()
-    modified_at = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(stat.st_mtime))
-    indexed = get_indexed_export(path.name)
-
-    if (
-        indexed
-        and indexed["modified_at"] == modified_at
-        and indexed["size_bytes"] == stat.st_size
-        and not needs_fts_reindex(path.name)
-    ):
-        return
-
-    if posts is None:
-        _, posts = load_export(path.name)
-
-    sync_export_file(
-        path.name,
-        extract_channel_from_export_name(path.name),
-        posts,
-        path,
-    )
+    ensure_index(path or resolve_safe_file(RAW_DIR, file_name), posts)
 
 
 def ensure_sqlite_analysis_index(file_name, path=None, analysis=None):
@@ -170,7 +126,7 @@ def ensure_all_sqlite_analysis_indexes():
     for path in ANALYSIS_DIR.glob("*.json"):
         try:
             ensure_sqlite_analysis_index(path.name, path)
-        except Exception:
+        except (IndexUnavailableError, OSError, ValueError):
             continue
 
 
@@ -180,7 +136,7 @@ def ensure_all_sqlite_indexes():
     for path in RAW_DIR.glob("*.json"):
         try:
             ensure_sqlite_export_index(path.name, path)
-        except Exception:
+        except (IndexUnavailableError, OSError, ValueError):
             continue
 
 
@@ -230,6 +186,7 @@ def summarize_posts(posts):
 
 
 @mcp.tool()
+@tool_errors
 def get_config_safe() -> dict:
     """Return non-secret .env configuration with secret keys masked."""
     values = parse_env_file()
@@ -243,6 +200,7 @@ def get_config_safe() -> dict:
 
 
 @mcp.tool()
+@tool_errors
 def list_exports() -> list[dict]:
     """List JSON export files from data/raw with indexed counts when available."""
     RAW_DIR.mkdir(parents=True, exist_ok=True)
@@ -251,7 +209,7 @@ def list_exports() -> list[dict]:
     for path in sorted(RAW_DIR.glob("*.json")):
         try:
             ensure_sqlite_export_index(path.name, path)
-        except Exception:
+        except (IndexUnavailableError, OSError, ValueError):
             continue
 
     indexed = [
@@ -290,6 +248,7 @@ def list_exports() -> list[dict]:
 
 
 @mcp.tool()
+@tool_errors
 def get_export_summary(file_name: str) -> dict:
     """Return post/comment/user/reaction counts for one export JSON file."""
     path, posts = load_export(file_name)
@@ -300,6 +259,7 @@ def get_export_summary(file_name: str) -> dict:
 
 
 @mcp.tool()
+@tool_errors
 def search_comments(file_name: str, query: str, limit: int = 20) -> list[dict]:
     """Search comments by text in one export JSON file."""
     path, posts = load_export(file_name)
@@ -340,6 +300,7 @@ def search_comments(file_name: str, query: str, limit: int = 20) -> list[dict]:
 
 
 @mcp.tool()
+@tool_errors
 def search_all_comments(query: str, limit: int = 20, channel: str | None = None) -> list[dict]:
     """Search comment text across all JSON exports indexed in the local SQLite database."""
     ensure_all_sqlite_indexes()
@@ -347,6 +308,7 @@ def search_all_comments(query: str, limit: int = 20, channel: str | None = None)
 
 
 @mcp.tool()
+@tool_errors
 def get_post(file_name: str, post_id: int) -> dict:
     """Return one post by post_id from an export JSON file."""
     path, posts = load_export(file_name)
@@ -364,6 +326,7 @@ def get_post(file_name: str, post_id: int) -> dict:
 
 
 @mcp.tool()
+@tool_errors
 def list_analysis_files() -> list[dict]:
     """List analysis JSON files from data/analysis."""
     ensure_all_sqlite_analysis_indexes()
@@ -393,6 +356,7 @@ def list_analysis_files() -> list[dict]:
 
 
 @mcp.tool()
+@tool_errors
 def read_analysis(file_name: str) -> dict:
     """Read one analysis JSON file from data/analysis."""
     path, analysis = load_analysis(file_name)
@@ -401,6 +365,7 @@ def read_analysis(file_name: str) -> dict:
 
 
 @mcp.tool()
+@tool_errors
 def list_analysis_results(
     file_name: str,
     status: str | None = None,
@@ -414,6 +379,7 @@ def list_analysis_results(
 
 
 @mcp.tool()
+@tool_errors
 def run_analysis(file_name: str, limit: int | None = None, language: str = "ru", prompt_file: str | None = None) -> dict:
     """Run LLM analysis for an export file and return process output."""
     command = [sys.executable, "main.py", "analyze", file_name]
@@ -443,6 +409,7 @@ def run_analysis(file_name: str, limit: int | None = None, language: str = "ru",
 
 
 @mcp.tool()
+@tool_errors
 def start_export(
     confirm: bool = False,
     export_format: str = "json",
@@ -508,6 +475,7 @@ def start_export(
 
 
 @mcp.tool()
+@tool_errors
 def get_export_process_status() -> dict:
     """Return status for the background export started via MCP."""
     process = EXPORT_PROCESS.get("process")
