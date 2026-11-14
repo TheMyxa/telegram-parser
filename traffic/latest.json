@@ -1,25 +1,25 @@
 {
   "repository": "TheMyxa/telegram-parser",
-  "collected_at": "2026-11-13T14:45:40.168152+00:00",
+  "collected_at": "2026-11-14T13:41:52.186435+00:00",
   "period": "last_14_days",
   "views": {
-    "count": 232,
-    "uniques": 116
+    "count": 243,
+    "uniques": 109
   },
   "clones": {
-    "count": 246,
-    "uniques": 133
+    "count": 242,
+    "uniques": 130
   },
   "top_referrers": [
     {
       "referrer": "habr.com",
       "count": 23,
-      "uniques": 10
+      "uniques": 11
     },
     {
       "referrer": "github.com",
-      "count": 12,
-      "uniques": 8
+      "count": 14,
+      "uniques": 9
     },
     {
       "referrer": "Bing",
@@ -46,14 +46,14 @@
     {
       "path": "/TheMyxa/telegram-parser",
       "title": "Overview",
-      "count": 167,
-      "uniques": 112
+      "count": 160,
+      "uniques": 104
     },
     {
       "path": "/TheMyxa/telegram-parser/blob/master/README_ru.md",
       "title": "/blob/master/README_ru.md",
-      "count": 10,
-      "uniques": 6
+      "count": 16,
+      "uniques": 10
     },
     {
       "path": "/TheMyxa/telegram-parser/pulse",
@@ -62,16 +62,16 @@
       "uniques": 1
     },
     {
+      "path": "/TheMyxa/telegram-parser/releases",
+      "title": "/releases",
+      "count": 6,
+      "uniques": 3
+    },
+    {
       "path": "/TheMyxa/telegram-parser/graphs/traffic",
       "title": "/graphs/traffic",
       "count": 6,
       "uniques": 1
-    },
-    {
-      "path": "/TheMyxa/telegram-parser/releases",
-      "title": "/releases",
-      "count": 5,
-      "uniques": 2
     },
     {
       "path": "/TheMyxa/telegram-parser/forks",
@@ -80,27 +80,27 @@
       "uniques": 1
     },
     {
+      "path": "/TheMyxa/telegram-parser/blob/master/docs/screenshots/posts.png",
+      "title": "/blob/master/docs/screenshots/posts.png",
+      "count": 3,
+      "uniques": 3
+    },
+    {
       "path": "/TheMyxa/telegram-parser/releases/tag/2.3.0",
       "title": "/releases/tag/2.3.0",
       "count": 3,
       "uniques": 3
     },
     {
+      "path": "/TheMyxa/telegram-parser/blob/master/docs/screenshots/dashboard.png",
+      "title": "/blob/master/docs/screenshots/dashboard.png",
+      "count": 3,
+      "uniques": 2
+    },
+    {
       "path": "/TheMyxa/telegram-parser/blob/star-history/assets/star-history-dark.svg",
       "title": "/blob/star-history/assets/star-history-dark.svg",
       "count": 3,
-      "uniques": 1
-    },
-    {
-      "path": "/TheMyxa/telegram-parser/tree/star-history/assets",
-      "title": "/tree/star-history/assets",
-      "count": 3,
-      "uniques": 1
-    },
-    {
-      "path": "/TheMyxa/telegram-parser/blob/master/README_cn.md",
-      "title": "/blob/master/README_cn.md",
-      "count": 2,
       "uniques": 1
     }
   ]
