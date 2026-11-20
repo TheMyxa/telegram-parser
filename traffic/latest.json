@@ -1,14 +1,14 @@
 {
   "repository": "TheMyxa/telegram-parser",
-  "collected_at": "2026-11-19T15:56:00.230484+00:00",
+  "collected_at": "2026-11-20T15:39:30.773458+00:00",
   "period": "last_14_days",
   "views": {
-    "count": 247,
-    "uniques": 120
+    "count": 243,
+    "uniques": 121
   },
   "clones": {
-    "count": 262,
-    "uniques": 148
+    "count": 244,
+    "uniques": 137
   },
   "top_referrers": [
     {
@@ -18,7 +18,7 @@
     },
     {
       "referrer": "habr.com",
-      "count": 16,
+      "count": 14,
       "uniques": 10
     },
     {
@@ -46,8 +46,8 @@
     {
       "path": "/TheMyxa/telegram-parser",
       "title": "Overview",
-      "count": 163,
-      "uniques": 115
+      "count": 158,
+      "uniques": 116
     },
     {
       "path": "/TheMyxa/telegram-parser/blob/master/README_ru.md",
@@ -62,10 +62,10 @@
       "uniques": 3
     },
     {
-      "path": "/TheMyxa/telegram-parser/pulse",
-      "title": "/pulse",
-      "count": 6,
-      "uniques": 1
+      "path": "/TheMyxa/telegram-parser/blob/master/docs/screenshots/posts.png",
+      "title": "/blob/master/docs/screenshots/posts.png",
+      "count": 5,
+      "uniques": 5
     },
     {
       "path": "/TheMyxa/telegram-parser/blob/master/README_cn.md",
@@ -74,20 +74,14 @@
       "uniques": 3
     },
     {
-      "path": "/TheMyxa/telegram-parser/graphs/traffic",
-      "title": "/graphs/traffic",
+      "path": "/TheMyxa/telegram-parser/pulse",
+      "title": "/pulse",
       "count": 5,
       "uniques": 1
     },
     {
-      "path": "/TheMyxa/telegram-parser/blob/master/docs/screenshots/posts.png",
-      "title": "/blob/master/docs/screenshots/posts.png",
-      "count": 4,
-      "uniques": 4
-    },
-    {
-      "path": "/TheMyxa/telegram-parser/forks",
-      "title": "/forks",
+      "path": "/TheMyxa/telegram-parser/graphs/traffic",
+      "title": "/graphs/traffic",
       "count": 4,
       "uniques": 1
     },
@@ -96,6 +90,12 @@
       "title": "/releases/tag/2.3.0",
       "count": 3,
       "uniques": 3
+    },
+    {
+      "path": "/TheMyxa/telegram-parser/forks",
+      "title": "/forks",
+      "count": 3,
+      "uniques": 1
     },
     {
       "path": "/TheMyxa/telegram-parser/blob/master/docs/screenshots.md",
