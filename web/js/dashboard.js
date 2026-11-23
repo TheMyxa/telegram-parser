@@ -103,6 +103,7 @@
       exportMedia: document.getElementById('exportMedia'),
       exportAnonymize: document.getElementById('exportAnonymize'),
       exportIncremental: document.getElementById('exportIncremental'),
+      resumeScheduler: document.getElementById('resumeScheduler'),
       schedulerMode: document.getElementById('schedulerMode'),
       schedulerInterval: document.getElementById('schedulerInterval'),
       startScheduler: document.getElementById('startScheduler'),
@@ -226,6 +227,8 @@
         stopScheduler: 'Остановить scheduler',
         startWatch: 'Запустить watch',
         stopWatch: 'Остановить watch',
+        resumeScheduler: '\u0412\u043e\u0437\u043e\u0431\u043d\u043e\u0432\u0438\u0442\u044c',
+        schedulerRecovery: '\u0420\u0430\u0441\u043f\u0438\u0441\u0430\u043d\u0438\u0435 \u043f\u0440\u0438\u043e\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d\u043e. \u0412\u043e\u0437\u043e\u0431\u043d\u043e\u0432\u043b\u0435\u043d\u0438\u0435 \u0441\u0440\u0430\u0437\u0443 \u0437\u0430\u043f\u0443\u0441\u0442\u0438\u0442 \u044d\u043a\u0441\u043f\u043e\u0440\u0442.',
         schedulerNotStarted: 'Scheduler не запущен',
         schedulerStarting: 'Запуск scheduler...',
         schedulerRunning: 'Scheduler активен',
@@ -388,6 +391,8 @@
         stopScheduler: 'Stop scheduler',
         startWatch: 'Start watch',
         stopWatch: 'Stop watch',
+        resumeScheduler: 'Resume saved schedule',
+        schedulerRecovery: 'Saved schedule is paused. Resume starts an export immediately.',
         schedulerNotStarted: 'Scheduler is not running',
         schedulerStarting: 'Starting scheduler...',
         schedulerRunning: 'Scheduler is active',
@@ -550,6 +555,8 @@
         stopScheduler: '停止 scheduler',
         startWatch: '启动 watch',
         stopWatch: '停止 watch',
+        resumeScheduler: '\u6062\u590d\u8ba1\u5212',
+        schedulerRecovery: '\u8ba1\u5212\u5df2\u6682\u505c\u3002\u6062\u590d\u540e\u7acb\u5373\u5f00\u59cb\u5bfc\u51fa\u3002',
         schedulerNotStarted: 'Scheduler 未运行',
         schedulerStarting: '正在启动 scheduler...',
         schedulerRunning: 'Scheduler 运行中',
@@ -638,6 +645,19 @@
     el.startScheduler.addEventListener('click', startScheduler);
     el.stopScheduler.addEventListener('click', stopScheduler);
     el.refreshSchedulerHistory.addEventListener('click', loadSchedulerHistory);
+    el.resumeScheduler.addEventListener('click', async () => {
+      el.resumeScheduler.disabled = true;
+      try {
+        const response = await fetch('/api/scheduler/resume', { method: 'POST' });
+        const data = await response.json();
+        if (!response.ok || !data.ok) throw new Error(data.error || t('schedulerStartFailed'));
+        renderSchedulerStatus(data.scheduler || {});
+      } catch (error) {
+        el.schedulerStatus.textContent = `${t('error')}: ${error.message}`;
+      } finally {
+        el.resumeScheduler.disabled = false;
+      }
+    });
     el.schedulerHistoryList.addEventListener('click', handleSchedulerHistoryClick);
     el.startWatch.addEventListener('click', startWatch);
     el.stopWatch.addEventListener('click', stopWatch);
@@ -2108,11 +2128,12 @@
       const enabled = Boolean(data.enabled);
       const parts = [];
 
+      el.resumeScheduler.hidden = enabled || !data.saved_settings;
       state.schedulerEnabled = enabled;
       el.schedulerMode.checked = enabled;
 
       if (!enabled) {
-        el.schedulerStatus.textContent = t('schedulerNotStarted');
+        el.schedulerStatus.textContent = data.recovery_error || (data.saved_settings ? `${t('schedulerRecovery')} ${data.saved_settings.channel} / ${data.saved_settings.interval_minutes} min` : t('schedulerNotStarted'));
         updateSchedulerControls();
         return;
       }
@@ -2222,6 +2243,7 @@
         PARTIAL: t('runPartial'),
         FAILED: t('runFailed'),
         SKIPPED: t('runSkipped'),
+        INTERRUPTED: 'Interrupted (dashboard restarted)',
         CANCELLED: t('runCancelled')
       };
 

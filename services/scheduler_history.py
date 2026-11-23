@@ -56,7 +56,8 @@ def import_scheduler_json_history():
 
         if isinstance(record, dict) and record.get("id"):
             try:
-                upsert_scheduler_run(record)
+                if read_scheduler_run_record(record["id"]) is None:
+                    upsert_scheduler_run(record)
             except ValueError:
                 continue
 
@@ -147,11 +148,11 @@ def reconcile_incomplete_scheduler_runs():
             continue
 
         record.update({
-            "status": "CANCELLED",
+            "status": "INTERRUPTED",
             "finished_at": now_iso(),
             "error": {
                 "type": "DashboardRestarted",
-                "message": "Dashboard process restarted before this scheduled run completed.",
+                "message": "Dashboard restarted; completion of this run is unknown. Review the archive before retrying.",
             },
         })
         write_scheduler_run(record)

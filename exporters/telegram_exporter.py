@@ -15,6 +15,7 @@ from telethon.tl.functions.messages import GetDiscussionMessageRequest
 from telethon.utils import get_peer_id
 
 from config import load_export_config, load_postgres_config
+from storage.process_locks import telegram_writer_locks
 from storage.json_files import backup_problem_file, load_json_dataset, write_json_atomic
 from storage.sqlite_store import (
     export_file_signature, get_export_state, sync_export_file,
@@ -1245,6 +1246,12 @@ async def watch_channel_updates(client, args, anonymizer):
         await asyncio.gather(*workers, return_exceptions=True)
 
 
+def writer_locks():
+    # Lock the channel namespace across formats, plus shared incremental state.
+    paths = [get_incremental_dataset_path(channel) for channel in CHANNELS]
+    paths.extend(get_incremental_state_path(channel) for channel in CHANNELS)
+    return telegram_writer_locks(TELEGRAM_SESSION, paths)
+
 async def watch_main(args=None):
     if args is None:
         args = parse_watch_args()
@@ -1259,14 +1266,14 @@ async def watch_main(args=None):
     if str(session_parent) not in ("", "."):
         session_parent.mkdir(parents=True, exist_ok=True)
 
-    anonymizer = UserAnonymizer(args.anonymizer_file) if args.anonymize else None
-    client = TelegramClient(TELEGRAM_SESSION, API_ID, API_HASH)
-    await client.start()
-
-    try:
-        await watch_channel_updates(client, args, anonymizer)
-    finally:
-        await client.disconnect()
+    with writer_locks():
+        anonymizer = UserAnonymizer(args.anonymizer_file) if args.anonymize else None
+        client = TelegramClient(TELEGRAM_SESSION, API_ID, API_HASH)
+        try:
+            await client.start()
+            await watch_channel_updates(client, args, anonymizer)
+        finally:
+            await client.disconnect()
 
 
 async def main(args=None):
@@ -1280,57 +1287,57 @@ async def main(args=None):
     if not CHANNELS:
         raise RuntimeError("Missing required config value: CHANNEL")
 
-    anonymizer = UserAnonymizer(args.anonymizer_file) if args.anonymize else None
+    with writer_locks():
+        anonymizer = UserAnonymizer(args.anonymizer_file) if args.anonymize else None
 
-    await asyncio.sleep(2)
+        await asyncio.sleep(2)
 
-    print("Channels:", ", ".join(CHANNELS))
-    print("API_ID =", API_ID)
-    print("API_HASH length =", len(API_HASH))
-    print("Current working dir:", os.getcwd())
-    print("Session file:", os.path.abspath(TELEGRAM_SESSION))
-    print("Data path:", os.path.abspath("data"))
+        print("Channels:", ", ".join(CHANNELS))
+        print("API_ID =", API_ID)
+        print("API_HASH length =", len(API_HASH))
+        print("Current working dir:", os.getcwd())
 
-    session_parent = Path(TELEGRAM_SESSION).parent
-    if str(session_parent) not in ("", "."):
-        session_parent.mkdir(parents=True, exist_ok=True)
+        print("Data path:", os.path.abspath("data"))
 
-    client = TelegramClient(TELEGRAM_SESSION, API_ID, API_HASH)
-    await client.start()
+        session_parent = Path(TELEGRAM_SESSION).parent
+        if str(session_parent) not in ("", "."):
+            session_parent.mkdir(parents=True, exist_ok=True)
 
-    try:
-        summaries = []
-        for channel in CHANNELS:
-            print("")
-            try:
-                summary = await export_channel(client, channel, args, anonymizer)
-            except Exception as e:
-                error_message = f"Channel {channel} failed before export could start: {e}"
-                print(error_message)
-                summary = {
-                    "channel": str(channel),
-                    "ok": False,
-                    "posts_processed": 0,
-                    "errors_count": 1,
-                    "errors": [error_message],
-                    "output": None,
-                }
-            summaries.append(summary)
-            print("CHANNEL_STATUS", json.dumps(summary, ensure_ascii=False))
-    finally:
-        await client.disconnect()
+        client = TelegramClient(TELEGRAM_SESSION, API_ID, API_HASH)
+        try:
+            await client.start()
+            summaries = []
+            for channel in CHANNELS:
+                print("")
+                try:
+                    summary = await export_channel(client, channel, args, anonymizer)
+                except Exception as e:
+                    error_message = f"Channel {channel} failed before export could start: {e}"
+                    print(error_message)
+                    summary = {
+                        "channel": str(channel),
+                        "ok": False,
+                        "posts_processed": 0,
+                        "errors_count": 1,
+                        "errors": [error_message],
+                        "output": None,
+                    }
+                summaries.append(summary)
+                print("CHANNEL_STATUS", json.dumps(summary, ensure_ascii=False))
+        finally:
+            await client.disconnect()
 
-    failed_channels = [summary for summary in summaries if not summary["ok"]]
-    final_summary = {
-        "channels_total": len(summaries),
-        "channels_ok": len(summaries) - len(failed_channels),
-        "channels_failed": len(failed_channels),
-        "failed_channels": [summary["channel"] for summary in failed_channels],
-    }
-    print("EXPORT_SUMMARY", json.dumps(final_summary, ensure_ascii=False))
+        failed_channels = [summary for summary in summaries if not summary["ok"]]
+        final_summary = {
+            "channels_total": len(summaries),
+            "channels_ok": len(summaries) - len(failed_channels),
+            "channels_failed": len(failed_channels),
+            "failed_channels": [summary["channel"] for summary in failed_channels],
+        }
+        print("EXPORT_SUMMARY", json.dumps(final_summary, ensure_ascii=False))
 
-    if summaries and len(failed_channels) == len(summaries):
-        raise RuntimeError("All channel exports failed")
+        if summaries and len(failed_channels) == len(summaries):
+            raise RuntimeError("All channel exports failed")
 
 
 if __name__ == "__main__":

@@ -17,3 +17,5 @@ data/scheduler/*
 !data/scheduler/.gitkeep
 __pycache__/
 *.pyc
+
+*.tg-lock

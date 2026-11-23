@@ -2,9 +2,13 @@
 
 [English](README.md) | [Русский](README_ru.md)
 
-TG 是本地优先的 Telegram 评论导出与分析工具，支持增量更新、Watch、定时任务、LLM 分析和 MCP 服务器。
+> TG 是本地优先的 Telegram 评论导出与分析工具，支持增量更新、Watch、定时任务、LLM 分析和 MCP 服务器。
 
 当前版本: `3.0.1`.
+
+[功能](#功能) · [快速启动](#快速启动) · [截图](#截图) · [配置](#配置) · [CLI 命令](#cli-命令)
+
+---
 
 ## 功能
 
@@ -167,3 +171,13 @@ docker compose run --rm --workdir /workspace --entrypoint python cli -m unittest
 docker compose run --rm --workdir /workspace --entrypoint python cli -m compileall -q errors.py main.py mcp_server.py api services exporters storage telegram analytics llm tests
 docker compose build dashboard
 ```
+
+连接前，Export 和 Watch 会为 Telegram 会话及所有已配置频道的存档获取非阻塞操作系统锁。发生冲突时，启动会立即失败；并行运行时请使用不同的会话和存档。锁会在退出或崩溃时释放。进程运行期间请保留 `.tg-lock` 文件，切勿删除。此机制协调共享文件系统上的 TG 进程，不协调外部 Telegram 客户端或分布式主机。
+
+定时任务设置不含凭据，保存在 `data/state/scheduler_settings.json`。重启 dashboard 后，请手动恢复计划：首次导出会立即开始，然后按设定间隔执行。未完成的记录会标记为 INTERRUPTED，表示完成状态未知；重试前请检查存档。
+
+---
+
+## 支持项目
+
+如果 TG 对您有帮助，请在 GitHub 上为这个仓库点一颗 ⭐。感谢您的支持！

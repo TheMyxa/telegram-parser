@@ -111,3 +111,5 @@ Comments may include `comment_id`, `comment_date`, `comment_text`, `comment_link
 `comment_media`, `reply_to_msg_id`, `comment_reactions`, `user`,
 `comment_media_error`. Posts may also include `post_media_error` and
 `export_errors`. See the [complete synthetic dataset](../examples/example.json).
+
+`POST /api/scheduler/resume` starts the saved schedule immediately. Status includes `saved_settings` (no credentials) and `recovery_error`. Restarted unfinished runs use `INTERRUPTED`.

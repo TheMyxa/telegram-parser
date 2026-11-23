@@ -32,7 +32,7 @@ SQLite operational failures are translated to `IndexUnavailableError` while
 programming errors propagate. Summary and comparison retain JSON fallback for
 an unavailable index. The shared layer starts no background work on import.
 
-Process and scheduler state remain in memory. Scheduler history, incremental
+Process and active scheduler state remain in memory; scheduler parameters persist in data/state/scheduler_settings.json for explicit resume after restart. Scheduler history, incremental
 state and analysis metadata/cache are stored in SQLite. Compatibility entrypoints
 `web_server.py`, `export_comments.py` and `llm_analyzer.py` remain available.
 
@@ -59,8 +59,10 @@ from an anonymized export. See [pseudonyms](anonymization.md), [API](api.md) and
   post/comment changes correctly. Cache schema exists, but content-sensitive LLM
   analysis must not be treated as verified until this is fixed.
 - Exporter configuration and service process/scheduler state are mutable module
-  globals. Dataset writes are not coordinated across independent Export/Watch
-  processes; avoid simultaneous writers to the same archive/session.
+  globals. Export/Watch acquire nonblocking OS locks for the session and all configured
+  channel archive/state paths before client creation, holding them through disconnect.
+  Conflicts fail immediately. Sidecar files remain; OS locks release on process exit.
+  External clients and distributed filesystems are outside this coordination contract.
 - JSON writes use a fixed temporary filename; the JSON archive is still rewritten
   in full per changed batch. SQLite partial updates reduce indexing work, not
   the serialization cost of an individual JSON write.

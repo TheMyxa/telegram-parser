@@ -1,4 +1,7 @@
 """In-memory scheduler coordinating exports and persisted run history."""
+import json
+from storage.json_files import write_json_atomic
+from services.paths import DATA_DIR
 import logging
 from errors import ApplicationError, ProcessAlreadyRunningError
 import threading
@@ -26,6 +29,26 @@ SCHEDULER = {
     "lines": [],
 }
 SCHEDULER_LOCK = threading.Lock()
+SCHEDULER_SETTINGS_PATH = DATA_DIR / "state" / "scheduler_settings.json"
+
+
+def read_scheduler_settings():
+    try:
+        with SCHEDULER_SETTINGS_PATH.open(encoding="utf-8") as handle:
+            saved = json.load(handle)
+    except FileNotFoundError:
+        return None
+    interval, payload = normalize_scheduler_payload(saved)
+    payload.pop("config", None)
+    return {**payload, "interval_minutes": interval}
+
+
+def resume_scheduler_job():
+    saved = read_scheduler_settings()
+    if saved is None:
+        raise ValueError("No saved scheduler settings")
+    start_scheduler_job(saved)
+
 
 
 def retry_scheduler_run(run_id):
@@ -133,6 +156,10 @@ def start_scheduler_job(payload):
         if SCHEDULER["enabled"]:
             raise ProcessAlreadyRunningError("Scheduler is already running")
 
+        saved = {key: export_payload.get(key) for key in
+                 ("channel", "format", "download_media", "anonymize", "incremental")}
+        saved["interval_minutes"] = interval_minutes
+        write_json_atomic(saved, SCHEDULER_SETTINGS_PATH)
         SCHEDULER.update({
             "enabled": True,
             "interval_minutes": interval_minutes,
@@ -168,8 +195,16 @@ def stop_scheduler_job():
 
 
 def get_scheduler_status():
+    try:
+        saved_settings = read_scheduler_settings()
+        recovery_error = None
+    except (ValueError, OSError) as error:
+        saved_settings = None
+        recovery_error = "Saved scheduler settings cannot be loaded; configure a new schedule."
     with SCHEDULER_LOCK:
         return {
+            "saved_settings": saved_settings,
+            "recovery_error": recovery_error,
             "enabled": SCHEDULER["enabled"],
             "interval_minutes": SCHEDULER["interval_minutes"],
             "channels": SCHEDULER["channels"],

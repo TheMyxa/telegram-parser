@@ -2,9 +2,13 @@
 
 [Русский](README_ru.md) | [中文](README_cn.md)
 
-TG is a local-first Telegram comments exporter and analytics dashboard with incremental updates, Watch mode, a scheduler, LLM analysis and an MCP server.
+> TG is a local-first Telegram comments exporter and analytics dashboard with incremental updates, Watch mode, a scheduler, LLM analysis and an MCP server.
 
 Current version: `3.0.1`.
+
+[Features](#features) · [Quick start](#quick-start) · [Screenshots](#screenshots) · [Configuration](#configuration) · [CLI commands](#cli-commands)
+
+---
 
 ## Features
 
@@ -167,3 +171,13 @@ docker compose run --rm --workdir /workspace --entrypoint python cli -m unittest
 docker compose run --rm --workdir /workspace --entrypoint python cli -m compileall -q errors.py main.py mcp_server.py api services exporters storage telegram analytics llm tests
 docker compose build dashboard
 ```
+
+Export and Watch acquire nonblocking OS locks for their Telegram session and all configured channel archives before connecting. A conflicting run fails immediately; use distinct sessions and archives for parallel runs. Locks are released on exit or crash. Leave `.tg-lock` sidecars in place; never delete them while processes run. This coordinates cooperating TG processes on a shared filesystem, not external Telegram clients or distributed hosts.
+
+Scheduler settings are saved in `data/state/scheduler_settings.json` without credentials. After restarting the dashboard, use Resume saved schedule to start an export immediately and resume the interval. Automatic restart is disabled. Unfinished history entries become INTERRUPTED: completion is unknown; check the archive before retrying.
+
+---
+
+## Support the project
+
+If TG is useful to you, please give this repository a ⭐ on GitHub. Thank you for your support!

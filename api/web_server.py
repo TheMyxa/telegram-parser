@@ -23,6 +23,7 @@ from services.processes import (
     get_export_status,
 )
 from services.scheduler import (
+    resume_scheduler_job,
     retry_scheduler_run,
     start_scheduler_job,
     stop_scheduler_job,
@@ -215,6 +216,11 @@ class DashboardHandler(SimpleHTTPRequestHandler):
 
         if path == "/api/config":
             self.save_config()
+            return
+
+        if path == "/api/scheduler/resume":
+            resume_scheduler_job()
+            self.send_json({"ok": True, "scheduler": get_scheduler_status()})
             return
 
         if path == "/api/scheduler/start":
