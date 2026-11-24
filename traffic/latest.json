@@ -1,14 +1,14 @@
 {
   "repository": "TheMyxa/telegram-parser",
-  "collected_at": "2026-11-23T18:33:11.257072+00:00",
+  "collected_at": "2026-11-24T18:01:17.187615+00:00",
   "period": "last_14_days",
   "views": {
-    "count": 277,
+    "count": 290,
     "uniques": 133
   },
   "clones": {
-    "count": 274,
-    "uniques": 144
+    "count": 287,
+    "uniques": 151
   },
   "top_referrers": [
     {
@@ -22,17 +22,17 @@
       "uniques": 9
     },
     {
-      "referrer": "Google",
-      "count": 2,
-      "uniques": 2
-    },
-    {
       "referrer": "yandex.ru",
       "count": 2,
       "uniques": 1
     },
     {
       "referrer": "DuckDuckGo",
+      "count": 1,
+      "uniques": 1
+    },
+    {
+      "referrer": "Google",
       "count": 1,
       "uniques": 1
     },
@@ -46,25 +46,25 @@
     {
       "path": "/TheMyxa/telegram-parser",
       "title": "Overview",
-      "count": 178,
-      "uniques": 127
+      "count": 179,
+      "uniques": 125
     },
     {
       "path": "/TheMyxa/telegram-parser/blob/master/README_ru.md",
       "title": "/blob/master/README_ru.md",
-      "count": 13,
-      "uniques": 10
+      "count": 15,
+      "uniques": 12
     },
     {
       "path": "/TheMyxa/telegram-parser/releases",
       "title": "/releases",
-      "count": 7,
+      "count": 8,
       "uniques": 4
     },
     {
       "path": "/TheMyxa/telegram-parser/blob/master/docs/screenshots/posts.png",
       "title": "/blob/master/docs/screenshots/posts.png",
-      "count": 6,
+      "count": 7,
       "uniques": 5
     },
     {
@@ -86,6 +86,12 @@
       "uniques": 1
     },
     {
+      "path": "/TheMyxa/telegram-parser/blob/master/docs/screenshots/dashboard.png",
+      "title": "/blob/master/docs/screenshots/dashboard.png",
+      "count": 3,
+      "uniques": 2
+    },
+    {
       "path": "/TheMyxa/telegram-parser/forks",
       "title": "/forks",
       "count": 3,
@@ -96,12 +102,6 @@
       "title": "/tree/star-history/assets",
       "count": 3,
       "uniques": 1
-    },
-    {
-      "path": "/TheMyxa/telegram-parser/blob/master/docs/screenshots.md",
-      "title": "/blob/master/docs/screenshots.md",
-      "count": 2,
-      "uniques": 2
     }
   ]
 }
