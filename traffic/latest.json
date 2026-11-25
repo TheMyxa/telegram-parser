@@ -1,25 +1,25 @@
 {
   "repository": "TheMyxa/telegram-parser",
-  "collected_at": "2026-11-24T18:01:17.187615+00:00",
+  "collected_at": "2026-11-25T17:28:20.945949+00:00",
   "period": "last_14_days",
   "views": {
-    "count": 290,
-    "uniques": 133
+    "count": 311,
+    "uniques": 149
   },
   "clones": {
-    "count": 287,
-    "uniques": 151
+    "count": 285,
+    "uniques": 145
   },
   "top_referrers": [
     {
       "referrer": "github.com",
-      "count": 15,
-      "uniques": 8
+      "count": 14,
+      "uniques": 7
     },
     {
       "referrer": "habr.com",
-      "count": 10,
-      "uniques": 9
+      "count": 9,
+      "uniques": 8
     },
     {
       "referrer": "yandex.ru",
@@ -46,8 +46,8 @@
     {
       "path": "/TheMyxa/telegram-parser",
       "title": "Overview",
-      "count": 179,
-      "uniques": 125
+      "count": 198,
+      "uniques": 141
     },
     {
       "path": "/TheMyxa/telegram-parser/blob/master/README_ru.md",
@@ -74,16 +74,16 @@
       "uniques": 1
     },
     {
-      "path": "/TheMyxa/telegram-parser/blob/master/README_cn.md",
-      "title": "/blob/master/README_cn.md",
-      "count": 5,
-      "uniques": 3
-    },
-    {
       "path": "/TheMyxa/telegram-parser/graphs/traffic",
       "title": "/graphs/traffic",
-      "count": 4,
+      "count": 5,
       "uniques": 1
+    },
+    {
+      "path": "/TheMyxa/telegram-parser/blob/master/README_cn.md",
+      "title": "/blob/master/README_cn.md",
+      "count": 3,
+      "uniques": 2
     },
     {
       "path": "/TheMyxa/telegram-parser/blob/master/docs/screenshots/dashboard.png",
@@ -92,16 +92,16 @@
       "uniques": 2
     },
     {
-      "path": "/TheMyxa/telegram-parser/forks",
-      "title": "/forks",
+      "path": "/TheMyxa/telegram-parser/tree/star-history",
+      "title": "/tree/star-history",
       "count": 3,
-      "uniques": 1
+      "uniques": 2
     },
     {
-      "path": "/TheMyxa/telegram-parser/tree/star-history/assets",
-      "title": "/tree/star-history/assets",
+      "path": "/themyxa/telegram-parser",
+      "title": "Overview",
       "count": 3,
-      "uniques": 1
+      "uniques": 2
     }
   ]
 }
