@@ -1,34 +1,29 @@
 {
   "repository": "TheMyxa/telegram-parser",
-  "collected_at": "2026-11-25T17:28:20.945949+00:00",
+  "collected_at": "2026-11-26T17:09:40.169657+00:00",
   "period": "last_14_days",
   "views": {
-    "count": 311,
-    "uniques": 149
+    "count": 276,
+    "uniques": 146
   },
   "clones": {
-    "count": 285,
-    "uniques": 145
+    "count": 289,
+    "uniques": 152
   },
   "top_referrers": [
     {
       "referrer": "github.com",
-      "count": 14,
-      "uniques": 7
+      "count": 9,
+      "uniques": 5
     },
     {
       "referrer": "habr.com",
-      "count": 9,
-      "uniques": 8
+      "count": 8,
+      "uniques": 7
     },
     {
       "referrer": "yandex.ru",
       "count": 2,
-      "uniques": 1
-    },
-    {
-      "referrer": "DuckDuckGo",
-      "count": 1,
       "uniques": 1
     },
     {
@@ -46,14 +41,14 @@
     {
       "path": "/TheMyxa/telegram-parser",
       "title": "Overview",
-      "count": 198,
-      "uniques": 141
+      "count": 180,
+      "uniques": 137
     },
     {
       "path": "/TheMyxa/telegram-parser/blob/master/README_ru.md",
       "title": "/blob/master/README_ru.md",
-      "count": 15,
-      "uniques": 12
+      "count": 13,
+      "uniques": 10
     },
     {
       "path": "/TheMyxa/telegram-parser/releases",
@@ -68,16 +63,22 @@
       "uniques": 5
     },
     {
-      "path": "/TheMyxa/telegram-parser/pulse",
-      "title": "/pulse",
-      "count": 6,
+      "path": "/TheMyxa/telegram-parser/graphs/traffic",
+      "title": "/graphs/traffic",
+      "count": 4,
       "uniques": 1
     },
     {
-      "path": "/TheMyxa/telegram-parser/graphs/traffic",
-      "title": "/graphs/traffic",
-      "count": 5,
+      "path": "/TheMyxa/telegram-parser/pulse",
+      "title": "/pulse",
+      "count": 4,
       "uniques": 1
+    },
+    {
+      "path": "/TheMyxa/telegram-parser/blob/master/docs/anonymization.md",
+      "title": "/blob/master/docs/anonymization.md",
+      "count": 3,
+      "uniques": 3
     },
     {
       "path": "/TheMyxa/telegram-parser/blob/master/README_cn.md",
@@ -94,12 +95,6 @@
     {
       "path": "/TheMyxa/telegram-parser/tree/star-history",
       "title": "/tree/star-history",
-      "count": 3,
-      "uniques": 2
-    },
-    {
-      "path": "/themyxa/telegram-parser",
-      "title": "Overview",
       "count": 3,
       "uniques": 2
     }
