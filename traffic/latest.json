@@ -1,25 +1,25 @@
 {
   "repository": "TheMyxa/telegram-parser",
-  "collected_at": "2026-11-26T17:09:40.169657+00:00",
+  "collected_at": "2026-11-27T16:52:16.030701+00:00",
   "period": "last_14_days",
   "views": {
-    "count": 276,
-    "uniques": 146
+    "count": 264,
+    "uniques": 149
   },
   "clones": {
-    "count": 289,
-    "uniques": 152
+    "count": 280,
+    "uniques": 146
   },
   "top_referrers": [
     {
-      "referrer": "github.com",
+      "referrer": "habr.com",
       "count": 9,
-      "uniques": 5
+      "uniques": 8
     },
     {
-      "referrer": "habr.com",
-      "count": 8,
-      "uniques": 7
+      "referrer": "github.com",
+      "count": 7,
+      "uniques": 5
     },
     {
       "referrer": "yandex.ru",
@@ -41,20 +41,14 @@
     {
       "path": "/TheMyxa/telegram-parser",
       "title": "Overview",
-      "count": 180,
-      "uniques": 137
+      "count": 174,
+      "uniques": 138
     },
     {
       "path": "/TheMyxa/telegram-parser/blob/master/README_ru.md",
       "title": "/blob/master/README_ru.md",
-      "count": 13,
-      "uniques": 10
-    },
-    {
-      "path": "/TheMyxa/telegram-parser/releases",
-      "title": "/releases",
-      "count": 8,
-      "uniques": 4
+      "count": 14,
+      "uniques": 11
     },
     {
       "path": "/TheMyxa/telegram-parser/blob/master/docs/screenshots/posts.png",
@@ -63,10 +57,10 @@
       "uniques": 5
     },
     {
-      "path": "/TheMyxa/telegram-parser/graphs/traffic",
-      "title": "/graphs/traffic",
-      "count": 4,
-      "uniques": 1
+      "path": "/TheMyxa/telegram-parser/releases",
+      "title": "/releases",
+      "count": 5,
+      "uniques": 5
     },
     {
       "path": "/TheMyxa/telegram-parser/pulse",
@@ -77,6 +71,12 @@
     {
       "path": "/TheMyxa/telegram-parser/blob/master/docs/anonymization.md",
       "title": "/blob/master/docs/anonymization.md",
+      "count": 3,
+      "uniques": 3
+    },
+    {
+      "path": "/TheMyxa/telegram-parser/tree/master/telegram",
+      "title": "/tree/master/telegram",
       "count": 3,
       "uniques": 3
     },
