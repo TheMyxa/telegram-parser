@@ -1,14 +1,14 @@
 {
   "repository": "TheMyxa/telegram-parser",
-  "collected_at": "2026-11-27T16:52:16.030701+00:00",
+  "collected_at": "2026-11-28T15:43:36.113415+00:00",
   "period": "last_14_days",
   "views": {
-    "count": 264,
-    "uniques": 149
+    "count": 240,
+    "uniques": 144
   },
   "clones": {
-    "count": 280,
-    "uniques": 146
+    "count": 286,
+    "uniques": 148
   },
   "top_referrers": [
     {
@@ -18,8 +18,8 @@
     },
     {
       "referrer": "github.com",
-      "count": 7,
-      "uniques": 5
+      "count": 5,
+      "uniques": 4
     },
     {
       "referrer": "yandex.ru",
@@ -41,26 +41,26 @@
     {
       "path": "/TheMyxa/telegram-parser",
       "title": "Overview",
-      "count": 174,
-      "uniques": 138
+      "count": 168,
+      "uniques": 134
     },
     {
       "path": "/TheMyxa/telegram-parser/blob/master/README_ru.md",
       "title": "/blob/master/README_ru.md",
-      "count": 14,
-      "uniques": 11
+      "count": 8,
+      "uniques": 8
     },
     {
       "path": "/TheMyxa/telegram-parser/blob/master/docs/screenshots/posts.png",
       "title": "/blob/master/docs/screenshots/posts.png",
-      "count": 7,
-      "uniques": 5
+      "count": 5,
+      "uniques": 3
     },
     {
       "path": "/TheMyxa/telegram-parser/releases",
       "title": "/releases",
-      "count": 5,
-      "uniques": 5
+      "count": 4,
+      "uniques": 4
     },
     {
       "path": "/TheMyxa/telegram-parser/pulse",
@@ -87,14 +87,14 @@
       "uniques": 2
     },
     {
-      "path": "/TheMyxa/telegram-parser/blob/master/docs/screenshots/dashboard.png",
-      "title": "/blob/master/docs/screenshots/dashboard.png",
+      "path": "/TheMyxa/telegram-parser/tree/star-history",
+      "title": "/tree/star-history",
       "count": 3,
       "uniques": 2
     },
     {
-      "path": "/TheMyxa/telegram-parser/tree/star-history",
-      "title": "/tree/star-history",
+      "path": "/themyxa/telegram-parser",
+      "title": "Overview",
       "count": 3,
       "uniques": 2
     }
